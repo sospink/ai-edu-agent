@@ -1,0 +1,330 @@
+# =============================================================================
+# AI Courses Lab Environment - Optimized Build
+# 支持代理加速、错误处理、构建优化
+# =============================================================================
+FROM ubuntu:22.04
+
+# 构建参数 - 支持代理
+ARG HTTP_PROXY=""
+ARG HTTPS_PROXY=""
+ARG NO_PROXY="localhost,127.0.0.1"
+
+# 设置代理环境变量（如果提供）
+ENV http_proxy=${HTTP_PROXY} \
+    https_proxy=${HTTPS_PROXY} \
+    no_proxy=${NO_PROXY}
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# =============================================================================
+# 阶段1: 基础系统 + 桌面环境
+# =============================================================================
+RUN echo "===> Installing base system..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        vim \
+        curl \
+        wget \
+        bash \
+        openssh-server \
+        sudo \
+        locales \
+        tmux \
+        software-properties-common \
+        build-essential \
+        gnupg2 \
+    && locale-gen en_US.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8
+
+# =============================================================================
+# 阶段2: XFCE4 桌面 + VNC
+# =============================================================================
+RUN echo "===> Installing desktop environment..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        xfce4 \
+        xfce4-terminal \
+        xfce4-goodies \
+        dbus-x11 \
+        x11-xserver-utils \
+        xfonts-base \
+        xfonts-100dpi \
+        xfonts-75dpi \
+        fonts-wqy-microhei \
+        fonts-wqy-zenhei \
+        tigervnc-standalone-server \
+        tigervnc-common \
+        firefox \
+        mousepad \
+        gedit \
+        build-essential \
+        gcc \
+        g++ \
+        make \
+        adwaita-icon-theme \
+        tango-icon-theme \
+        hicolor-icon-theme \
+        gnome-icon-theme \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# 阶段3: Python 3.10 (Ubuntu 22.04 自带)
+# =============================================================================
+RUN echo "===> Setting up Python 3.10..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3.10 \
+        python3-pip \
+        curl \
+    && python3.10 --version \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置 Python 3.10 为默认并升级 pip
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 \
+    && python3 --version \
+    && python3 -m pip install --upgrade pip setuptools wheel
+
+# =============================================================================
+# 阶段4: Node.js 18
+# =============================================================================
+RUN echo "===> Installing Node.js 18..." \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# 配置 npm 镜像（中国加速）
+RUN npm config set registry https://registry.npmmirror.com
+
+# =============================================================================
+# 阶段5: noVNC (使用系统包，更稳定)
+# =============================================================================
+RUN echo "===> Installing noVNC..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends novnc websockify \
+    && mkdir -p /opt/noVNC \
+    && cp -r /usr/share/novnc/* /opt/noVNC/ \
+    && ln -sf /opt/noVNC/vnc.html /opt/noVNC/index.html \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# 阶段6: Python AI 库（分批安装，提高成功率）
+# =============================================================================
+# 配置 pip 镜像（中国加速）
+RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 批次1: 基础依赖
+RUN echo "===> Installing Python base dependencies..." \
+    && pip3 install --no-cache-dir \
+        python-dotenv==1.0.0 \
+        pydantic==2.5.3 \
+        requests==2.31.0 \
+        ipython==8.20.0
+
+# 批次2: LangChain 生态
+RUN echo "===> Installing LangChain ecosystem..." \
+    && pip3 install --no-cache-dir \
+        langchain==0.1.0 \
+        langchain-openai==0.0.5 \
+        langchain-anthropic==0.1.1 \
+        langgraph==0.0.20
+
+# 批次3: API SDKs
+RUN echo "===> Installing API SDKs..." \
+    && pip3 install --no-cache-dir \
+        openai==1.10.0 \
+        anthropic==0.8.1
+
+# 批次4: FastAPI
+RUN echo "===> Installing FastAPI..." \
+    && pip3 install --no-cache-dir \
+        fastapi==0.109.0 \
+        uvicorn[standard]==0.27.0
+
+# 批次5: Nemo Guardrails（可能较慢）
+RUN echo "===> Installing Nemo Guardrails..." \
+    && pip3 install --no-cache-dir nemoguardrails==0.8.0 \
+    || echo "Warning: Nemo Guardrails installation failed, continuing..."
+
+# 批次6: Jupyter（可选）
+RUN echo "===> Installing Jupyter..." \
+    && pip3 install --no-cache-dir jupyter==1.0.0 \
+    || echo "Warning: Jupyter installation failed, continuing..."
+
+# =============================================================================
+# 阶段7: Node.js 包 + Puppeteer 依赖
+# =============================================================================
+# 安装 Chromium 依赖（用于 Puppeteer MCP）
+RUN echo "===> Installing Chromium dependencies for Puppeteer..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        chromium-browser \
+        libnss3 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libdrm2 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxrandr2 \
+        libgbm1 \
+        libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置 Puppeteer 使用系统 Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+RUN echo "===> Installing Node.js packages..." \
+    && npm install -g opencode-ai opencode-linux-x64 \
+    && npm install -g @modelcontextprotocol/sdk \
+    || echo "Warning: Some npm packages failed, continuing..."
+
+# 安装 Python uv (用于 uvx 命令运行 git MCP)
+RUN echo "===> Installing Python uv..." \
+    && pip3 install --no-cache-dir uv \
+    || echo "Warning: uv installation failed, continuing..."
+
+# =============================================================================
+# 阶段8: VS Code 安装
+# =============================================================================
+RUN echo "===> Installing VS Code..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        gpg \
+    && wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/packages.microsoft.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list \
+    && apt-get update \
+    && apt-get install -y code \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装常用 VS Code 扩展（可选，会增加镜像大小）
+RUN code --install-extension ms-python.python --user-data-dir=/root/.vscode 2>/dev/null || true \
+    && code --install-extension ms-ceintl.vscode-language-pack-zh-hans --user-data-dir=/root/.vscode 2>/dev/null || true
+
+# =============================================================================
+# 阶段9: SSH 配置
+# =============================================================================
+RUN mkdir -p /var/run/sshd \
+    && echo 'root:opencode' | chpasswd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# =============================================================================
+# 阶段10: VNC 配置
+# =============================================================================
+ENV VNC_PASSWORD=opencode \
+    VNC_RESOLUTION=1280x720 \
+    VNC_DEPTH=24 \
+    OPENCODE_TUI_MOUSE=false
+
+# 创建 VNC 目录和启动脚本（密码将在 entrypoint.sh 中设置）
+RUN mkdir -p /root/.vnc \
+    && echo '#!/bin/bash\n\
+unset SESSION_MANAGER\n\
+unset DBUS_SESSION_BUS_ADDRESS\n\
+export XKL_XMODMAP_DISABLE=1\n\
+exec startxfce4' > /root/.vnc/xstartup \
+    && chmod +x /root/.vnc/xstartup
+
+# =============================================================================
+# 阶段11: 课程文件
+# =============================================================================
+# 创建课程目录
+RUN mkdir -p /workspace/courses/{prompt-engineering,mcp-server,ade-skill,agent-gordon,multi-agent,guardrails}
+
+# 复制课程文件（构建时从 courses/ 目录复制）
+COPY courses/ /workspace/courses/
+
+# 创建 .env 模板
+RUN echo "# AI API Keys Configuration\n\
+# 请填写你的 API Key\n\
+\n\
+# OpenAI API Key (用于 GPT 模型)\n\
+OPENAI_API_KEY=your-openai-api-key-here\n\
+\n\
+# Anthropic API Key (用于 Claude 模型)\n\
+ANTHROPIC_API_KEY=your-anthropic-api-key-here\n\
+\n\
+# 通义千问 API Key (阿里云)\n\
+DASHSCOPE_API_KEY=your-dashscope-api-key-here\n\
+" > /workspace/.env.template
+
+# 设置权限
+RUN chmod +x /workspace/courses/*.sh 2>/dev/null || true \
+    && chmod +x /workspace/courses/test-all-courses.sh 2>/dev/null || true \
+    && chmod +x /workspace/courses/test-courses-detailed.sh 2>/dev/null || true
+
+# =============================================================================
+# 阶段12: OpenCode 配置 (JSON 格式 + MCP + Skills)
+# =============================================================================
+# 创建 OpenCode 配置目录
+RUN mkdir -p /root/.config/opencode/skill/ai-tutor \
+    && mkdir -p /root/.local/share/opencode
+
+# 复制 OpenCode 配置文件
+COPY opencode-config/opencode.json /root/.config/opencode/opencode.json
+COPY opencode-config/skill/ai-tutor/SKILL.md /root/.config/opencode/skill/ai-tutor/SKILL.md
+COPY opencode-config/AGENTS.md /workspace/AGENTS.md
+
+# 预设 Z.AI (智谱) API Key
+COPY opencode-config/auth.json /root/.local/share/opencode/auth.json
+
+# =============================================================================
+# 阶段13: 验证脚本
+# =============================================================================
+RUN echo '#!/bin/bash\n\
+echo "==========================================="\n\
+echo "  AI Courses Environment Verification"\n\
+echo "==========================================="\n\
+echo ""\n\
+echo "Python Version:"\n\
+python3 --version\n\
+echo ""\n\
+echo "Node.js Version:"\n\
+node --version\n\
+echo ""\n\
+echo "npm Version:"\n\
+npm --version\n\
+echo ""\n\
+echo "VS Code Version:"\n\
+code --version 2>/dev/null | head -1 || echo "VS Code not found"\n\
+echo ""\n\
+echo "Checking Python packages..."\n\
+python3 -c "import langchain; print(f\"✓ LangChain {langchain.__version__}\")" 2>/dev/null || echo "✗ LangChain not found"\n\
+python3 -c "import langgraph; print(\"✓ LangGraph installed\")" 2>/dev/null || echo "✗ LangGraph not found"\n\
+python3 -c "import fastapi; print(f\"✓ FastAPI {fastapi.__version__}\")" 2>/dev/null || echo "✗ FastAPI not found"\n\
+python3 -c "import nemoguardrails; print(\"✓ Nemo Guardrails installed\")" 2>/dev/null || echo "✗ Nemo Guardrails not found"\n\
+echo ""\n\
+echo "Checking OpenCode..."\n\
+which opencode && echo "✓ OpenCode installed" || echo "✗ OpenCode not found"\n\
+echo ""\n\
+echo "==========================================="\n\
+echo "  All checks completed!"\n\
+echo "==========================================="\n\
+' > /usr/local/bin/verify-env \
+    && chmod +x /usr/local/bin/verify-env
+
+WORKDIR /workspace
+
+# 清理代理环境变量（构建后不需要）
+ENV http_proxy="" \
+    https_proxy=""
+
+# =============================================================================
+# 端口和入口点
+# =============================================================================
+EXPOSE 22 5901 6080
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

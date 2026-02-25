@@ -1,0 +1,9 @@
+{
+  "name": "agent-edu",
+  "version": "1.0.0",
+  "description": "Agent EDU - AI 智能教育实训平台",
+  "scripts": {
+    "build:deploy": "node scripts/build-deploy.js"
+  },
+  "devDependencies": {}
+}

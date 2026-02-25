@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent EDU Lab - User Profile</title>
+    
+    <!-- 引入 React 和 Babel (核心依赖) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 配置 Tailwind 主题 -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: "#dfedfd", 100: "#b3d4fa", 200: "#86bbf7", 300: "#59a1f4", 400: "#2d88f1",
+                            500: "#006fee", 600: "#005cc4", 700: "#00489b", 800: "#003571", 900: "#002147",
+                            DEFAULT: "#006fee", foreground: "#ffffff"
+                        },
+                        success: { DEFAULT: "#17c964" },
+                        danger: { DEFAULT: "#f31260" },
+                        slate: { 50: "#fafafa", 900: "#0d0d0e" }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'progress': 'progressGrow 1s ease-out forwards 0.5s'
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        progressGrow: {
+                            '0%': { width: '0%' },
+                            '100%': { width: '70%' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        
+        /* 玻璃拟态卡片 */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s ease;
+        }
+        
+        /* Tab 动画 */
+        .tab-content {
+            animation: fadeInUp 0.4s ease-out forwards;
+        }
+
+        /* 隐藏滚动条 */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 selection:bg-primary-100 selection:text-primary-700">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 1. 图标组件 (SVG) ---
+        // 使用 SVG 直接渲染，不依赖外部图标库脚本，防止加载失败
+        const Icons = {
+            Edit3: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
+            Save: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+            Camera: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+            GraduationCap: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
+            School: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></svg>,
+            ShieldAlert: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+            Mail: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>,
+            Github: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M15 22v-4a4.85 4.85 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>,
+            Calendar: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+            Cpu: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>,
+            Terminal: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>,
+            CheckCircle2: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>,
+            Phone: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        };
+
+        // --- 2. 基础 UI 组件 (Hero UI 风格) ---
+
+        const Card = ({ children, className = "" }) => (
+            <div className={`glass-card rounded-2xl ${className}`}>
+                {children}
+            </div>
+        );
+        const CardBody = ({ children, className = "" }) => <div className={`${className}`}>{children}</div>;
+        const CardHeader = ({ children, className = "" }) => <div className={`${className}`}>{children}</div>;
+        const Divider = ({ className = "" }) => <hr className={`border-slate-200 w-full ${className}`} />;
+        
+        const Button = ({ children, color = "default", variant = "solid", startContent, isIconOnly, className = "", onPress }) => {
+            const baseStyles = "inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-offset-2";
+            const sizes = isIconOnly ? "w-10 h-10 p-0" : "px-4 py-2";
+            
+            const variants = {
+                solid: {
+                    primary: "bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary-600 hover:shadow-primary/40",
+                    default: "bg-slate-200 text-slate-700 hover:bg-slate-300",
+                    danger: "bg-danger text-white hover:bg-danger-600"
+                },
+                flat: {
+                    primary: "bg-primary-50 text-primary hover:bg-primary-100",
+                    default: "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                    danger: "bg-danger-50 text-danger hover:bg-danger-100"
+                },
+                light: {
+                    primary: "text-primary hover:bg-primary-50",
+                    danger: "text-danger hover:bg-danger-50",
+                    default: "text-slate-500 hover:bg-slate-100"
+                }
+            };
+            
+            const variantStyle = variants[variant]?.[color] || variants.solid.default;
+            
+            return (
+                <button className={`${baseStyles} ${sizes} ${variantStyle} ${className}`} onClick={onPress}>
+                    {startContent && <span>{startContent}</span>}
+                    {children}
+                </button>
+            );
+        };
+
+        const Chip = ({ children, color = "default", variant = "solid", startContent, size = "md", className = "" }) => {
+            const base = "inline-flex items-center gap-1 rounded-full font-medium whitespace-nowrap";
+            const sizes = size === "sm" ? "px-2 py-0.5 text-xs" : "px-3 py-1 text-sm";
+            const colors = {
+                primary: "bg-primary-50 text-primary border border-primary-100",
+                success: "bg-success-50 text-success border border-success-100",
+                danger: "bg-danger-50 text-danger border border-danger-100",
+                default: "bg-slate-100 text-slate-600 border border-slate-200"
+            };
+            
+            return (
+                <span className={`${base} ${sizes} ${colors[color]} ${className}`}>
+                    {startContent && <span className="opacity-70">{startContent}</span>}
+                    {children}
+                </span>
+            );
+        };
+
+        const Input = ({ label, placeholder, defaultValue, isDisabled, startContent, description }) => (
+            <div className="flex flex-col gap-1.5 w-full">
+                {label && <label className="text-xs font-semibold text-slate-500">{label}</label>}
+                <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all duration-200 ${isDisabled ? 'bg-slate-100 border-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20'}`}>
+                    {startContent && <div className="text-slate-400">{startContent}</div>}
+                    <input 
+                        type="text" 
+                        defaultValue={defaultValue} 
+                        placeholder={placeholder} 
+                        disabled={isDisabled}
+                        className="w-full bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
+                    />
+                </div>
+                {description && <p className="text-[10px] text-slate-400">{description}</p>}
+            </div>
+        );
+
+        // --- 3. 业务逻辑 ---
+
+        const mockUser = {
+            id: "10086",
+            username: "Seso20",
+            email: "seso20@agent-edu.lab",
+            phone: "13800138000",
+            student_id: "2024001",
+            full_name: "张薇 (Wei Zhang)",
+            avatar_url: "https://i.pravatar.cc/300?u=seso20",
+            bio: "AI Researcher | Full Stack Developer. Passionate about LLMs and Multi-Agent Systems. Exploring the future of education.",
+            github_link: "https://github.com/seso20",
+            role_type: 1, // Student
+            status: 1, // Active
+            created_at: "2024-09-01T10:00:00Z",
+        };
+
+        const RoleBadge = ({ type }) => {
+            const config = {
+                1: { label: "Student", color: "primary", icon: <Icons.GraduationCap size={14} /> },
+                2: { label: "Teacher", color: "success", icon: <Icons.School size={14} /> },
+                10: { label: "Admin", color: "danger", icon: <Icons.ShieldAlert size={14} /> },
+            };
+            const current = config[type] || config[1];
+            return <Chip startContent={current.icon} color={current.color} size="sm">{current.label}</Chip>;
+        };
+
+        function App() {
+            const [user, setUser] = useState(mockUser);
+            const [isEditing, setIsEditing] = useState(false);
+            const [activeTab, setActiveTab] = useState("overview");
+
+            // 模拟初始加载动画
+            const [isLoaded, setIsLoaded] = useState(false);
+            useEffect(() => { setIsLoaded(true); }, []);
+
+            return (
+                <div className="min-h-screen bg-slate-50 p-4 md:p-8 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary-100/30 via-slate-50 to-slate-50">
+                    <div className={`mx-auto max-w-6xl transition-opacity duration-700 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+                        
+                        {/* Header */}
+                        <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in-up">
+                            <div>
+                                <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+                                    Profile Center
+                                </h1>
+                                <p className="text-sm text-slate-500 mt-1">Manage your account and agent settings.</p>
+                            </div>
+                            <div className="flex gap-2">
+                                {!isEditing ? (
+                                    <Button onPress={() => setIsEditing(true)} startContent={<Icons.Edit3 size={16} />} color="primary" variant="flat">
+                                        Edit Profile
+                                    </Button>
+                                ) : (
+                                    <>
+                                        <Button onPress={() => setIsEditing(false)} variant="light" color="danger">Cancel</Button>
+                                        <Button onPress={() => setIsEditing(false)} color="primary" startContent={<Icons.Save size={16} />}>Save Changes</Button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                            
+                            {/* Left Column: Identity */}
+                            <div className="lg:col-span-4 xl:col-span-3 space-y-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+                                <Card className="p-0 overflow-hidden">
+                                    {/* Cover Image */}
+                                    <div className="h-24 bg-gradient-to-r from-blue-400 to-purple-500"></div>
+                                    <CardBody className="flex flex-col items-center gap-4 px-6 pb-6 -mt-12 text-center relative z-10">
+                                        <div className="relative group cursor-pointer">
+                                            <div className="p-1 bg-white rounded-full shadow-md">
+                                                <img src={user.avatar_url} className="w-24 h-24 rounded-full object-cover" />
+                                            </div>
+                                            <div className={`absolute bottom-2 right-2 w-4 h-4 rounded-full border-2 border-white ${user.status === 1 ? 'bg-success' : 'bg-danger'}`}></div>
+                                            
+                                            {/* Edit Overlay */}
+                                            {isEditing && (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full m-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Icons.Camera className="text-white" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-col items-center gap-1 mt-2">
+                                            <h2 className="text-xl font-bold text-slate-900">{user.full_name}</h2>
+                                            <p className="font-mono text-sm text-slate-500">@{user.username}</p>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <RoleBadge type={user.role_type} />
+                                            <Chip size="sm" color="default">ID: {user.student_id}</Chip>
+                                        </div>
+
+                                        <Divider className="my-2" />
+
+                                        <div className="flex w-full flex-col gap-3 text-sm text-slate-600">
+                                            <div className="flex items-center gap-3">
+                                                <Icons.Mail size={16} className="text-slate-400" />
+                                                <span className="truncate">{user.email}</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <Icons.Github size={16} className="text-slate-400" />
+                                                <a href={user.github_link} className="truncate hover:text-primary transition-colors">
+                                                    {user.github_link.replace('https://github.com/', '')}
+                                                </a>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <Icons.Calendar size={16} className="text-slate-400" />
+                                                <span>Joined {new Date(user.created_at).toLocaleDateString()}</span>
+                                            </div>
+                                        </div>
+                                    </CardBody>
+                                </Card>
+
+                                {/* Agent Stats Card (Gamification) */}
+                                <Card className="bg-gradient-to-br from-primary-600 to-secondary text-white border-none shadow-lg shadow-primary/20">
+                                    <CardBody className="p-6">
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <h3 className="font-semibold text-white/90">Agent Rank</h3>
+                                            <Icons.Cpu size={20} className="text-white/70" />
+                                        </div>
+                                        <div className="flex items-end gap-2">
+                                            <span className="text-4xl font-bold">Lv. 4</span>
+                                            <span className="mb-1.5 text-sm font-medium text-white/80">Senior Builder</span>
+                                        </div>
+                                        
+                                        {/* Progress Bar with CSS Animation */}
+                                        <div className="mt-4 relative h-2 w-full overflow-hidden rounded-full bg-black/20">
+                                            <div className="absolute h-full bg-white/90 rounded-full animate-progress" style={{ width: '0%' }}></div>
+                                        </div>
+                                        <p className="mt-2 text-xs text-white/70 font-medium">1,240 / 1,500 XP to next level</p>
+                                    </CardBody>
+                                </Card>
+                            </div>
+
+                            {/* Right Column: Content */}
+                            <div className="lg:col-span-8 xl:col-span-9 flex flex-col gap-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+                                
+                                {/* Custom Tabs */}
+                                <div className="border-b border-slate-200">
+                                    <div className="flex gap-8">
+                                        {['overview', 'settings'].map((tab) => (
+                                            <button
+                                                key={tab}
+                                                onClick={() => setActiveTab(tab)}
+                                                className={`relative pb-3 text-sm font-medium transition-colors ${
+                                                    activeTab === tab ? 'text-primary' : 'text-slate-500 hover:text-slate-700'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2 capitalize">
+                                                    {tab === 'overview' ? <Icons.Terminal size={18}/> : <Icons.Edit3 size={18}/>}
+                                                    {tab}
+                                                </div>
+                                                {/* Active Tab Indicator */}
+                                                <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-primary transition-transform duration-300 origin-left ${activeTab === tab ? 'scale-x-100' : 'scale-x-0'}`} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Tab Content Area */}
+                                <div className="min-h-[400px]">
+                                    {activeTab === 'overview' ? (
+                                        <div key="overview" className="flex flex-col gap-6 tab-content">
+                                            {/* About Me */}
+                                            <Card>
+                                                <CardHeader className="px-6 pt-6 pb-2">
+                                                    <p className="text-lg font-bold text-slate-800">About Me</p>
+                                                </CardHeader>
+                                                <CardBody className="px-6 pb-6">
+                                                    {isEditing ? (
+                                                        <textarea 
+                                                            className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                                                            rows="4"
+                                                            defaultValue={user.bio}
+                                                        />
+                                                    ) : (
+                                                        <p className="text-slate-600 leading-relaxed">{user.bio}</p>
+                                                    )}
+                                                </CardBody>
+                                            </Card>
+
+                                            {/* Stats Grid */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                {[
+                                                    { label: "Completed Labs", value: "42", icon: Icons.CheckCircle2, color: "text-success", bg: "bg-success-50" },
+                                                    { label: "Agent Models", value: "7", icon: Icons.Cpu, color: "text-primary", bg: "bg-primary-50" },
+                                                    { label: "Total Hours", value: "128h", icon: Icons.Calendar, color: "text-secondary", bg: "bg-purple-50" },
+                                                ].map((stat, idx) => (
+                                                    <Card key={idx} className="bg-white hover:-translate-y-1 transition-transform duration-300">
+                                                        <CardBody className="flex items-center gap-4 p-5">
+                                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
+                                                                <stat.icon size={24} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">{stat.label}</p>
+                                                                <p className="text-2xl font-bold text-slate-800">{stat.value}</p>
+                                                            </div>
+                                                        </CardBody>
+                                                    </Card>
+                                                ))}
+                                            </div>
+
+                                            {/* Heatmap */}
+                                            <Card>
+                                                <CardHeader className="px-6 pt-6">
+                                                    <p className="text-lg font-bold text-slate-800">Contribution Activity</p>
+                                                </CardHeader>
+                                                <CardBody className="px-6 pb-6">
+                                                    <div className="w-full h-32 bg-slate-50 rounded-xl flex items-center justify-center border border-dashed border-slate-200">
+                                                        <div className="flex flex-wrap gap-1 p-2 justify-center opacity-60">
+                                                            {/* Fake Heatmap Dots */}
+                                                            {Array.from({ length: 180 }).map((_, i) => (
+                                                                <div 
+                                                                    key={i} 
+                                                                    className={`w-2.5 h-2.5 rounded-sm transition-all duration-300 hover:scale-125 ${
+                                                                        Math.random() > 0.85 ? 'bg-primary shadow-sm shadow-primary/50' : 
+                                                                        Math.random() > 0.9 ? 'bg-primary-300' : 
+                                                                        'bg-slate-200'
+                                                                    }`}
+                                                                ></div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-center text-xs text-slate-400 mt-3">Simulated contribution graph</p>
+                                                </CardBody>
+                                            </Card>
+                                        </div>
+                                    ) : (
+                                        <div key="settings" className="tab-content">
+                                            <Card>
+                                                <CardBody className="p-8 flex flex-col gap-6">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        <Input label="Username" defaultValue={user.username} isDisabled description="Username cannot be changed." />
+                                                        <Input label="Full Name" defaultValue={user.full_name} />
+                                                        <Input label="Email" defaultValue={user.email} isDisabled startContent={<Icons.Mail size={16} />} />
+                                                        <Input label="Phone" defaultValue={user.phone} startContent={<Icons.Phone size={16} />} />
+                                                        <Input label="Student ID" defaultValue={user.student_id} isDisabled />
+                                                        <Input label="GitHub" defaultValue={user.github_link} startContent={<Icons.Github size={16} />} />
+                                                    </div>
+                                                    <Divider />
+                                                    <div className="flex justify-end">
+                                                        <Button color="primary">Save Changes</Button>
+                                                    </div>
+                                                </CardBody>
+                                            </Card>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

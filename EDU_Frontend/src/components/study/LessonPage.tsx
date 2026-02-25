@@ -1,0 +1,1087 @@
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  Loader2,
+  AlertCircle,
+  FileText,
+  Download,
+  Brain,
+  FileType,
+  ZoomIn,
+  ZoomOut,
+  ExternalLink,
+  Copy,
+  Check,
+  Clock,
+  Zap,
+  CheckCircle2,
+} from 'lucide-react';
+import { materialApi, type LessonMaterial } from '@/services/course';
+import { courseApi } from '@/services/course';
+import { getStaticUrl } from '@/config';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeRaw from 'rehype-raw';
+import { Document, Page, pdfjs } from 'react-pdf';
+import CompleteLessonDialog from './CompleteLessonDialog';
+import 'highlight.js/styles/vs2015.css';
+
+// 配置 PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+// 获取资料类型信息
+const getMaterialTypeInfo = (type: number) => {
+  switch (type) {
+    case 1: return { icon: FileText, label: 'Markdown', color: 'text-blue-500' };
+    case 2: return { icon: FileType, label: 'PDF', color: 'text-red-500' };
+    case 3: return { icon: Brain, label: '思维导图', color: 'text-purple-500' };
+    default: return { icon: FileText, label: '文件', color: 'text-slate-500' };
+  }
+};
+
+// macOS 风格代码块组件
+interface MacCodeBlockProps {
+  children: React.ReactNode;
+  language?: string;
+}
+
+const MacCodeBlock: React.FC<MacCodeBlockProps> = ({ children, language }) => {
+  const [copied, setCopied] = useState(false);
+  const codeContent = extractTextContent(children);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(codeContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('复制失败:', err);
+    }
+  };
+
+  // 获取语言显示名称
+  const getLanguageLabel = (lang?: string) => {
+    if (!lang) return 'Code';
+    const langMap: Record<string, string> = {
+      js: 'JavaScript',
+      javascript: 'JavaScript',
+      ts: 'TypeScript',
+      typescript: 'TypeScript',
+      jsx: 'JSX',
+      tsx: 'TSX',
+      py: 'Python',
+      python: 'Python',
+      java: 'Java',
+      cpp: 'C++',
+      c: 'C',
+      cs: 'C#',
+      go: 'Go',
+      rust: 'Rust',
+      rb: 'Ruby',
+      ruby: 'Ruby',
+      php: 'PHP',
+      swift: 'Swift',
+      kotlin: 'Kotlin',
+      sql: 'SQL',
+      html: 'HTML',
+      css: 'CSS',
+      scss: 'SCSS',
+      json: 'JSON',
+      yaml: 'YAML',
+      yml: 'YAML',
+      xml: 'XML',
+      md: 'Markdown',
+      markdown: 'Markdown',
+      bash: 'Bash',
+      shell: 'Shell',
+      sh: 'Shell',
+      zsh: 'Zsh',
+      powershell: 'PowerShell',
+      dockerfile: 'Dockerfile',
+      mermaid: 'Mermaid',
+    };
+    return langMap[lang.toLowerCase()] || lang.toUpperCase();
+  };
+
+  return (
+    <div className="my-6 rounded-lg overflow-hidden shadow-lg border border-[#3c3c3c] group">
+      {/* VS Code 风格标题栏 */}
+      <div className="flex items-center justify-between px-4 py-2 bg-[#323233] border-b border-[#3c3c3c]">
+        {/* 红黄绿三个圆点 */}
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+          <div className="w-3 h-3 rounded-full bg-[#febc2e]"></div>
+          <div className="w-3 h-3 rounded-full bg-[#28c840]"></div>
+        </div>
+        
+        {/* 语言标签 */}
+        <span className="text-xs font-medium text-[#858585]">
+          {getLanguageLabel(language)}
+        </span>
+        
+        {/* 复制按钮 */}
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-[#858585] hover:text-[#cccccc] hover:bg-[#3c3c3c] transition-colors opacity-0 group-hover:opacity-100"
+          title="复制代码"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-[#4ec9b0]" />
+              <span className="text-[#4ec9b0]">已复制</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              <span>复制</span>
+            </>
+          )}
+        </button>
+      </div>
+      
+      {/* 代码内容区域 */}
+      <pre className="!m-0 !rounded-none !bg-[#1e1e1e] !text-[#d4d4d4] p-4 overflow-x-auto text-sm font-mono leading-relaxed">
+        {children}
+      </pre>
+    </div>
+  );
+};
+
+// 提取代码内容的辅助函数
+const extractTextContent = (node: React.ReactNode): string => {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (!node) return '';
+  if (Array.isArray(node)) return node.map(extractTextContent).join('');
+  if (typeof node === 'object' && 'props' in node) {
+    return extractTextContent((node as React.ReactElement).props.children);
+  }
+  return '';
+};
+
+// Typora 风格的 Markdown 内容渲染组件
+interface MarkdownContentProps {
+  content: string;
+  lessonTitle: string;
+}
+
+const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, lessonTitle }) => {
+  return (
+    <div className="typora-style">
+      {/* 标题区域 */}
+      <div className="mb-10 pb-6 border-b border-slate-200">
+        <h1 className="text-3xl font-bold text-slate-800 tracking-tight leading-tight">
+          {lessonTitle}
+        </h1>
+      </div>
+      
+      {/* Markdown 内容 */}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight, rehypeRaw]}
+        components={{
+          // 标题样式
+          h1: ({ children }) => (
+            <h1 className="text-2xl font-bold text-slate-800 mt-10 mb-4 pb-2 border-b border-slate-200">
+              {children}
+            </h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="text-xl font-bold text-slate-800 mt-8 mb-4 pb-2 border-b border-slate-100">
+              {children}
+            </h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="text-lg font-semibold text-slate-800 mt-6 mb-3">
+              {children}
+            </h3>
+          ),
+          h4: ({ children }) => (
+            <h4 className="text-base font-semibold text-slate-700 mt-5 mb-2">
+              {children}
+            </h4>
+          ),
+          h5: ({ children }) => (
+            <h5 className="text-sm font-semibold text-slate-700 mt-4 mb-2">
+              {children}
+            </h5>
+          ),
+          h6: ({ children }) => (
+            <h6 className="text-sm font-medium text-slate-600 mt-4 mb-2">
+              {children}
+            </h6>
+          ),
+          
+          // 段落
+          p: ({ children }) => (
+            <p className="text-slate-600 leading-relaxed mb-4 text-[15px]">
+              {children}
+            </p>
+          ),
+          
+          // 链接
+          a: ({ href, children }) => (
+            <a 
+              href={href} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 underline decoration-blue-300 hover:decoration-blue-500 transition-colors"
+            >
+              {children}
+            </a>
+          ),
+          
+          // 强调
+          strong: ({ children }) => (
+            <strong className="font-semibold text-slate-800">{children}</strong>
+          ),
+          em: ({ children }) => (
+            <em className="italic text-slate-700">{children}</em>
+          ),
+          
+          // 行内代码
+          code: ({ className, children, ...props }) => {
+            const isCodeBlock = className?.includes('language-') || className?.includes('hljs');
+            if (!isCodeBlock) {
+              return (
+                <code className="px-1.5 py-0.5 mx-0.5 bg-slate-100 text-rose-600 text-sm rounded font-mono">
+                  {children}
+                </code>
+              );
+            }
+            // 代码块内的 code 标签，保持 highlight.js 的类名
+            return (
+              <code className={`${className || ''} block`} {...props}>
+                {children}
+              </code>
+            );
+          },
+          
+          // 代码块 - macOS 风格
+          pre: ({ children }) => {
+            // 尝试从 children 中提取语言类型
+            const codeElement = React.Children.toArray(children)[0] as React.ReactElement;
+            const className = codeElement?.props?.className || '';
+            const languageMatch = className.match(/language-(\w+)/);
+            const language = languageMatch ? languageMatch[1] : undefined;
+            
+            return (
+              <MacCodeBlock language={language}>
+                {children}
+              </MacCodeBlock>
+            );
+          },
+          
+          // 引用块
+          blockquote: ({ children }) => (
+            <blockquote className="my-6 pl-4 border-l-4 border-blue-500 bg-blue-50/50 py-3 pr-4 rounded-r-lg">
+              <div className="text-slate-600 italic">{children}</div>
+            </blockquote>
+          ),
+          
+          // 无序列表
+          ul: ({ children }) => (
+            <ul className="my-4 ml-6 space-y-2 list-disc marker:text-slate-400">
+              {children}
+            </ul>
+          ),
+          
+          // 有序列表
+          ol: ({ children }) => (
+            <ol className="my-4 ml-6 space-y-2 list-decimal marker:text-slate-500 marker:font-medium">
+              {children}
+            </ol>
+          ),
+          
+          // 列表项
+          li: ({ children }) => (
+            <li className="text-slate-600 text-[15px] leading-relaxed pl-1">
+              {children}
+            </li>
+          ),
+          
+          // 表格
+          table: ({ children }) => (
+            <div className="my-6 overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+              <table className="w-full text-sm">
+                {children}
+              </table>
+            </div>
+          ),
+          thead: ({ children }) => (
+            <thead className="bg-slate-50 border-b border-slate-200">
+              {children}
+            </thead>
+          ),
+          th: ({ children }) => (
+            <th className="px-4 py-3 text-left font-semibold text-slate-700">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="px-4 py-3 text-slate-600 border-b border-slate-100">
+              {children}
+            </td>
+          ),
+          tr: ({ children }) => (
+            <tr className="hover:bg-slate-50 transition-colors">
+              {children}
+            </tr>
+          ),
+          
+          // 水平线
+          hr: () => (
+            <hr className="my-8 border-t-2 border-slate-200" />
+          ),
+          
+          // 图片
+          img: ({ src, alt }) => (
+            <figure className="my-6">
+              <img 
+                src={src} 
+                alt={alt || ''} 
+                className="rounded-xl shadow-lg max-w-full h-auto mx-auto"
+              />
+              {alt && (
+                <figcaption className="text-center text-sm text-slate-500 mt-3 italic">
+                  {alt}
+                </figcaption>
+              )}
+            </figure>
+          ),
+          
+          // 任务列表（GFM）
+          input: ({ type, checked }) => {
+            if (type === 'checkbox') {
+              return (
+                <input 
+                  type="checkbox" 
+                  checked={checked} 
+                  readOnly 
+                  className="mr-2 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+              );
+            }
+            return <input type={type} />;
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+      
+      {/* 底部留白 */}
+      <div className="h-20"></div>
+    </div>
+  );
+};
+
+// PDF 预览组件 - 使用 react-pdf 实现更好的渲染
+interface PDFViewerProps {
+  url: string;
+  title: string;
+}
+
+const PDFViewer: React.FC<PDFViewerProps> = ({ url, title }) => {
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [scale, setScale] = useState<number>(1.0);
+  const [pdfLoading, setPdfLoading] = useState<boolean>(true);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [isCompact, setIsCompact] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  // 监听工具栏宽度变化
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setIsCompact(entry.contentRect.width < 500);
+      }
+    });
+
+    observer.observe(toolbar);
+    return () => observer.disconnect();
+  }, []);
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPdfLoading(false);
+    setPdfError(null);
+  };
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error('PDF 加载失败:', error);
+    setPdfLoading(false);
+    setPdfError('PDF 加载失败，请尝试下载后查看');
+  };
+
+  const goToPrevPage = () => setPageNumber(prev => Math.max(1, prev - 1));
+  const goToNextPage = () => setPageNumber(prev => Math.min(numPages, prev + 1));
+  const zoomIn = () => setScale(prev => Math.min(2.0, prev + 0.2));
+  const zoomOut = () => setScale(prev => Math.max(0.5, prev - 0.2));
+
+  return (
+    <div className="h-full flex flex-col bg-slate-50">
+      {/* PDF 工具栏 */}
+      <div 
+        ref={toolbarRef}
+        className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shadow-sm"
+      >
+        <h2 className="font-bold text-slate-800 text-sm truncate max-w-[200px]" title={title}>
+          {title}
+        </h2>
+        
+        <div className="flex items-center gap-2">
+          {/* 页码控制 */}
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg px-2 py-1">
+            <button
+              onClick={goToPrevPage}
+              disabled={pageNumber <= 1}
+              className="p-1 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-600" />
+            </button>
+            <span className="text-xs font-medium text-slate-600 min-w-[60px] text-center">
+              {pageNumber} / {numPages || '-'}
+            </span>
+            <button
+              onClick={goToNextPage}
+              disabled={pageNumber >= numPages}
+              className="p-1 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+          </div>
+
+          {/* 缩放控制 */}
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg px-2 py-1">
+            <button onClick={zoomOut} className="p-1 rounded hover:bg-slate-200">
+              <ZoomOut className="w-4 h-4 text-slate-600" />
+            </button>
+            <span className="text-xs font-medium text-slate-600 min-w-[40px] text-center">
+              {Math.round(scale * 100)}%
+            </span>
+            <button onClick={zoomIn} className="p-1 rounded hover:bg-slate-200">
+              <ZoomIn className="w-4 h-4 text-slate-600" />
+            </button>
+          </div>
+
+          {/* 新窗口打开 */}
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700"
+            title="在新窗口打开"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+
+          {/* 下载按钮 - 窄屏只显示图标 */}
+          <a
+            href={url}
+            download
+            className={`flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 rounded-lg text-xs font-medium text-white transition-colors ${
+              isCompact ? 'p-2' : 'px-3 py-1.5'
+            }`}
+            title="下载"
+          >
+            <Download className="w-3.5 h-3.5 flex-shrink-0" />
+            {!isCompact && <span>下载</span>}
+          </a>
+        </div>
+      </div>
+
+      {/* PDF 内容区域 */}
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-auto flex justify-center p-4 bg-slate-100"
+      >
+        {pdfLoading && (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          </div>
+        )}
+        
+        {pdfError && (
+          <div className="flex flex-col items-center justify-center h-full text-slate-400">
+            <AlertCircle className="w-12 h-12 mb-4" />
+            <p className="mb-4">{pdfError}</p>
+            <a
+              href={url}
+              download
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Download className="w-4 h-4" />
+              下载 PDF
+            </a>
+          </div>
+        )}
+
+        <Document
+          file={url}
+          onLoadSuccess={onDocumentLoadSuccess}
+          onLoadError={onDocumentLoadError}
+          loading={null}
+          className="shadow-xl rounded-lg overflow-hidden"
+        >
+          <Page
+            pageNumber={pageNumber}
+            scale={scale}
+            className="bg-white"
+            renderTextLayer={true}
+            renderAnnotationLayer={true}
+          />
+        </Document>
+      </div>
+    </div>
+  );
+};
+
+// 思维导图预览组件 - 更好的 UI 展示
+interface MindMapViewerProps {
+  url: string;
+  title: string;
+  fileName: string;
+}
+
+const MindMapViewer: React.FC<MindMapViewerProps> = ({ url, title, fileName }) => {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gradient-to-br from-purple-50 to-indigo-50">
+      <div className="text-center max-w-md">
+        {/* 动画图标 */}
+        <div className="relative mb-6">
+          <div className="w-24 h-24 mx-auto bg-gradient-to-br from-purple-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-xl shadow-purple-500/30 transform rotate-3">
+            <Brain className="w-12 h-12 text-white" />
+          </div>
+          {/* 装饰性圆点 */}
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-pink-400 rounded-full animate-pulse"></div>
+          <div className="absolute -bottom-1 -left-3 w-4 h-4 bg-blue-400 rounded-full animate-pulse delay-300"></div>
+        </div>
+
+        <h3 className="text-2xl font-bold text-slate-800 mb-2">{title}</h3>
+        <p className="text-slate-500 mb-2 text-sm">{fileName}</p>
+        
+        <div className="bg-white/60 backdrop-blur rounded-xl p-4 mb-6 border border-purple-100">
+          <p className="text-slate-600 text-sm leading-relaxed">
+            思维导图文件需要使用 <span className="font-semibold text-purple-600">XMind</span> 或其他思维导图软件打开查看。
+            点击下方按钮下载文件后，使用对应软件打开即可。
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <a
+            href={url}
+            download={fileName}
+            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5"
+          >
+            <Download className="w-5 h-5" />
+            下载思维导图
+          </a>
+          
+          <p className="text-xs text-slate-400">
+            推荐软件：XMind、MindMaster、百度脑图
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Hero UI 风格的 Tab 标签页组件（只显示图标）
+interface MaterialTabsProps {
+  materials: LessonMaterial[];
+  currentIndex: number;
+  onSelect: (index: number) => void;
+}
+
+const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, onSelect }) => (
+  <div className="px-6 py-3 border-b border-slate-100 bg-white/50">
+    <div className="inline-flex items-center p-1 bg-slate-100/80 rounded-xl">
+      {materials.map((material, index) => {
+        const typeInfo = getMaterialTypeInfo(material.type);
+        const TypeIcon = typeInfo.icon;
+        const isActive = index === currentIndex;
+        
+        return (
+          <button
+            key={material.id}
+            onClick={() => onSelect(index)}
+            className={`relative px-4 py-2 rounded-lg transition-all duration-200 ${
+              isActive
+                ? 'bg-white shadow-sm text-slate-800'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            title={material.title}
+          >
+            <TypeIcon className={`w-5 h-5 ${isActive ? typeInfo.color : ''}`} />
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
+// 主组件
+const LessonPage: React.FC = () => {
+  const { lessonId } = useParams<{ lessonId: string }>();
+  const navigate = useNavigate();
+  
+  // 从 URL 参数获取技能名称和课时名称
+  const searchParams = new URLSearchParams(window.location.search);
+  const skillName = searchParams.get('skillName') || '技能实训';
+  const lessonName = searchParams.get('lessonName') || '';
+  
+  const [isDocCollapsed, setIsDocCollapsed] = useState(false);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(45);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  const [materials, setMaterials] = useState<LessonMaterial[]>([]);
+  const [currentMaterialIndex, setCurrentMaterialIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [markdownContent, setMarkdownContent] = useState<string>('');
+  const [loadingContent, setLoadingContent] = useState(false);
+  
+  // 完成实验相关状态
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [earnedXP, setEarnedXP] = useState(0);
+  
+  // 学习时长计时器（从0开始计时）
+  const [studySeconds, setStudySeconds] = useState(0);
+  
+  // 学习时长计时
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStudySeconds(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  // 格式化时间显示
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hrs > 0) {
+      return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // 完成实验
+  const handleCompleteLesson = async () => {
+    if (!lessonId || completing) return;
+
+    // 检查登录状态
+    const token = localStorage.getItem('authToken');
+    console.log('[LessonPage] 完成实验 - lessonId:', lessonId);
+    console.log('[LessonPage] 完成实验 - token存在:', !!token);
+    
+    if (!token) {
+      alert('请先登录后再完成实验');
+      return;
+    }
+
+    setCompleting(true);
+    try {
+      const response = await courseApi.completeLesson(parseInt(lessonId));
+      console.log('[LessonPage] 完成实验响应:', response);
+      
+      if (response.success && response.data) {
+        setEarnedXP(response.data.earnedXP || 0);
+        setShowCompleteDialog(true);
+      } else {
+        console.error('[LessonPage] 完成实验失败:', response.error);
+        alert(response.error || '完成实验失败');
+      }
+    } catch (err) {
+      console.error('完成实验失败:', err);
+      alert('网络错误，请稍后重试');
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  // 加载课时资料
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      if (!lessonId) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await materialApi.getList(parseInt(lessonId));
+        
+        if (response.success && response.data) {
+          setMaterials(response.data);
+          if (response.data.length === 0) {
+            setError('该课时暂无学习资料');
+          }
+        } else {
+          setError(response.error || '加载资料失败');
+        }
+      } catch (err) {
+        console.error('加载资料失败:', err);
+        setError('网络错误，请稍后重试');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMaterials();
+  }, [lessonId]);
+
+  // 加载 Markdown 内容
+  useEffect(() => {
+    const fetchMarkdownContent = async () => {
+      const currentMaterial = materials[currentMaterialIndex];
+      if (!currentMaterial || currentMaterial.type !== 1) {
+        setMarkdownContent('');
+        return;
+      }
+
+      try {
+        setLoadingContent(true);
+        const url = getStaticUrl(currentMaterial.fileUrl);
+        const response = await fetch(url);
+        if (response.ok) {
+          const text = await response.text();
+          setMarkdownContent(text);
+        } else {
+          setMarkdownContent('# 加载失败\n\n无法加载 Markdown 内容');
+        }
+      } catch (err) {
+        console.error('加载 Markdown 失败:', err);
+        setMarkdownContent('# 加载失败\n\n无法加载 Markdown 内容');
+      } finally {
+        setLoadingContent(false);
+      }
+    };
+
+    fetchMarkdownContent();
+  }, [materials, currentMaterialIndex]);
+
+  // 拖拽逻辑
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+    
+    if (newWidth >= 25 && newWidth <= 60) {
+      setLeftPanelWidth(newWidth);
+    }
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  }, [isDragging]);
+
+  useEffect(() => {
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
+  const currentMaterial = materials[currentMaterialIndex];
+
+  // 渲染左侧内容
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+          <AlertCircle className="w-12 h-12 mb-4" />
+          <p>{error}</p>
+        </div>
+      );
+    }
+
+    if (!currentMaterial) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+          <BookOpen className="w-12 h-12 mb-4" />
+          <p>暂无学习资料</p>
+        </div>
+      );
+    }
+
+    // Markdown 类型
+    if (currentMaterial.type === 1) {
+      if (loadingContent) {
+        return (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          </div>
+        );
+      }
+      return (
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+          <MarkdownContent content={markdownContent} lessonTitle={currentMaterial.title} />
+        </div>
+      );
+    }
+
+    // PDF 类型
+    if (currentMaterial.type === 2) {
+      return (
+        <div className="flex-1 overflow-hidden">
+          <PDFViewer 
+            url={getStaticUrl(currentMaterial.fileUrl)} 
+            title={currentMaterial.title} 
+          />
+        </div>
+      );
+    }
+
+    // 思维导图或其他类型 - 使用新的 MindMapViewer 组件
+    return (
+      <MindMapViewer
+        url={getStaticUrl(currentMaterial.fileUrl)}
+        title={currentMaterial.title}
+        fileName={currentMaterial.fileName}
+      />
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-screen overflow-hidden bg-[#F0F2F5]">
+      {/* 顶部 Header - 亮色主题 */}
+      <div className="h-10 min-h-[40px] flex items-center justify-between px-4 bg-white border-b border-slate-200 select-none">
+        {/* 左侧：技能图标 + 技能名称/课时名称 */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex items-center gap-1.5 text-slate-700">
+            <span className="text-sm font-semibold">{skillName}</span>
+            {lessonName && (
+              <>
+                <span className="text-slate-300">/</span>
+                <span className="text-sm text-slate-500 max-w-[300px] truncate">
+                  {lessonName}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 右侧：进度 + 学习时长 + 完成按钮 */}
+        <div className="flex items-center gap-4">
+          {/* 进度 */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+              <span className="text-xs font-medium text-slate-600">
+                {materials.length > 0 ? `${currentMaterialIndex + 1}/${materials.length}` : '0/0'}
+              </span>
+            </div>
+          </div>
+          
+          {/* 学习时长 */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 rounded-full">
+            <Clock className="w-3.5 h-3.5 text-blue-500" />
+            <span className="text-xs font-mono font-medium text-blue-600">
+              {formatTime(studySeconds)}
+            </span>
+          </div>
+
+          {/* 完成实验按钮 */}
+          <button
+            onClick={handleCompleteLesson}
+            disabled={completing}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+          >
+            {completing ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>提交中...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>完成实验</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* 主内容区域 */}
+      <div 
+        ref={containerRef}
+        className="flex flex-1 overflow-hidden relative"
+      >
+
+      {/* 左侧面板：学习资料 */}
+      <div
+        style={{ 
+          width: isDocCollapsed ? '0%' : `${leftPanelWidth}%`,
+          transition: isDragging ? 'none' : 'width 0.3s ease, opacity 0.3s ease'
+        }}
+        className={`relative z-10 flex flex-col h-full bg-white/80 backdrop-blur-xl shadow-2xl ${
+          isDocCollapsed ? 'opacity-0 overflow-hidden' : 'opacity-100'
+        }`}
+      >
+        {/* Header */}
+        <div className="h-14 min-h-[56px] flex items-center justify-between px-6 border-b border-slate-100 bg-white/50">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+              title="返回"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-2 text-slate-600">
+              <BookOpen className="w-4 h-4 text-blue-600" />
+              <span className="text-xs font-bold uppercase tracking-wider">
+                学习资料
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400">
+              <Settings className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsDocCollapsed(true)}
+              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+              title="收起面板"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* 资料 Tab 标签页（多个资料时显示） */}
+        {materials.length > 1 && (
+          <MaterialTabs 
+            materials={materials} 
+            currentIndex={currentMaterialIndex}
+            onSelect={setCurrentMaterialIndex}
+          />
+        )}
+
+        {/* 内容区域 */}
+        {renderContent()}
+
+        {/* Footer */}
+        <div className="h-12 min-h-[48px] border-t border-slate-100 bg-white px-6 flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-400">
+            {materials.length > 0 ? `资料 ${currentMaterialIndex + 1} / ${materials.length}` : '暂无资料'}
+          </span>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setCurrentMaterialIndex(Math.max(0, currentMaterialIndex - 1))}
+              disabled={currentMaterialIndex === 0 || materials.length === 0}
+              className="p-1.5 rounded-full border border-slate-200 hover:bg-slate-50 text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setCurrentMaterialIndex(Math.min(materials.length - 1, currentMaterialIndex + 1))}
+              disabled={currentMaterialIndex >= materials.length - 1 || materials.length === 0}
+              className="px-4 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              下一个 <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 拖拽分割线 */}
+      {!isDocCollapsed && (
+        <div
+          onMouseDown={handleMouseDown}
+          className="relative z-20 w-1 bg-slate-200 hover:bg-blue-500 cursor-col-resize group flex items-center justify-center transition-colors"
+        >
+          <div className="absolute p-1 bg-slate-300 group-hover:bg-blue-500 rounded transition-colors">
+            <GripVertical className="w-3 h-3 text-slate-500 group-hover:text-white" />
+          </div>
+        </div>
+      )}
+
+      {/* 收起时的展开按钮 */}
+      <AnimatePresence>
+        {isDocCollapsed && (
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            onClick={() => setIsDocCollapsed(false)}
+            className="absolute top-4 left-4 z-50 p-2 bg-white shadow-lg rounded-lg border border-slate-200 text-slate-500 hover:text-blue-600"
+          >
+            <PanelLeftOpen className="w-5 h-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* 右侧面板：AI 智能体教师 */}
+      <div className="flex-1 relative h-full bg-white overflow-hidden">
+        <iframe
+          src="http://117.50.80.138/chatbot/jtKQIZ598GEO7MX7"
+          className="w-full h-full border-0"
+          style={{ 
+            minHeight: '100%',
+            pointerEvents: isDragging ? 'none' : 'auto'
+          }}
+          allow="microphone"
+          title="AI 智能体教师"
+        />
+      </div>
+      </div>
+
+      {/* 完成实验 Dialog */}
+      <CompleteLessonDialog
+        isOpen={showCompleteDialog}
+        onClose={() => setShowCompleteDialog(false)}
+        lessonName={lessonName}
+        earnedXP={earnedXP}
+      />
+    </div>
+  );
+};
+
+export default LessonPage;
