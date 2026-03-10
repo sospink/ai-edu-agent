@@ -5,7 +5,7 @@ import { CheckCircle2 } from 'lucide-react';
 const Ecosystem: React.FC = () => {
   const partners = [
     { name: "阿里云", product: "通义千问" },
-    { name: "字节跳动", product: "豆包" },
+    { name: "智谱 AI", product: "GLM" },
     { name: "华为云", product: "盘古" },
     { name: "腾讯云", product: "混元" },
   ];

@@ -1,0 +1,59 @@
+# config/rails/greeting.co
+# =============================================
+# 问候对话规则
+# 定义用户打招呼时调酒师如何回应
+# =============================================
+
+# --- 用户消息的规范形式（用户可能说的话）---
+
+define user express greeting
+  "你好"
+  "嗨"
+  "Hello"
+  "hi"
+  "你好呀"
+  "在吗"
+  "有人吗"
+  "老板在吗"
+
+define user express goodbye
+  "再见"
+  "拜拜"
+  "bye"
+  "下次见"
+  "我走了"
+  "回头见"
+
+define user ask about menu
+  "有什么喝的"
+  "菜单是什么"
+  "你们有什么饮品"
+  "推荐点什么"
+  "今天有什么特调"
+
+# --- 机器人回复模板 ---
+
+define bot express greeting
+  "欢迎来到 AI 酒吧！🍸 我是调酒师小酒，今天想喝点什么？无论是经典鸡尾酒还是创意特调，我都能为你调制！"
+  "嗨！欢迎光临～🍹 我是你今晚的调酒师小酒。来看看今天的心情，给你调一杯专属饮品？"
+
+define bot express goodbye
+  "感谢光临 AI 酒吧！🍸 记得适量饮酒，期待下次再见！"
+  "再见啦！下次来记得告诉我你的口味偏好，我给你准备特调～ 🍹"
+
+define bot show menu
+  "我们的招牌饮品有：\n🍸 经典莫吉托 - 清爽薄荷配青柠\n🍹 日落余晖 - 橙汁与石榴糖浆的浪漫邂逅\n🧋 桃桃乌龙 - 蜜桃与乌龙茶的完美融合（无酒精）\n☕ 爱尔兰咖啡 - 威士忌与咖啡的经典碰撞\n\n想了解哪一款？或者告诉我你的口味偏好，我来给你推荐！"
+
+# --- 对话流程 ---
+
+define flow greeting
+  user express greeting
+  bot express greeting
+
+define flow goodbye
+  user express goodbye
+  bot express goodbye
+
+define flow show menu
+  user ask about menu
+  bot show menu

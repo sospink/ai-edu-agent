@@ -21,6 +21,12 @@ export enum LabSourceType {
   PROJECT = 2,    // 项目
 }
 
+// 运行时模式
+export enum LabRuntimeMode {
+  CLASSIC = 1,    // 传统 noVNC + SSH (+可选IDE)
+  OPENCLAW = 2,   // OpenClaw 教学运行时
+}
+
 @Entity('user_lab_sessions')
 @Index('idx_user_status', ['userId', 'status'])
 @Index('idx_container', ['containerId'])
@@ -59,6 +65,21 @@ export class UserLabSession {
 
   @Column({ name: 'ssh_port', type: 'int', unsigned: true, default: 0, comment: 'SSH端口' })
   sshPort!: number;
+
+  @Column({
+    name: 'runtime_mode',
+    type: 'tinyint',
+    unsigned: true,
+    default: LabRuntimeMode.CLASSIC,
+    comment: '运行时模式: 1-classic, 2-openclaw',
+  })
+  runtimeMode!: LabRuntimeMode;
+
+  @Column({ name: 'gateway_port', type: 'int', unsigned: true, default: 0, comment: 'OpenClaw Gateway 端口' })
+  gatewayPort!: number;
+
+  @Column({ name: 'gateway_token', type: 'varchar', length: 128, default: '', comment: 'OpenClaw Gateway Token' })
+  gatewayToken!: string;
 
   @Column({
     type: 'tinyint',

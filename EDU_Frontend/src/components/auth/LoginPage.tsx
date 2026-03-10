@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, ScanFace, Lock, User, Cpu, ShieldCheck, Network, Code2, Terminal, Sparkles, ShieldAlert, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Lock, User, Cpu, ShieldCheck, Network, Code2, Terminal, Sparkles, ShieldAlert, Loader2 } from 'lucide-react';
 import { authService } from '@/services/auth';
 import type { User as UserType } from '@/types';
 
@@ -38,21 +38,11 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onClose, isAdmin = false, onLoginSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'scan' | 'password'>('password');
-  const [isScanning, setIsScanning] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-
-  useEffect(() => {
-    if (activeTab === 'scan') {
-      setIsScanning(true);
-      const timer = setTimeout(() => setIsScanning(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab]);
 
   // 加载记住的用户名
   useEffect(() => {
@@ -199,103 +189,78 @@ const LoginPage: React.FC<LoginPageProps> = ({ onClose, isAdmin = false, onLogin
             <p className="text-slate-500 mt-2 text-sm font-medium">{isAdmin ? '系统管理员安全访问通道' : '请验证身份以进入实验室'}</p>
           </div>
 
-          {!isAdmin && (
-            <div className="flex p-1.5 bg-slate-100/50 rounded-2xl mb-8 border border-slate-200/50">
-              {['password', 'scan'].map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${activeTab === tab ? 'bg-white text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.05)] ring-1 ring-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
-                  {tab === 'password' ? '密码登录' : '人脸识别'}
-                </button>
-              ))}
-            </div>
-          )}
-
           <div className="min-h-[250px] md:min-h-[300px]">
-            <AnimatePresence mode="wait">
-              {activeTab === 'password' ? (
-                <motion.form key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="space-y-5" onSubmit={handleLogin}>
-                  {error && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-600 text-sm font-medium text-center"
-                    >
-                      {error}
-                    </motion.div>
-                  )}
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">{isAdmin ? '管理员账号' : '学号 / 工号'}</label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><User className="h-5 w-5 text-slate-300 group-focus-within:text-primary-500 transition-colors" /></div>
-                      <input 
-                        type="text" 
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder={isAdmin ? "admin" : "请输入学号或工号"} 
-                        className="block w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all font-mono text-sm shadow-sm" 
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">{isAdmin ? '安全密钥' : '登录密码'}</label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-5 w-5 text-slate-300 group-focus-within:text-primary-500 transition-colors" /></div>
-                      <input 
-                        type="password" 
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••" 
-                        className="block w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all font-mono text-sm shadow-sm" 
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center pt-2 px-1">
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input 
-                        type="checkbox" 
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="sr-only"
-                      />
-                      <div className={`w-4 h-4 rounded border ${rememberMe ? 'bg-primary-500 border-primary-500' : 'border-slate-300 group-hover:border-primary-500'} bg-white transition-colors flex items-center justify-center`}>
-                        {rememberMe && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                      </div>
-                      <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700">记住我</span>
-                    </label>
-                    <a href="#" className="text-xs font-bold text-primary-600 hover:text-primary-700">忘记密码？</a>
-                  </div>
-                  <button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className={`w-full py-4 ${isAdmin ? 'bg-slate-800 hover:bg-slate-900' : 'bg-primary-600 hover:bg-primary-700'} text-white rounded-xl font-bold shadow-xl shadow-slate-900/10 hover:shadow-2xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 group mt-6 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0`}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        登录中...
-                      </>
-                    ) : (
-                      <>
-                        {isAdmin ? '进入控制台' : '进入实验室'}
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </>
-                    )}
-                  </button>
-                </motion.form>
-              ) : (
-                <motion.div key="scan" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex flex-col items-center justify-center h-full py-8">
-                  <div className="relative w-56 h-56 mb-8">
-                    <div className="absolute inset-0 border-[4px] border-slate-100 rounded-[3rem]" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-50/50 rounded-[3rem] overflow-hidden">
-                      <ScanFace className={`w-24 h-24 ${isScanning ? 'text-primary-600' : 'text-slate-300'} transition-colors duration-500`} />
-                      {isScanning && (<motion.div className="absolute left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-primary-500 to-transparent z-10 shadow-[0_0_25px_rgba(59,130,246,0.8)]" animate={{ top: ['10%', '90%', '10%'] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }} />)}
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800 mb-1">{isScanning ? '正在验证生物特征...' : '等待人脸识别'}</h3>
+            <motion.form initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-5" onSubmit={handleLogin}>
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }} 
+                  animate={{ opacity: 1, y: 0 }} 
+                  className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-600 text-sm font-medium text-center"
+                >
+                  {error}
                 </motion.div>
               )}
-            </AnimatePresence>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">{isAdmin ? '管理员账号' : '学号 / 工号'}</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><User className="h-5 w-5 text-slate-300 group-focus-within:text-primary-500 transition-colors" /></div>
+                  <input 
+                    type="text" 
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder={isAdmin ? "admin" : "请输入学号或工号"} 
+                    className="block w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all font-mono text-sm shadow-sm" 
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">{isAdmin ? '安全密钥' : '登录密码'}</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-5 w-5 text-slate-300 group-focus-within:text-primary-500 transition-colors" /></div>
+                  <input 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••" 
+                    className="block w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all font-mono text-sm shadow-sm" 
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-between items-center pt-2 px-1">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input 
+                    type="checkbox" 
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-4 h-4 rounded border ${rememberMe ? 'bg-primary-500 border-primary-500' : 'border-slate-300 group-hover:border-primary-500'} bg-white transition-colors flex items-center justify-center`}>
+                    {rememberMe && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700">记住我</span>
+                </label>
+                <a href="#" className="text-xs font-bold text-primary-600 hover:text-primary-700">忘记密码？</a>
+              </div>
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className={`w-full py-4 ${isAdmin ? 'bg-slate-800 hover:bg-slate-900' : 'bg-primary-600 hover:bg-primary-700'} text-white rounded-xl font-bold shadow-xl shadow-slate-900/10 hover:shadow-2xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 group mt-6 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0`}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    登录中...
+                  </>
+                ) : (
+                  <>
+                    {isAdmin ? '进入控制台' : '进入实验室'}
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </motion.form>
           </div>
 
           <div className="mt-8 pt-8 border-t border-slate-100 text-center">

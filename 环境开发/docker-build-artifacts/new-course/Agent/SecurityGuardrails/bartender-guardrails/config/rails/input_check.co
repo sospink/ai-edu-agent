@@ -1,0 +1,21 @@
+# config/rails/input_check.co
+# =============================================
+# 输入护栏规则
+# 使用 LLM 自检机制检测危险输入
+# =============================================
+
+define flow self check input
+  $keyword_safe = execute keyword_safety_check(text=$user_message)
+
+  if not $keyword_safe
+    bot inform cannot respond
+    stop
+
+  $allowed = execute glm_self_check_input(user_message=$user_message)
+
+  if not $allowed
+    bot inform cannot respond
+    stop
+
+define bot inform cannot respond
+  "抱歉，这个问题超出了我的服务范围。作为AI酒吧调酒师，我只能在饮品相关领域为您服务 🍸 换个话题聊聊？"

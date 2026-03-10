@@ -1,0 +1,104 @@
+# config/rails/bartender.co
+# =============================================
+# 调酒师核心对话规则
+# 定义饮品推荐、口味咨询等主要业务流程
+# =============================================
+
+# --- 用户意图 ---
+
+define user ask for recommendation
+  "推荐一杯适合我的"
+  "帮我选一杯"
+  "不知道喝什么"
+  "有什么推荐的"
+  "来杯特别的"
+  "今天喝什么好"
+
+define user ask about cocktail
+  "莫吉托怎么调"
+  "这杯酒是怎么做的"
+  "配方是什么"
+  "里面有什么成分"
+  "这杯用了什么酒"
+
+define user ask about non alcoholic
+  "有无酒精的吗"
+  "不喝酒有什么推荐"
+  "有果汁吗"
+  "有茶饮吗"
+  "我不能喝酒"
+
+define user ask about taste
+  "这杯甜不甜"
+  "口感怎么样"
+  "好喝吗"
+  "什么味道的"
+  "会不会太烈"
+
+define user express preference sweet
+  "我喜欢甜的"
+  "来点甜的"
+  "想喝甜饮料"
+
+define user express preference refreshing
+  "来点清爽的"
+  "我想喝清淡的"
+  "有没有解渴的"
+
+define user express preference strong
+  "来点烈的"
+  "度数高一点"
+  "想喝猛的"
+
+# --- 机器人回复 ---
+
+define bot recommend drink
+  "根据你的喜好，我推荐这几款：\n🍸 如果想要经典款 → 莫吉托（清爽薄荷系）\n🍹 如果想要果味的 → 日落余晖（甜蜜果香系）\n🧋 如果不喝酒 → 桃桃乌龙（清新茶饮系）\n\n告诉我你更偏向哪一类？"
+
+define bot explain cocktail
+  "好的，让我来介绍一下这款饮品的故事和主要成分。不过具体的独家比例是我们的小秘密哦～🤫 你想了解哪一款？"
+
+define bot recommend non alcoholic
+  "当然有！我们的无酒精系列同样精彩：\n🧋 桃桃乌龙 - 蜜桃+乌龙茶，甜而不腻\n🥤 维珍莫吉托 - 薄荷+青柠+苏打，清爽零酒精\n🍊 阳光橙意 - 鲜榨橙汁+百香果，维C满满\n\n都是我们的人气款！"
+
+define bot recommend sweet
+  "甜蜜派的选择来了！🍬\n🍹 日落余晖 - 橙汁+石榴糖浆，甜蜜浪漫\n🍸 草莓代基里 - 草莓+朗姆酒，少女感满满\n🧋 杨枝甘露饮 - 芒果+椰浆，港式经典\n\n第一杯建议试试日落余晖，很多客人喝了都会回头！"
+
+define bot recommend refreshing
+  "清爽系列报到！🌊\n🍸 莫吉托 - 薄荷+青柠+苏打，夏日必备\n🍹 金汤力 - 金酒+汤力水，简约不简单\n🧋 柠檬百香果茶 - 酸甜开胃\n\n炎热的天气来一杯莫吉托，绝对让你满血复活！"
+
+define bot recommend strong
+  "想来点有劲的？看这里 💪\n🥃 长岛冰茶 - 别被名字骗了，很有后劲（约22度）\n🍸 马天尼 - 007的最爱，优雅而有力\n🥃 老式鸡尾酒 - 威士忌+苦味酒，经典中的经典\n\n⚠️ 温馨提示：烈酒虽好，可不要贪杯哦！建议搭配一杯清水。"
+
+define bot describe taste
+  "让我来形容一下口感。每款饮品都有自己的性格，你想了解具体哪一款的口感呢？我可以详细给你描述～"
+
+# --- 对话流程 ---
+
+define flow recommendation
+  user ask for recommendation
+  bot recommend drink
+
+define flow cocktail info
+  user ask about cocktail
+  bot explain cocktail
+
+define flow non alcoholic
+  user ask about non alcoholic
+  bot recommend non alcoholic
+
+define flow taste inquiry
+  user ask about taste
+  bot describe taste
+
+define flow sweet preference
+  user express preference sweet
+  bot recommend sweet
+
+define flow refreshing preference
+  user express preference refreshing
+  bot recommend refreshing
+
+define flow strong preference
+  user express preference strong
+  bot recommend strong

@@ -1,10 +1,24 @@
 import { Request, Response } from 'express';
+import http from 'http';
 import { LabService } from '../services/LabService';
 import { LabSourceType } from '../models/UserLabSession';
 import { sendSuccess, sendError } from '../utils/response';
 import { docker } from '../utils/docker';
+import { extractToken, verifyToken } from '../utils/jwt';
 
 export class LabController {
+  private static getGatewayUserId(req: Request): number | null {
+    const headerToken = extractToken(req.headers.authorization);
+    const queryToken = typeof req.query.authToken === 'string' ? req.query.authToken : '';
+    const token = headerToken || queryToken;
+    if (!token) return null;
+
+    const payload = verifyToken(token);
+    if (!payload?.userId) return null;
+
+    return Number(payload.userId);
+  }
+
   /**
    * 获取可用的 Docker 镜像列表（供管理后台选择）
    * GET /api/lab/images
@@ -212,6 +226,109 @@ export class LabController {
       return sendSuccess(res, result);
     } catch (error: unknown) {
       return sendError(res, error instanceof Error ? error.message : '执行命令失败');
+    }
+  }
+
+  /**
+   * Gateway 代理（用于 iframe 同源嵌入）
+   * ALL /api/lab/gateway/:sessionId/*
+   */
+  static async proxyGateway(req: Request, res: Response) {
+    try {
+      const sessionId = parseInt(req.params.sessionId, 10);
+      if (!sessionId) {
+        return sendError(res, '无效的会话ID', 400);
+      }
+
+      const userId = LabController.getGatewayUserId(req);
+      if (!userId) {
+        return sendError(res, '未登录', 401);
+      }
+
+      const session = await LabService.getActiveSession(userId);
+      if (!session || Number(session.id) !== sessionId) {
+        return sendError(res, '实验会话不存在或已过期', 404);
+      }
+
+      if (!session.gatewayPort || session.gatewayPort <= 0) {
+        return sendError(res, '当前会话未启用 Gateway', 400);
+      }
+
+      const dockerHost = process.env.DOCKER_HOST || '192.168.20.3';
+      const routePrefix = `/api/lab/gateway/${sessionId}`;
+      let suffix = req.originalUrl.startsWith(routePrefix)
+        ? req.originalUrl.slice(routePrefix.length)
+        : '/';
+      if (!suffix) suffix = '/';
+
+      const upstreamUrl = new URL(`http://${dockerHost}:${session.gatewayPort}${suffix}`);
+      upstreamUrl.searchParams.delete('authToken');
+
+      const outgoingHeaders: http.OutgoingHttpHeaders = {
+        ...req.headers,
+        host: `${dockerHost}:${session.gatewayPort}`,
+      };
+      delete outgoingHeaders.authorization;
+      delete outgoingHeaders.connection;
+      delete outgoingHeaders['proxy-connection'];
+      delete outgoingHeaders['content-length'];
+
+      const proxyReq = http.request(
+        {
+          protocol: 'http:',
+          hostname: dockerHost,
+          port: session.gatewayPort,
+          method: req.method,
+          path: `${upstreamUrl.pathname}${upstreamUrl.search}`,
+          headers: outgoingHeaders,
+        },
+        (proxyRes) => {
+          const blockedHeaders = new Set([
+            'x-frame-options',
+            'frame-options',
+            'content-security-policy',
+            'content-security-policy-report-only',
+          ]);
+
+          const responseHeaders: http.OutgoingHttpHeaders = {};
+          const proxyBase = `${req.protocol}://${req.get('host')}/api/lab/gateway/${sessionId}`;
+          const upstreamOrigin = `http://${dockerHost}:${session.gatewayPort}`;
+
+          for (const [key, value] of Object.entries(proxyRes.headers)) {
+            if (value === undefined) continue;
+            const lowerKey = key.toLowerCase();
+            if (blockedHeaders.has(lowerKey)) continue;
+
+            if (lowerKey === 'location' && typeof value === 'string') {
+              let nextLocation = value;
+              if (value.startsWith(upstreamOrigin)) {
+                nextLocation = `${proxyBase}${value.slice(upstreamOrigin.length)}`;
+              } else if (value.startsWith('/')) {
+                nextLocation = `${proxyBase}${value}`;
+              }
+              responseHeaders[key] = nextLocation;
+              continue;
+            }
+
+            responseHeaders[key] = value;
+          }
+
+          res.writeHead(proxyRes.statusCode || 502, responseHeaders);
+          proxyRes.pipe(res);
+        }
+      );
+
+      proxyReq.on('error', (error) => {
+        if (!res.headersSent) {
+          sendError(res, `Gateway 代理失败: ${error.message}`, 502);
+        } else {
+          res.end();
+        }
+      });
+
+      req.pipe(proxyReq);
+    } catch (error: unknown) {
+      return sendError(res, error instanceof Error ? error.message : 'Gateway 代理失败');
     }
   }
 }

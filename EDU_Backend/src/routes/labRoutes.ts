@@ -7,6 +7,10 @@ const router = Router();
 // 获取镜像列表（管理员）
 router.get('/images', authMiddleware, adminMiddleware, LabController.getImages);
 
+// Gateway 代理（iframe 场景，使用 query authToken 验证）
+router.all('/gateway/:sessionId', LabController.proxyGateway);
+router.all('/gateway/:sessionId/*', LabController.proxyGateway);
+
 // 以下路由需要登录
 router.use(authMiddleware);
 

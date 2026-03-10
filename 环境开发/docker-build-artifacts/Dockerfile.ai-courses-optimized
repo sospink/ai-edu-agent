@@ -1,0 +1,390 @@
+# =============================================================================
+# AI Courses Lab Environment - Optimized Build
+# 支持代理加速、错误处理、构建优化
+# =============================================================================
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE}
+
+# 构建参数 - 支持代理
+ARG HTTP_PROXY=""
+ARG HTTPS_PROXY=""
+ARG NO_PROXY="localhost,127.0.0.1"
+ARG INSTALL_VSCODE_EXTENSIONS="false"
+
+# 设置代理环境变量（如果提供）
+ENV http_proxy=${HTTP_PROXY} \
+    https_proxy=${HTTPS_PROXY} \
+    no_proxy=${NO_PROXY}
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# =============================================================================
+# 阶段1: 基础系统 + 桌面环境
+# =============================================================================
+RUN echo "===> Installing base system..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        vim \
+        curl \
+        wget \
+        bash \
+        openssh-server \
+        sudo \
+        locales \
+        tmux \
+        software-properties-common \
+        build-essential \
+        gnupg2 \
+    && locale-gen en_US.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8
+
+# =============================================================================
+# 阶段2: XFCE4 桌面 + VNC
+# =============================================================================
+RUN echo "===> Installing desktop environment..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        xfce4 \
+        xfce4-terminal \
+        xfce4-goodies \
+        dbus-x11 \
+        x11-xserver-utils \
+        xfonts-base \
+        xfonts-100dpi \
+        xfonts-75dpi \
+        fonts-wqy-microhei \
+        fonts-wqy-zenhei \
+        tigervnc-standalone-server \
+        tigervnc-common \
+        firefox \
+        mousepad \
+        gedit \
+        build-essential \
+        gcc \
+        g++ \
+        make \
+        adwaita-icon-theme \
+        tango-icon-theme \
+        hicolor-icon-theme \
+        gnome-icon-theme \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# 阶段3: Python 3.10 (Ubuntu 22.04 自带)
+# =============================================================================
+RUN echo "===> Setting up Python 3.10..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3.10 \
+        python3.10-dev \
+        python3-dev \
+        python3-pip \
+        curl \
+    && python3.10 --version \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置 Python 3.10 为默认并升级 pip
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 \
+    && python3 --version \
+    && python3 -m pip install --upgrade --no-cache-dir \
+        --default-timeout=180 \
+        --retries=10 \
+        -i https://pypi.tuna.tsinghua.edu.cn/simple \
+        pip setuptools wheel
+
+# =============================================================================
+# 阶段4: Node.js 18
+# =============================================================================
+RUN echo "===> Installing Node.js 18..." \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# 配置 npm 镜像（中国加速）
+RUN npm config set registry https://registry.npmmirror.com
+
+# =============================================================================
+# 阶段5: noVNC (使用系统包，更稳定)
+# =============================================================================
+RUN echo "===> Installing noVNC..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends novnc websockify \
+    && mkdir -p /opt/noVNC \
+    && cp -r /usr/share/novnc/* /opt/noVNC/ \
+    && ln -sf /opt/noVNC/vnc.html /opt/noVNC/index.html \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# 阶段6: Python AI 库（面向 new-course/Agent）
+# =============================================================================
+# 配置 pip 镜像（中国加速）
+RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 基础依赖
+RUN echo "===> Installing Python base dependencies..." \
+    && pip3 install --no-cache-dir \
+        python-dotenv \
+        pydantic \
+        requests \
+        ipython \
+        pytz \
+        rich
+
+# AI/Agent 依赖（新版课程主依赖）
+RUN echo "===> Installing Python AI dependencies..." \
+    && pip3 install --no-cache-dir \
+        langchain \
+        langchain-core \
+        langchain-community \
+        langchain-openai \
+        langchain-anthropic \
+        langchain-classic \
+        langgraph \
+        openai \
+        anthropic \
+        zhipuai \
+        fastapi \
+        uvicorn[standard] \
+        nemoguardrails \
+    || echo "Warning: Some Python AI dependencies failed, continuing..."
+
+# =============================================================================
+# 阶段7: Node.js 包 + Puppeteer 依赖
+# =============================================================================
+# 安装 Chromium 依赖（用于 Puppeteer MCP）
+RUN echo "===> Installing Chromium dependencies for Puppeteer..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        chromium-browser \
+        libnss3 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libdrm2 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxrandr2 \
+        libgbm1 \
+        libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置 Puppeteer 使用系统 Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+RUN echo "===> Installing Node.js packages..." \
+    && npm install -g opencode-ai opencode-linux-x64 \
+    && npm install -g @modelcontextprotocol/sdk \
+    || echo "Warning: Some npm packages failed, continuing..."
+
+# 安装 Python uv (用于 uvx 命令运行 git MCP)
+RUN echo "===> Installing Python uv..." \
+    && pip3 install --no-cache-dir uv \
+    || echo "Warning: uv installation failed, continuing..."
+
+# =============================================================================
+# 阶段8: VS Code 安装
+# =============================================================================
+RUN echo "===> Installing VS Code..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        gpg \
+    && wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/packages.microsoft.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list \
+    && apt-get update \
+    && apt-get install -y code \
+    && mkdir -p /root/.vscode /root/Desktop \
+    && printf '#!/bin/bash\nexport XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp/runtime-root}\nmkdir -p "$XDG_RUNTIME_DIR"\nchmod 700 "$XDG_RUNTIME_DIR"\nexec /usr/share/code/code --no-sandbox --disable-gpu --disable-dev-shm-usage --user-data-dir=/root/.vscode "$@"\n' > /usr/local/bin/code-launcher \
+    && chmod +x /usr/local/bin/code-launcher \
+    && ln -sf /usr/local/bin/code-launcher /usr/local/bin/code \
+    && sed -i 's|^Exec=.*|Exec=/usr/local/bin/code-launcher %F|' /usr/share/applications/code.desktop \
+    && cp /usr/share/applications/code.desktop /root/Desktop/VSCode.desktop \
+    && chmod +x /root/Desktop/VSCode.desktop \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装常用 VS Code 扩展（可选，会增加镜像大小和构建时间）
+RUN if [ "${INSTALL_VSCODE_EXTENSIONS}" = "true" ]; then \
+        echo "===> Installing VS Code extensions..."; \
+        timeout 300 code --install-extension ms-python.python --user-data-dir=/root/.vscode 2>/dev/null || echo "Warning: ms-python.python extension install skipped/timeout"; \
+        timeout 300 code --install-extension ms-ceintl.vscode-language-pack-zh-hans --user-data-dir=/root/.vscode 2>/dev/null || echo "Warning: zh-hans extension install skipped/timeout"; \
+    else \
+        echo "===> Skipping VS Code extensions (INSTALL_VSCODE_EXTENSIONS=${INSTALL_VSCODE_EXTENSIONS})"; \
+    fi
+
+# =============================================================================
+# 阶段9: SSH 配置
+# =============================================================================
+RUN mkdir -p /var/run/sshd \
+    && echo 'root:opencode' | chpasswd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# =============================================================================
+# 阶段10: VNC 配置
+# =============================================================================
+ENV VNC_PASSWORD=opencode \
+    VNC_RESOLUTION=1280x720 \
+    VNC_DEPTH=24 \
+    OPENCODE_TUI_MOUSE=false
+
+# 创建 VNC 目录和启动脚本（密码将在 entrypoint.sh 中设置）
+RUN mkdir -p /root/.vnc \
+    && echo '#!/bin/bash\n\
+unset SESSION_MANAGER\n\
+unset DBUS_SESSION_BUS_ADDRESS\n\
+export XKL_XMODMAP_DISABLE=1\n\
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp/runtime-root}\n\
+mkdir -p "$XDG_RUNTIME_DIR"\n\
+chmod 700 "$XDG_RUNTIME_DIR"\n\
+if command -v dbus-launch >/dev/null 2>&1; then\n\
+  exec dbus-launch --exit-with-session startxfce4\n\
+else\n\
+  exec startxfce4\n\
+fi' > /root/.vnc/xstartup \
+    && chmod +x /root/.vnc/xstartup
+
+# =============================================================================
+# 阶段11: 课程文件（主资源 + 家目录快捷访问）
+# =============================================================================
+# 复制新版课程资源
+RUN mkdir -p /workspace/new-course/Agent
+COPY new-course/Agent/ADE_Agent /workspace/new-course/Agent/ADE_Agent
+COPY new-course/Agent/MCP_Server /workspace/new-course/Agent/MCP_Server
+COPY new-course/Agent/AgentFramework /workspace/new-course/Agent/AgentFramework
+COPY new-course/Agent/MultiAgentFramework /workspace/new-course/Agent/MultiAgentFramework
+COPY new-course/Agent/SecurityGuardrails /workspace/new-course/Agent/SecurityGuardrails
+
+# 安装课程项目依赖并预编译 MCP Server
+RUN echo "===> Installing course-specific dependencies..." \
+    && pip3 install --no-cache-dir -r /workspace/new-course/Agent/AgentFramework/requirements.txt \
+    && pip3 install --no-cache-dir -r /workspace/new-course/Agent/MultiAgentFramework/brainstorm-mas/requirements.txt \
+    && pip3 install --no-cache-dir -r /workspace/new-course/Agent/SecurityGuardrails/bartender-guardrails/requirements.txt \
+    && cd /workspace/new-course/Agent/MCP_Server \
+    && npm install \
+    && npm run build \
+    && rm -rf /workspace/new-course/Agent/SecurityGuardrails/bartender-guardrails/.venv_sys \
+    && chmod +x /workspace/new-course/Agent/SecurityGuardrails/bartender-guardrails/setup_env.sh
+
+# 课程目录迁移到用户家目录（学生登录后在 ~ 直接可见）
+RUN mv /workspace/new-course/Agent/ADE_Agent /root/ADE_Agent \
+    && mv /workspace/new-course/Agent/MCP_Server /root/MCP_Server \
+    && mv /workspace/new-course/Agent/AgentFramework /root/AgentFramework \
+    && mv /workspace/new-course/Agent/MultiAgentFramework /root/MultiAgentFramework \
+    && mv /workspace/new-course/Agent/SecurityGuardrails /root/SecurityGuardrails \
+    && rm -rf /workspace/courses \
+    && rm -rf /workspace/new-course/Agent/*
+
+# 创建 .env 模板（兼容所有新版课程变量）
+RUN echo "# AI API Keys Configuration\n\
+# 请填写你的 API Key\n\
+\n\
+# 智谱AI（推荐）\n\
+ZHIPUAI_API_KEY=your-zhipuai-api-key-here\n\
+# MCP Server 测试脚本使用\n\
+ZHIPU_API_KEY=your-zhipuai-api-key-here\n\
+\n\
+# OpenAI 兼容配置（Guardrails/部分脚本）\n\
+OPENAI_API_KEY=your-openai-compatible-api-key-here\n\
+OPENAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4\n\
+OPENAI_MODEL=glm-4-flash\n\
+\n\
+# 可选：通义千问兼容变量\n\
+DASHSCOPE_API_KEY=\n\
+QWEN_MODEL=\n\
+QWEN_BASE_URL=\n\
+" > /workspace/.env.template
+
+# 课程目录说明
+RUN echo "# Course Home Directories\n\
+\n\
+课程目录已放置到用户家目录 /root（即 ~）:\n\
+- /root/ADE_Agent\n\
+- /root/MCP_Server\n\
+- /root/AgentFramework\n\
+- /root/MultiAgentFramework\n\
+- /root/SecurityGuardrails\n\
+" > /root/COURSE-README.md
+
+# =============================================================================
+# 阶段12: OpenCode 配置 (JSON 格式 + MCP + Skills)
+# =============================================================================
+# 创建 OpenCode 配置目录
+RUN mkdir -p /root/.config/opencode/skill/ai-tutor \
+    && mkdir -p /root/.local/share/opencode
+
+# 复制 OpenCode 配置文件
+COPY opencode-config/opencode.json /root/.config/opencode/opencode.json
+COPY opencode-config/skill/ai-tutor/SKILL.md /root/.config/opencode/skill/ai-tutor/SKILL.md
+COPY opencode-config/AGENTS.md /workspace/AGENTS.md
+
+# 预设 Z.AI (智谱) API Key
+COPY opencode-config/auth.json /root/.local/share/opencode/auth.json
+
+# =============================================================================
+# 阶段13: 验证脚本
+# =============================================================================
+RUN echo '#!/bin/bash\n\
+echo "==========================================="\n\
+echo "  AI Courses Environment Verification"\n\
+echo "==========================================="\n\
+echo ""\n\
+echo "Python Version:"\n\
+python3 --version\n\
+echo ""\n\
+echo "Node.js Version:"\n\
+node --version\n\
+echo ""\n\
+echo "npm Version:"\n\
+npm --version\n\
+echo ""\n\
+echo "VS Code Version:"\n\
+code --version 2>/dev/null | head -1 || echo "VS Code not found"\n\
+echo ""\n\
+echo "Checking Python packages..."\n\
+python3 -c "import langchain; print(f\"✓ LangChain {langchain.__version__}\")" 2>/dev/null || echo "✗ LangChain not found"\n\
+python3 -c "import langgraph; print(\"✓ LangGraph installed\")" 2>/dev/null || echo "✗ LangGraph not found"\n\
+python3 -c "import fastapi; print(f\"✓ FastAPI {fastapi.__version__}\")" 2>/dev/null || echo "✗ FastAPI not found"\n\
+python3 -c "import nemoguardrails; print(\"✓ Nemo Guardrails installed\")" 2>/dev/null || echo "✗ Nemo Guardrails not found"\n\
+python3 -c "import zhipuai; print(\"✓ ZhipuAI SDK installed\")" 2>/dev/null || echo "✗ ZhipuAI SDK not found"\n\
+echo ""\n\
+echo "Checking course directories..."\n\
+test -d /root/ADE_Agent && echo "✓ ADE_Agent" || echo "✗ ADE_Agent missing"\n\
+test -d /root/MCP_Server && echo "✓ MCP_Server" || echo "✗ MCP_Server missing"\n\
+test -d /root/AgentFramework && echo "✓ AgentFramework" || echo "✗ AgentFramework missing"\n\
+test -d /root/MultiAgentFramework/brainstorm-mas && echo "✓ MultiAgentFramework" || echo "✗ MultiAgentFramework missing"\n\
+test -d /root/SecurityGuardrails/bartender-guardrails && echo "✓ SecurityGuardrails" || echo "✗ SecurityGuardrails missing"\n\
+test -f /root/Desktop/VSCode.desktop && echo "✓ VSCode desktop icon" || echo "✗ VSCode desktop icon missing"\n\
+echo ""\n\
+echo "Checking OpenCode..."\n\
+which opencode && echo "✓ OpenCode installed" || echo "✗ OpenCode not found"\n\
+echo ""\n\
+echo "==========================================="\n\
+echo "  All checks completed!"\n\
+echo "==========================================="\n\
+' > /usr/local/bin/verify-env \
+    && chmod +x /usr/local/bin/verify-env
+
+WORKDIR /root
+
+# 清理代理环境变量（构建后不需要）
+ENV http_proxy="" \
+    https_proxy=""
+
+# =============================================================================
+# 端口和入口点
+# =============================================================================
+EXPOSE 22 5901 6080
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

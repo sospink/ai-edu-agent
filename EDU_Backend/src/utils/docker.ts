@@ -1,16 +1,29 @@
 import Dockerode from 'dockerode';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
 
-const certPath = process.env.DOCKER_CERT_PATH || './conf';
+// 固定从后端项目根目录加载 .env，并覆盖已存在的同名环境变量，
+// 避免 shell/进程里遗留的 DOCKER_* 把配置“顶掉”。
+const backendRoot = path.resolve(__dirname, '../../');
+dotenv.config({
+  path: path.join(backendRoot, '.env'),
+  override: true,
+});
+
+const certPathRaw = process.env.DOCKER_CERT_PATH || './conf';
+const certPath = path.isAbsolute(certPathRaw)
+  ? certPathRaw
+  : path.resolve(backendRoot, certPathRaw.replace(/^\.\//, ''));
 const host = process.env.DOCKER_HOST || 'localhost';
 const port = parseInt(process.env.DOCKER_PORT || '2376');
+const tlsEnabled = process.env.DOCKER_TLS === 'true';
 
 let docker: Dockerode;
 
 // 如果启用 TLS，加载证书
-if (process.env.DOCKER_TLS === 'true') {
-  const basePath = path.resolve(certPath);
+if (tlsEnabled) {
+  const basePath = certPath;
   docker = new Dockerode({
     host: host,
     port: port,
@@ -25,6 +38,8 @@ if (process.env.DOCKER_TLS === 'true') {
     port: port,
   });
 }
+
+console.log(`[Docker] Client target ${host}:${port} TLS=${tlsEnabled ? 'on' : 'off'} certPath=${certPath}`);
 
 export { docker };
 

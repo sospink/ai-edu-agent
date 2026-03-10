@@ -111,7 +111,7 @@ export interface LessonMaterial {
   id: number;
   lessonId: number;
   title: string;
-  type: number; // 1-Markdown, 2-PDF, 3-思维导图
+  type: number; // 1-Markdown, 2-PDF, 3-思维导图, 4-Word
   fileUrl: string;
   fileName: string;
   fileSize: number;
@@ -145,6 +145,11 @@ export const courseApi = {
   // 获取单个课程
   async getById(id: number): Promise<ApiResponse<Course>> {
     return api.get<Course>(`/courses/${id}`);
+  },
+
+  // 根据课时 ID 获取课时
+  async getLessonById(lessonId: number): Promise<ApiResponse<CourseLesson>> {
+    return api.get<CourseLesson>(`/courses/lessons/${lessonId}`);
   },
 
   // 根据 Slug 获取课程

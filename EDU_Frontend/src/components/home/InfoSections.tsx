@@ -88,10 +88,7 @@ export const FinalCTA: React.FC = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-primary-200/20 to-secondary-200/20 blur-[100px] rounded-full pointer-events-none"></div>
       <div className="max-w-3xl mx-auto relative z-10">
         <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 tracking-tight">准备好开启 AI 教学变革了吗？</h2>
-        <p className="text-default-500 text-lg mb-10 font-light">填写信息，我们的产品专家将在 1 个工作日内与您联系演示。</p>
-        <div className="flex flex-col sm:flex-row justify-center gap-4">
-          <button className="bg-slate-900 hover:bg-slate-800 text-white text-lg font-medium py-3 px-10 rounded-full shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1">预约演示</button>
-        </div>
+        <p className="text-default-500 text-lg mb-10 font-light">进入学习中心，立即开始智能体课程与实训探索。</p>
       </div>
     </div>
   );

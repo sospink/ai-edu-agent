@@ -29,6 +29,8 @@ const getMaterialTypeInfo = (type: number) => {
       return { icon: FileType, label: 'PDF', color: 'text-red-500', bg: 'bg-red-50' };
     case 3: // 思维导图
       return { icon: Brain, label: '思维导图', color: 'text-purple-500', bg: 'bg-purple-50' };
+    case 4: // Word
+      return { icon: FileText, label: 'Word', color: 'text-indigo-500', bg: 'bg-indigo-50' };
     default:
       return { icon: File, label: '文件', color: 'text-slate-500', bg: 'bg-slate-50' };
   }
@@ -245,7 +247,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".md,.markdown,.pdf,.xmind,.mm"
+                    accept=".md,.markdown,.pdf,.docx,.xmind,.mm"
                     onChange={handleFileSelect}
                     className="hidden"
                   />
@@ -263,7 +265,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                       <>
                         <Upload className="w-8 h-8 text-slate-400" />
                         <span className="text-sm font-medium text-slate-600">点击或拖拽文件到此处上传</span>
-                        <span className="text-xs text-slate-400">支持 Markdown (.md)、PDF、思维导图 (.xmind, .mm)</span>
+                        <span className="text-xs text-slate-400">支持 Markdown (.md)、PDF、Word (.docx)、思维导图 (.xmind, .mm)</span>
                       </>
                     )}
                   </button>

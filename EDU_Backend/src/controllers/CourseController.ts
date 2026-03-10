@@ -525,6 +525,20 @@ export class CourseController {
     }
   }
 
+  async getLessonById(req: Request, res: Response) {
+    try {
+      const lessonId = parseInt(req.params.lessonId);
+      const lesson = await courseService.getLessonById(lessonId);
+      if (!lesson) {
+        return sendNotFound(res, '课时不存在');
+      }
+      return sendSuccess(res, lesson, '获取课时成功');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '获取课时失败';
+      return sendError(res, message);
+    }
+  }
+
   // ==================== 课时学习资料管理 ====================
 
   async getLessonMaterials(req: Request, res: Response) {

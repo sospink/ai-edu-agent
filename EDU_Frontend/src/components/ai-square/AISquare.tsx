@@ -1,315 +1,373 @@
-import React, { useRef } from 'react';
-import { motion, useMotionTemplate, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { 
-  ExternalLink, Zap, Search, Command, Cpu, Layers, Network, Code2, Sparkles
+import React, { useState } from 'react';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
+import { SplineScene } from '@/components/ui/splite';
+import {
+  ArrowRight,
+  Bot,
+  Brain,
+  Code2,
+  Image,
+  MessageSquare,
+  Music,
+  Search,
+  Sparkles,
+  Star,
+  Video,
 } from 'lucide-react';
 
-// --- Types ---
-
-interface Tool {
+type FeaturedTool = {
   id: string;
   name: string;
+  vendor: string;
   desc: string;
-  url: string;
-  imageUrl?: string;
-  logoText?: string;
-  color?: string;
-  hot?: boolean;
-  featured?: boolean;
-}
-
-interface Category {
-  id: string;
-  title: string;
-  subtitle: string;
   icon: React.ElementType;
-  tools: Tool[];
-  gradient: string;
-}
-
-// --- Data ---
-
-const categories: Category[] = [
-  {
-    id: "agents",
-    title: "智能体平台",
-    subtitle: "Agent Orchestration",
-    icon: Network,
-    gradient: "from-violet-500 to-fuchsia-500",
-    tools: [
-      { id: "coze", name: "Coze 扣子", desc: "新一代 AI Bot 构建平台", color: "bg-gradient-to-br from-blue-500 to-purple-600", url: "https://www.coze.cn/", logoText: "Co", featured: true },
-      { id: "dify", name: "Dify", desc: "开源 LLM 应用开发平台", color: "bg-gradient-to-br from-indigo-500 to-blue-600", url: "https://dify.ai/", logoText: "Di", featured: true },
-    ]
-  },
-  {
-    id: "models",
-    title: "基座大模型",
-    subtitle: "Foundation Models",
-    icon: Cpu,
-    gradient: "from-blue-500 to-cyan-500",
-    tools: [
-      { id: "chatgpt", name: "ChatGPT", desc: "开创 AI 对话新时代", color: "bg-gradient-to-br from-emerald-500 to-teal-600", url: "https://chat.openai.com/", logoText: "GPT" },
-      { id: "claude", name: "Claude 3.5", desc: "最接近人类的智能助手", color: "bg-gradient-to-br from-orange-400 to-amber-500", url: "https://claude.ai/", logoText: "Cl" },
-      { id: "gemini", name: "Gemini", desc: "Google 多模态 AI 模型", color: "bg-gradient-to-br from-blue-400 to-indigo-500", url: "https://gemini.google.com/", logoText: "Ge" },
-      { id: "deepseek", name: "DeepSeek", desc: "顶级代码推理能力", color: "bg-blue-700", url: "https://www.deepseek.com/", logoText: "DS", hot: true },
-    ]
-  },
-  {
-    id: "creation",
-    title: "多模态创作",
-    subtitle: "Creative Matrix",
-    icon: Layers,
-    gradient: "from-rose-500 to-orange-500",
-    tools: [
-      { id: "midjourney", name: "Midjourney", desc: "超写实图像生成", color: "bg-gradient-to-br from-slate-700 to-slate-900", url: "https://www.midjourney.com/", logoText: "MJ" },
-      { id: "runway", name: "Runway", desc: "Gen-3 视频合成引擎", color: "bg-gradient-to-br from-purple-500 to-pink-500", url: "https://runwayml.com/", logoText: "Rw", hot: true },
-      { id: "suno", name: "Suno", desc: "文字生成音乐", color: "bg-gradient-to-br from-rose-500 to-red-600", url: "https://suno.ai/", logoText: "Sn" },
-      { id: "gamma", name: "Gamma", desc: "AI 驱动的演示文稿", color: "bg-gradient-to-br from-violet-500 to-purple-600", url: "https://gamma.app/", logoText: "Gm" },
-    ]
-  },
-  {
-    id: "dev",
-    title: "开发与科研",
-    subtitle: "Dev & Research",
-    icon: Code2,
-    gradient: "from-emerald-500 to-teal-500",
-    tools: [
-      { id: "cursor", name: "Cursor", desc: "AI 代码编辑器", color: "bg-gradient-to-br from-slate-800 to-slate-900", url: "https://cursor.sh/", logoText: "Cu", hot: true },
-      { id: "perplexity", name: "Perplexity", desc: "实时答案搜索引擎", color: "bg-gradient-to-br from-cyan-500 to-blue-600", url: "https://www.perplexity.ai/", logoText: "Px" },
-      { id: "v0", name: "v0.dev", desc: "用提示词生成 UI", color: "bg-gradient-to-br from-slate-900 to-black", url: "https://v0.dev/", logoText: "v0" },
-    ]
-  }
-];
-
-// --- Visual Components ---
-
-interface TiltCardProps {
-  children: React.ReactNode;
-  className?: string;
-  onClick?: () => void;
-}
-
-// 3D Tilt Card Component
-const TiltCard: React.FC<TiltCardProps> = ({ children, className = "", onClick }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const mouseX = useSpring(x, { stiffness: 150, damping: 15 });
-  const mouseY = useSpring(y, { stiffness: 150, damping: 15 });
-
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = ref.current?.getBoundingClientRect();
-    if (rect) {
-      const width = rect.width;
-      const height = rect.height;
-      const mouseXVal = e.clientX - rect.left;
-      const mouseYVal = e.clientY - rect.top;
-      const xPct = mouseXVal / width - 0.5;
-      const yPct = mouseYVal / height - 0.5;
-      x.set(xPct);
-      y.set(yPct);
-    }
-  }
-
-  function handleMouseLeave() {
-    x.set(0);
-    y.set(0);
-  }
-
-  const rotateX = useTransform(mouseY, [-0.5, 0.5], [8, -8]);
-  const rotateY = useTransform(mouseX, [-0.5, 0.5], [-8, 8]);
-  const brightness = useTransform(mouseY, [-0.5, 0.5], [1.1, 0.9]);
-
-  return (
-    <motion.div
-      ref={ref}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        rotateX,
-        rotateY,
-        filter: useMotionTemplate`brightness(${brightness})`,
-        transformStyle: "preserve-3d",
-      }}
-      onClick={onClick}
-      className={`relative transition-all duration-200 ease-linear ${className}`}
-    >
-      {children}
-    </motion.div>
-  );
+  logoText: string;
+  colorClass: string;
+  score: string;
+  url: string;
 };
 
+type FoundationModel = {
+  id: string;
+  name: string;
+  vendor: string;
+  desc: string;
+  icon?: React.ElementType;
+  logoText: string;
+  iconClass?: string;
+  logoUrl?: string;
+  url: string;
+};
 
-// High-Fidelity Tool Card
-const ToolCard = ({ tool, featured = false }: { tool: Tool; featured?: boolean }) => (
-  <a
-    href={tool.url}
-    target="_blank"
-    rel="noopener noreferrer"
-    className={`block h-full relative group rounded-2xl transition-all duration-300 overflow-hidden ${
-      featured
-        ? 'bg-white shadow-lg hover:shadow-xl'
-        : 'bg-white shadow-md hover:shadow-lg'
-    }`}
-  >
-    {/* Inner Glow on Hover */}
-    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-50 to-transparent opacity-0 group-hover:opacity-100 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-1000 pointer-events-none z-10" />
+const featuredTools: FeaturedTool[] = [
+  {
+    id: 'banana2',
+    name: 'Banana2',
+    vendor: 'AI 视频生成',
+    desc: '热门视频生成工具，适合用于课程项目中的短片创作与内容展示。',
+    icon: Video,
+    logoText: 'BN2',
+    colorClass: 'bg-yellow-100 text-yellow-700',
+    score: '4.9',
+    url: '#',
+  },
+  {
+    id: 'openclaw',
+    name: 'OpenClaw',
+    vendor: 'Agent Runtime',
+    desc: 'Agent 任务执行与控制台能力，适合多步骤自动化实验与实战演练。',
+    icon: Bot,
+    logoText: 'OC',
+    colorClass: 'bg-emerald-100 text-emerald-700',
+    score: '4.8',
+    url: '#',
+  },
+  {
+    id: 'seedance2',
+    name: 'Seedance2',
+    vendor: '多模态创作',
+    desc: '支持图文到视频的快速生成，适合课堂演示、脚本可视化和创意实践。',
+    icon: Image,
+    logoText: 'SD2',
+    colorClass: 'bg-pink-100 text-pink-700',
+    score: '4.8',
+    url: '#',
+  },
+  {
+    id: 'dify',
+    name: 'Dify',
+    vendor: 'LLM 应用平台',
+    desc: '工作流与应用编排能力成熟，适合课程中的智能体应用搭建与演示。',
+    icon: Code2,
+    logoText: 'DF',
+    colorClass: 'bg-indigo-100 text-indigo-700',
+    score: '4.7',
+    url: 'https://dify.ai/',
+  },
+  {
+    id: 'coze',
+    name: 'Coze',
+    vendor: '智能体平台',
+    desc: '快速构建与发布 Bot/Agent，适合教学场景中的低门槛智能体开发。',
+    icon: Bot,
+    logoText: 'CZ',
+    colorClass: 'bg-sky-100 text-sky-700',
+    score: '4.7',
+    url: 'https://www.coze.cn/',
+  },
+];
 
-    <div className={`flex ${featured ? 'flex-row items-center p-6 gap-6' : 'flex-row items-center p-4 gap-4'} h-full`}>
-      {/* Logo - 统一使用文字 logo */}
-      <div
-        className={`relative shrink-0 flex items-center justify-center rounded-xl shadow-md overflow-hidden ${featured ? 'w-16 h-16' : 'w-12 h-12'} ${tool.color || 'bg-slate-900'}`}
-      >
-        <span className={`text-white font-bold ${featured ? 'text-xl' : 'text-sm'}`}>{tool.logoText}</span>
-      </div>
+const foundationModels: FoundationModel[] = [
+  {
+    id: 'qwen-max',
+    name: '通义千问',
+    vendor: '阿里云',
+    desc: '覆盖文本、代码与多模态能力，适合企业级中文场景和教学落地。',
+    icon: MessageSquare,
+    logoText: 'QW',
+    iconClass: 'text-amber-600',
+    logoUrl: 'https://img.alicdn.com/imgextra/i4/O1CN01P8z9P91OBXM3D0VOt_!!6000000001667-2-tps-174-60.png',
+    url: 'https://tongyi.aliyun.com/',
+  },
+  {
+    id: 'glm-4-plus',
+    name: 'GLM-4',
+    vendor: '智谱 AI',
+    desc: '在中文理解和复杂推理任务上表现稳定，适配教育与开发场景。',
+    icon: Brain,
+    logoText: 'GLM',
+    iconClass: 'text-violet-600',
+    logoUrl: 'https://www.zhipuai.cn/logo.svg',
+    url: 'https://open.bigmodel.cn/',
+  },
+  {
+    id: 'deepseek-v3',
+    name: 'DeepSeek',
+    vendor: '深度求索',
+    desc: '代码与推理能力突出，适合实训课程中的编程与问题求解任务。',
+    icon: Search,
+    logoText: 'DS',
+    iconClass: 'text-blue-600',
+    logoUrl: 'https://cdn.deepseek.com/logo.png?x-image-process=image%2Fresize%2Cw_1920',
+    url: 'https://www.deepseek.com/',
+  },
+  {
+    id: 'doubao-1-5-pro',
+    name: '豆包大模型',
+    vendor: '字节跳动',
+    desc: '面向中文交互与应用集成，适合教育场景的对话和内容生成任务。',
+    icon: MessageSquare,
+    logoText: 'DB',
+    iconClass: 'text-rose-600',
+    logoUrl: 'https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/samantha/logo-icon-white-bg.png',
+    url: 'https://www.doubao.com/',
+  },
+];
 
-      {/* Text */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className={`font-bold text-slate-800 ${featured ? 'text-xl' : 'text-base'} truncate pr-2`}>
-            {tool.name}
-          </h3>
-          {tool.hot && (
-            <div className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-rose-50 text-[10px] font-bold text-rose-600">
-              <Zap className="w-3 h-3 mr-0.5 fill-current" />
-              热门
-            </div>
-          )}
-        </div>
-        <p className={`text-slate-500 leading-relaxed line-clamp-2 ${featured ? 'text-sm' : 'text-xs'}`}>
-          {tool.desc}
-        </p>
-      </div>
+function BrandLogo({
+  logoUrl,
+  alt,
+  fallbackText,
+  fallbackIcon: FallbackIcon,
+  fallbackIconClass,
+}: {
+  logoUrl?: string;
+  alt: string;
+  fallbackText: string;
+  fallbackIcon?: React.ElementType;
+  fallbackIconClass?: string;
+}) {
+  const [broken, setBroken] = useState(false);
 
-      {/* Arrow */}
-      <ExternalLink
-        className={`shrink-0 text-slate-300 group-hover:text-primary-500 transition-colors ${featured ? 'w-5 h-5' : 'w-4 h-4'}`}
+  if (logoUrl && !broken) {
+    return (
+      <img
+        src={logoUrl}
+        alt={alt}
+        className="h-full w-full object-contain"
+        onError={() => setBroken(true)}
+        loading="lazy"
       />
-    </div>
-  </a>
-);
+    );
+  }
 
-// --- Main Component ---
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center">
+      {FallbackIcon ? <FallbackIcon className={`h-6 w-6 ${fallbackIconClass || 'text-slate-500'}`} /> : null}
+      <span className="mt-1 text-[10px] font-bold text-slate-500">{fallbackText}</span>
+    </div>
+  );
+}
 
 const AISquare: React.FC = () => {
+  const [heroHovered, setHeroHovered] = useState(false);
+  const mouseX = useMotionValue(300);
+  const mouseY = useMotionValue(220);
+  const glowX = useSpring(mouseX, { stiffness: 220, damping: 28, mass: 0.4 });
+  const glowY = useSpring(mouseY, { stiffness: 220, damping: 28, mass: 0.4 });
+
+  const handleHeroMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    mouseX.set(event.clientX - rect.left);
+    mouseY.set(event.clientY - rect.top);
+  };
+
   return (
-    <div className="relative w-full min-h-screen bg-slate-50 selection:bg-blue-500 selection:text-white overflow-hidden pb-32">
-      
-      {/* Dynamic Background - Beams only, no grid */}
-      <div className="absolute inset-0 pointer-events-none">
-          {/* Top Glow */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-blue-400/20 rounded-full blur-[120px] mix-blend-multiply opacity-60" />
-          
-          {/* Animated Beams */}
-          <motion.div 
-            animate={{ rotate: [0, 360] }}
-            transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
-            className="absolute top-[-20%] left-[-10%] w-[100vh] h-[100vh] bg-gradient-to-r from-transparent via-blue-100/30 to-transparent blur-3xl opacity-50"
-          />
+    <div className="relative min-h-screen overflow-hidden bg-[#f7f9fc] pb-20">
+      <div className="pointer-events-none absolute inset-0 opacity-70">
+        <motion.div
+          className="absolute left-[12%] top-0 h-80 w-80 rounded-full bg-blue-200/70 blur-3xl"
+          animate={{ x: [0, 18, -8, 0], y: [0, -22, 10, 0] }}
+          transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute right-[10%] top-10 h-96 w-96 rounded-full bg-violet-200/70 blur-3xl"
+          animate={{ x: [0, -16, 10, 0], y: [0, 14, -18, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute bottom-10 left-[32%] h-80 w-80 rounded-full bg-pink-200/60 blur-3xl"
+          animate={{ x: [0, 12, -14, 0], y: [0, -10, 18, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+        />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-24">
-        
-        {/* Hero Header */}
-        <div className="text-center mb-24 relative">
-            <motion.div 
-               initial={{ opacity: 0, scale: 0.9 }}
-               animate={{ opacity: 1, scale: 1 }}
-               transition={{ duration: 0.8 }}
-               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900 text-white shadow-lg shadow-slate-900/20 mb-8 border border-slate-700"
+      <div className="relative z-10 mx-auto max-w-7xl px-6 pt-20 md:px-12">
+        <section className="mb-28 grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
+          <div>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm"
             >
-                <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400" />
-                <span className="text-xs font-bold tracking-widest uppercase">Agent EDU • AI 广场</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              全新：Agent Hub 2.0
             </motion.div>
-            
-            <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tight mb-6">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">Agent</span> 生态探索中心
-            </h1>
-            
-            <p className="text-xl text-slate-500 max-w-2xl mx-auto font-light leading-relaxed">
-                连接全球最强大的<span className="font-semibold text-slate-800">大语言模型</span>和<span className="font-semibold text-slate-800">智能体平台</span>，<br/>助力你的 AI 学习与创作之旅
+
+            <motion.h1
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+              className="mt-6 text-5xl font-black leading-tight text-[#1d1d1f] md:text-7xl"
+            >
+              Agent Hub
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.16 }}
+              className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600"
+            >
+              统一聚合模型、工具与智能体能力，面向教学、实训与项目协作提供一站式 Agent Hub 入口。
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.24 }}
+              className="mt-8 flex flex-wrap gap-4"
+            >
+              <button className="rounded-full bg-blue-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600">
+                进入 Agent Hub
+              </button>
+              <button className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300">
+                查看能力地图
+              </button>
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="relative h-[420px] w-full lg:h-[500px]"
+            onMouseMove={handleHeroMouseMove}
+            onMouseEnter={() => setHeroHovered(true)}
+            onMouseLeave={() => setHeroHovered(false)}
+          >
+            <motion.div
+              className="pointer-events-none absolute z-10 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.32)_0%,rgba(147,197,253,0.1)_45%,rgba(255,255,255,0)_75%)] blur-lg"
+              style={{ left: glowX, top: glowY }}
+              animate={{ opacity: heroHovered ? 1 : 0 }}
+              transition={{ duration: 0.22 }}
+            />
+            <SplineScene
+              scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+              className="relative z-0 h-full w-full"
+            />
+          </motion.div>
+        </section>
+
+        <section className="mb-24">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">推荐工具</h2>
+              <p className="mt-1 text-sm text-slate-500">专为教学与实训工作流精选。</p>
+            </div>
+            <button className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-700">
+              查看全部
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="hide-scrollbar flex snap-x gap-5 overflow-x-auto pb-4">
+            {featuredTools.map((tool, index) => (
+              <motion.a
+                key={tool.id}
+                href={tool.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group min-w-[290px] snap-start rounded-3xl border border-white/60 bg-white/75 p-6 shadow-[0_8px_28px_rgba(15,23,42,0.06)] backdrop-blur"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.06 }}
+              >
+                <div className={`mb-5 flex h-12 w-12 flex-col items-center justify-center rounded-xl ${tool.colorClass}`}>
+                  <tool.icon className="h-4 w-4" />
+                  <span className="mt-0.5 text-[9px] font-bold leading-none">{tool.logoText}</span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">{tool.name}</h3>
+                <p className="mt-1 text-xs font-medium text-slate-400">{tool.vendor}</p>
+                <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-600">{tool.desc}</p>
+                <div className="mt-4 flex items-center text-xs font-semibold text-slate-400">
+                  <Star className="mr-1 h-3.5 w-3.5 fill-current text-amber-400" />
+                  {tool.score}
+                </div>
+              </motion.a>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold text-slate-900">基础模型</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-500">
+              驱动下一代应用的核心引擎，可按教学目标灵活组合与接入。
             </p>
+          </div>
 
-            {/* Search Bar (Floating Glass) */}
-            <motion.div 
-               initial={{ y: 20, opacity: 0 }}
-               animate={{ y: 0, opacity: 1 }}
-               transition={{ delay: 0.3 }}
-               className="max-w-2xl mx-auto mt-12 relative group"
-            >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-purple-500/30 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative flex items-center bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl hover:shadow-2xl transition-all h-14 px-6">
-                    <Search className="w-5 h-5 text-slate-400" />
-                    <input 
-                        type="text" 
-                        placeholder="搜索 AI 工具、模型或平台..."
-                        className="flex-1 bg-transparent border-none outline-none px-4 text-slate-800 placeholder-slate-400 font-medium h-full"
-                    />
-                    <div className="flex items-center gap-1 text-slate-400 text-xs font-mono bg-slate-100 px-2 py-1 rounded-lg">
-                        <Command className="w-3 h-3" /> K
-                    </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {foundationModels.map((model, index) => (
+              <motion.a
+                key={model.id}
+                href={model.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex h-full flex-col rounded-3xl border border-white/60 bg-white/80 p-7 text-center shadow-[0_8px_28px_rgba(15,23,42,0.06)] backdrop-blur transition hover:bg-white"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.08 }}
+              >
+                <div className="mx-auto mb-5 flex h-16 w-28 items-center justify-center rounded-2xl border border-slate-100 bg-white px-3">
+                  <BrandLogo
+                    logoUrl={model.logoUrl}
+                    alt={model.name}
+                    fallbackText={model.logoText}
+                    fallbackIcon={model.icon}
+                    fallbackIconClass={model.iconClass}
+                  />
                 </div>
-            </motion.div>
-        </div>
+                <h3 className="text-lg font-bold text-slate-800">{model.name}</h3>
+                <p className="mt-1 text-xs font-medium text-slate-400">{model.vendor}</p>
+                <p className="mt-4 flex-1 text-sm leading-relaxed text-slate-600">{model.desc}</p>
+                <span className="mt-6 inline-flex items-center justify-center text-sm font-semibold text-blue-600 opacity-0 transition group-hover:opacity-100">
+                  探索
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </span>
+              </motion.a>
+            ))}
+          </div>
+        </section>
 
-        {/* The Grid Layout */}
-        <div className="space-y-16">
-            
-            {/* SECTION: Agent Platforms (Featured) */}
-            <section>
-                <div className="flex items-center gap-3 mb-8">
-                    <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 shadow-inner">
-                        <Network className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-900">智能体平台</h2>
-                        <p className="text-xs text-slate-400">Agent Orchestration</p>
-                    </div>
-                    <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent ml-4"></div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {categories.find(c => c.id === 'agents')?.tools.map((tool) => (
-                        <TiltCard key={tool.id}>
-                            <ToolCard tool={tool} featured={true} />
-                        </TiltCard>
-                    ))}
-                </div>
-            </section>
-
-            {/* SECTION: The Rest of the Tools (Masonry/Bento) */}
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {categories.filter(c => c.id !== 'agents').map((category) => (
-                    <div key={category.id} className="flex flex-col gap-6">
-                         {/* Category Header */}
-                        <div className="flex items-center gap-3">
-                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white bg-gradient-to-br ${category.gradient} shadow-md`}>
-                                 <category.icon className="w-4 h-4" />
-                             </div>
-                             <div>
-                                 <h3 className="font-bold text-slate-800">{category.title}</h3>
-                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{category.subtitle}</p>
-                             </div>
-                        </div>
-
-                        {/* Tools Stack */}
-                        <div className="space-y-3">
-                            {category.tools.map((tool) => (
-                                <TiltCard key={tool.id} onClick={() => window.open(tool.url, '_blank')}>
-                                    <ToolCard tool={tool} />
-                                </TiltCard>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </section>
-
-        </div>
       </div>
-      
-      {/* Footer Decoration */}
-      <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 };

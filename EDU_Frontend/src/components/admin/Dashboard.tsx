@@ -561,6 +561,64 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // 批量清理 CREATED 容器
+  const executeCleanupCreatedContainers = async () => {
+    const createdContainers = containers.filter((container) => container.state === 'created');
+    if (createdContainers.length === 0) {
+      setToast({ message: '当前没有 CREATED 容器', type: 'success' });
+      return;
+    }
+
+    setActionLoading('cleanup-created');
+    try {
+      const results = await Promise.allSettled(
+        createdContainers.map((container) => dockerService.removeContainer(container.id, false))
+      );
+
+      let successCount = 0;
+      let failCount = 0;
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          successCount += 1;
+        } else {
+          failCount += 1;
+        }
+      });
+
+      if (failCount === 0) {
+        setToast({ message: `已清理 ${successCount} 个 CREATED 容器`, type: 'success' });
+      } else {
+        setToast({
+          message: `已清理 ${successCount} 个，${failCount} 个删除失败`,
+          type: 'error',
+        });
+      }
+
+      loadData();
+    } catch (err) {
+      setToast({ message: '批量清理失败', type: 'error' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCleanupCreatedContainers = () => {
+    const createdCount = containers.filter((container) => container.state === 'created').length;
+    if (createdCount === 0) {
+      setToast({ message: '当前没有 CREATED 容器', type: 'success' });
+      return;
+    }
+
+    showConfirm({
+      title: '批量清理 CREATED 容器',
+      message: `检测到 ${createdCount} 个 CREATED 容器，是否批量删除？`,
+      type: 'warning',
+      onConfirm: () => {
+        void executeCleanupCreatedContainers();
+      },
+    });
+  };
+
   // 删除镜像
   const handleRemoveImage = (image: DockerImage) => {
     showConfirm({
@@ -622,6 +680,7 @@ const Dashboard: React.FC = () => {
 
   const runningContainers = containers.filter(c => c.state === 'running').length;
   const stoppedContainers = containers.filter(c => c.state === 'exited').length;
+  const createdContainers = containers.filter(c => c.state === 'created').length;
 
   return (
     <motion.div
@@ -700,15 +759,32 @@ const Dashboard: React.FC = () => {
                 {containers.length} 个容器
               </span>
             </h2>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 text-success-600">
-                <span className="w-2 h-2 rounded-full bg-success-500"></span>
-                {runningContainers} 运行中
-              </span>
-              <span className="flex items-center gap-1.5 text-default-500">
-                <span className="w-2 h-2 rounded-full bg-default-400"></span>
-                {stoppedContainers} 已停止
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1.5 text-success-600">
+                  <span className="w-2 h-2 rounded-full bg-success-500"></span>
+                  {runningContainers} 运行中
+                </span>
+                <span className="flex items-center gap-1.5 text-default-500">
+                  <span className="w-2 h-2 rounded-full bg-default-400"></span>
+                  {stoppedContainers} 已停止
+                </span>
+                <span className="flex items-center gap-1.5 text-primary-600">
+                  <span className="w-2 h-2 rounded-full bg-primary-500"></span>
+                  {createdContainers} CREATED
+                </span>
+              </div>
+              {createdContainers > 0 && (
+                <button
+                  onClick={handleCleanupCreatedContainers}
+                  disabled={actionLoading === 'cleanup-created'}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-danger-200 text-danger-600 bg-danger-50 hover:bg-danger-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="批量删除 CREATED 容器"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {actionLoading === 'cleanup-created' ? '清理中...' : '清理 CREATED'}
+                </button>
+              )}
             </div>
           </div>
 

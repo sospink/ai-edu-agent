@@ -477,7 +477,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }} 
       exit={{ opacity: 0 }}
-      className="relative min-h-[calc(100vh-64px)] py-8 px-4 md:px-8"
+      className="relative min-h-[calc(100vh-64px)] px-4 pb-8 pt-24 md:px-8"
     >
       {/* 消息提示 */}
       <AnimatePresence>

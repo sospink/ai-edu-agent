@@ -12,6 +12,7 @@ export enum MaterialType {
   MARKDOWN = 1,   // Markdown 文档
   PDF = 2,        // PDF 文件
   MINDMAP = 3,    // 思维导图 (xmind, mm 等)
+  WORD = 4,       // Word 文档 (.docx)
 }
 
 @Entity('lesson_materials')
@@ -30,7 +31,7 @@ export class LessonMaterial {
     type: 'tinyint',
     unsigned: true,
     default: MaterialType.MARKDOWN,
-    comment: '类型: 1-Markdown, 2-PDF, 3-思维导图',
+    comment: '类型: 1-Markdown, 2-PDF, 3-思维导图, 4-Word',
   })
   type!: MaterialType;
 

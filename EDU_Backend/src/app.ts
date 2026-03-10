@@ -16,6 +16,8 @@ app.use(requestLogger);
 
 // 静态文件服务 - 用于访问上传的文件
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+// 兼容仅代理 /api 的部署场景
+app.use('/api/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
 // API 路由
 app.use('/api', routes);

@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => {
           target: 'http://localhost:4000',
           changeOrigin: true,
         },
+        '/ws': {
+          target: 'ws://localhost:4000',
+          ws: true,
+          changeOrigin: true,
+        },
       },
     },
     plugins: [react()],
@@ -24,6 +29,11 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+    },
+    build: {
+      // Work around a production minification runtime bug in xterm
+      // ("ReferenceError: i is not defined" in requestMode) that breaks terminal input.
+      minify: false,
     },
   };
 });

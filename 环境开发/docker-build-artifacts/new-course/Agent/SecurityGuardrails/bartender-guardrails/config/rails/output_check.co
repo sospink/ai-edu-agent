@@ -1,0 +1,15 @@
+# config/rails/output_check.co
+# =============================================
+# 输出护栏规则
+# 在模型输出后检查是否泄露了敏感信息
+# =============================================
+
+define flow self check output
+  $allowed = execute glm_self_check_output(bot_message=$bot_message)
+
+  if not $allowed
+    bot inform output blocked
+    stop
+
+define bot inform output blocked
+  "哎呀，我刚才差点说了不该说的...🤐 让我换个方式来回答你的问题！有什么关于饮品的问题我可以帮到你的？"

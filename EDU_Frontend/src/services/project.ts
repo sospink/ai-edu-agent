@@ -1,4 +1,5 @@
 import { api } from './api';
+import { API_BASE_URL } from '@/config';
 import type { ApiResponse } from '@/types';
 
 // ==================== 类型定义 ====================
@@ -230,7 +231,7 @@ export const uploadApi = {
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload/image`, {
+      const response = await fetch(`${API_BASE_URL}/upload/image`, {
         method: 'POST',
         headers,
         body: formData,

@@ -10,7 +10,7 @@ import type { Project, ProjectUnit } from '@/types/project';
 import type { User } from '@/types';
 import { getDifficultyLevel, getDifficultyColor } from '@/types/project';
 import { projectApi } from '@/services/project';
-import { getImageUrl } from '@/config';
+import { getImageUrlCandidates, handleImageFallback } from '@/config';
 
 interface ProjectDetailProps {
   project: Project;
@@ -50,6 +50,29 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
 
   const level = getDifficultyLevel(project.difficulty);
   const { color } = getDifficultyColor(project.difficulty);
+  const coverCandidates = getImageUrlCandidates(project.coverUrl);
+  const isOpenClawProject = ((project.slug || '').toLowerCase().includes('openclaw')) ||
+    ((project.title || '').toLowerCase().includes('openclaw'));
+
+  const openTrainingEntry = (unit?: ProjectUnit) => {
+    if (isOpenClawProject) {
+      window.open('/openclaw', '_blank');
+      return;
+    }
+
+    if (!unit) {
+      alert('该项目暂无可学习的单元');
+      return;
+    }
+
+    const labParams = new URLSearchParams({
+      sourceType: 'project',
+      sourceId: project.id.toString(),
+      unitId: unit.id.toString(),
+      unitName: unit.title,
+    });
+    window.open(`/lab?${labParams.toString()}`, '_blank');
+  };
 
   // 计算预估时长
   const getEstimatedDuration = (): string => {
@@ -259,14 +282,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
                             if (!isLoggedIn) {
                               onLoginRequired();
                             } else {
-                              // 跳转到实验环境页面，传递 unitId
-                              const labParams = new URLSearchParams({
-                                sourceType: 'project',
-                                sourceId: project.id.toString(),
-                                unitId: unit.id.toString(),
-                                unitName: unit.title,
-                              });
-                              window.open(`/lab?${labParams.toString()}`, '_blank');
+                              openTrainingEntry(unit);
                             }
                           }}
                           className="group flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl hover:border-primary-200 hover:shadow-md transition-all cursor-pointer"
@@ -310,7 +326,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
               {/* Start Card */}
               <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col group hover:shadow-[0_15px_40px_rgb(0,0,0,0.08)] transition-all duration-300">
                 <div className="relative h-40 w-full">
-                  <img src={getImageUrl(project.coverUrl)} alt="Project Cover" className="w-full h-full object-cover" />
+                  <img
+                    src={coverCandidates[0]}
+                    alt="Project Cover"
+                    className="w-full h-full object-cover"
+                    onError={(e) => handleImageFallback(e, coverCandidates)}
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
                   <div className="absolute bottom-4 left-4 text-white">
                     <div className="text-[10px] uppercase tracking-widest font-bold opacity-80 mb-1">Interactive Project</div>
@@ -339,19 +360,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
                       if (!isLoggedIn) {
                         onLoginRequired();
                       } else {
-                        // 跳转到第一个单元的实验环境页面
-                        const firstUnit = units[0];
-                        if (firstUnit) {
-                          const labParams = new URLSearchParams({
-                            sourceType: 'project',
-                            sourceId: project.id.toString(),
-                            unitId: firstUnit.id.toString(),
-                            unitName: firstUnit.title,
-                          });
-                          window.open(`/lab?${labParams.toString()}`, '_blank');
-                        } else {
-                          alert('该项目暂无可学习的单元');
-                        }
+                        openTrainingEntry(units[0]);
                       }
                     }}
                     className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-xl shadow-slate-900/20 hover:shadow-2xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2 group relative overflow-hidden"

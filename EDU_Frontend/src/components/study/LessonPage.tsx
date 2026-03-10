@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -27,12 +27,13 @@ import {
 } from 'lucide-react';
 import { materialApi, type LessonMaterial } from '@/services/course';
 import { courseApi } from '@/services/course';
-import { getStaticUrl } from '@/config';
+import { getDifyChatbotUrlEncoded, getStaticUrl } from '@/config';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
 import { Document, Page, pdfjs } from 'react-pdf';
+import { renderAsync } from 'docx-preview';
 import CompleteLessonDialog from './CompleteLessonDialog';
 import 'highlight.js/styles/vs2015.css';
 
@@ -45,6 +46,7 @@ const getMaterialTypeInfo = (type: number) => {
     case 1: return { icon: FileText, label: 'Markdown', color: 'text-blue-500' };
     case 2: return { icon: FileType, label: 'PDF', color: 'text-red-500' };
     case 3: return { icon: Brain, label: '思维导图', color: 'text-purple-500' };
+    case 4: return { icon: FileText, label: 'Word', color: 'text-indigo-500' };
     default: return { icon: FileText, label: '文件', color: 'text-slate-500' };
   }
 };
@@ -551,6 +553,265 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ url, title }) => {
   );
 };
 
+// DOCX 预览组件 - 固定高保真(docx-preview)
+interface DocxViewerProps {
+  url: string;
+  title: string;
+}
+
+const DocxViewer: React.FC<DocxViewerProps> = ({ url, title }) => {
+  const [docxLoading, setDocxLoading] = useState<boolean>(true);
+  const [docxError, setDocxError] = useState<string | null>(null);
+  const [fitToWidth, setFitToWidth] = useState<boolean>(true);
+  const [docxZoom, setDocxZoom] = useState<number>(1);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const metricsRef = useRef<{ contentMinX: number; contentWidth: number } | null>(null);
+
+  const updateFidelityLayout = useCallback(() => {
+    if (!fitToWidth) {
+      setDocxZoom(1);
+      if (previewRef.current) {
+        previewRef.current.style.setProperty('--docx-zoom', '1');
+        previewRef.current.style.setProperty('--docx-offset-x', '0px');
+      }
+      return;
+    }
+
+    if (!previewRef.current || !viewportRef.current) return;
+    const metrics = metricsRef.current;
+    if (!metrics || !metrics.contentWidth) return;
+
+    const availableWidth = Math.max(1, viewportRef.current.clientWidth - 24);
+    const nextZoom = Math.min(1, Math.max(0.05, availableWidth / metrics.contentWidth));
+    const offsetX = -metrics.contentMinX + Math.max(0, (availableWidth / nextZoom - metrics.contentWidth) / 2);
+    setDocxZoom(nextZoom);
+    previewRef.current.style.setProperty('--docx-zoom', String(nextZoom));
+    previewRef.current.style.setProperty('--docx-offset-x', `${offsetX}px`);
+  }, [fitToWidth]);
+
+  const collectDocxMetrics = useCallback((): { contentMinX: number; contentWidth: number } | null => {
+    if (!previewRef.current) return null;
+
+    const pages = Array.from(previewRef.current.querySelectorAll('section.docx')) as HTMLElement[];
+    if (pages.length === 0) return null;
+
+    const selector = 'h1,h2,h3,h4,h5,h6,p,span,table,img,svg,canvas,a,li,pre,code,blockquote,strong,em';
+
+    let globalMinX = Number.POSITIVE_INFINITY;
+    let globalMaxX = 0;
+    let maxPageWidth = 0;
+
+    for (const page of pages) {
+      const pageWidth = page.offsetWidth || 0;
+      maxPageWidth = Math.max(maxPageWidth, pageWidth);
+      const pageRect = page.getBoundingClientRect();
+
+      const elements = Array.from(page.querySelectorAll(selector)) as HTMLElement[];
+      for (const el of elements) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 2 || rect.height < 2) continue;
+
+        const left = rect.left - pageRect.left;
+        const right = rect.right - pageRect.left;
+        if (!Number.isFinite(left) || !Number.isFinite(right)) continue;
+
+        globalMinX = Math.min(globalMinX, left);
+        globalMaxX = Math.max(globalMaxX, right);
+      }
+    }
+
+    if (!Number.isFinite(globalMinX) || globalMaxX <= globalMinX) {
+      return { contentMinX: 0, contentWidth: maxPageWidth };
+    }
+
+    const contentMinX = Math.max(0, globalMinX - 6);
+    const contentWidth = Math.max(1, Math.min(maxPageWidth, globalMaxX - contentMinX + 6));
+    return { contentMinX, contentWidth };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDocx = async () => {
+      setDocxLoading(true);
+      setDocxError(null);
+      if (previewRef.current) {
+        previewRef.current.innerHTML = '';
+      }
+      metricsRef.current = null;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`文档加载失败: ${response.status}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        if (cancelled) return;
+        if (!previewRef.current) return;
+
+        await renderAsync(arrayBuffer, previewRef.current, undefined, {
+          className: 'docx-preview',
+          inWrapper: true,
+          ignoreWidth: false,
+          ignoreHeight: true,
+          breakPages: true,
+          useBase64URL: true,
+          experimental: false,
+        });
+
+        if (!cancelled) {
+          metricsRef.current = collectDocxMetrics();
+          requestAnimationFrame(() => updateFidelityLayout());
+          setTimeout(() => {
+            metricsRef.current = collectDocxMetrics();
+            updateFidelityLayout();
+          }, 120);
+          setDocxLoading(false);
+        }
+      } catch (error) {
+        console.error('DOCX 加载失败:', error);
+        if (!cancelled) {
+          setDocxError('Word 文档加载失败，请尝试下载后查看');
+          setDocxLoading(false);
+        }
+      }
+    };
+
+    loadDocx();
+
+    return () => {
+      cancelled = true;
+      if (previewRef.current) {
+        previewRef.current.innerHTML = '';
+      }
+    };
+  }, [url, collectDocxMetrics, updateFidelityLayout]);
+
+  useEffect(() => {
+    if (!viewportRef.current) return;
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => updateFidelityLayout());
+    });
+    observer.observe(viewportRef.current);
+
+    return () => observer.disconnect();
+  }, [updateFidelityLayout]);
+
+  useEffect(() => {
+    requestAnimationFrame(() => updateFidelityLayout());
+  }, [fitToWidth, updateFidelityLayout]);
+
+  return (
+    <div className="h-full flex flex-col bg-slate-50">
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shadow-sm">
+        <h2 className="font-bold text-slate-800 text-sm truncate max-w-[300px]" title={title}>
+          {title}
+        </h2>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFitToWidth((prev) => !prev)}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium"
+            title={fitToWidth ? '切换为原始比例' : '切换为适配宽度'}
+          >
+            {fitToWidth ? `适配宽度 ${Math.round(docxZoom * 100)}%` : '原始比例'}
+          </button>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700"
+            title="在新窗口打开"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+          <a
+            href={url}
+            download
+            className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors"
+            title="下载"
+          >
+            <Download className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>下载</span>
+          </a>
+        </div>
+      </div>
+
+      <div
+        ref={viewportRef}
+        className={`flex-1 p-3 bg-slate-100 relative ${
+          fitToWidth ? 'overflow-y-auto overflow-x-hidden' : 'overflow-auto'
+        }`}
+      >
+        <div className="docx-fidelity-stage min-h-full">
+          <div ref={previewRef} className={`docx-fidelity-root ${fitToWidth ? 'fit' : 'origin'}`} />
+        </div>
+
+        {docxLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          </div>
+        )}
+
+        {docxError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-100">
+            <AlertCircle className="w-12 h-12 mb-4" />
+            <p className="mb-4">{docxError}</p>
+            <a
+              href={url}
+              download
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Download className="w-4 h-4" />
+              下载 Word 文档
+            </a>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        .docx-fidelity-stage {
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+        }
+        .docx-fidelity-root .docx-wrapper {
+          background: #f1f5f9 !important;
+          padding: 12px !important;
+          width: max-content !important;
+          min-width: max-content !important;
+          margin: 0 auto !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+        }
+        .docx-fidelity-root.fit .docx-wrapper {
+          transform: translateX(var(--docx-offset-x, 0px)) scale(var(--docx-zoom, 1));
+          transform-origin: top left;
+        }
+        .docx-fidelity-root.origin .docx-wrapper {
+          transform: none;
+        }
+        .docx-fidelity-root .docx-wrapper > section.docx {
+          width: fit-content !important;
+          margin: 0 auto 14px auto !important;
+          box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12) !important;
+        }
+        .docx-fidelity-root .docx-wrapper table,
+        .docx-fidelity-root .docx-wrapper img,
+        .docx-fidelity-root .docx-wrapper svg,
+        .docx-fidelity-root .docx-wrapper canvas {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+      `}</style>
+    </div>
+  );
+};
+
 // 思维导图预览组件 - 更好的 UI 展示
 interface MindMapViewerProps {
   url: string;
@@ -606,57 +867,95 @@ interface MaterialTabsProps {
   materials: LessonMaterial[];
   currentIndex: number;
   onSelect: (index: number) => void;
+  compact?: boolean;
 }
 
-const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, onSelect }) => (
-  <div className="px-6 py-3 border-b border-slate-100 bg-white/50">
-    <div className="inline-flex items-center p-1 bg-slate-100/80 rounded-xl">
-      {materials.map((material, index) => {
-        const typeInfo = getMaterialTypeInfo(material.type);
-        const TypeIcon = typeInfo.icon;
-        const isActive = index === currentIndex;
-        
-        return (
-          <button
-            key={material.id}
-            onClick={() => onSelect(index)}
-            className={`relative px-4 py-2 rounded-lg transition-all duration-200 ${
-              isActive
-                ? 'bg-white shadow-sm text-slate-800'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-            title={material.title}
-          >
-            <TypeIcon className={`w-5 h-5 ${isActive ? typeInfo.color : ''}`} />
-          </button>
-        );
-      })}
+const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, onSelect, compact = false }) => {
+  if (compact) {
+    return (
+      <div className="inline-flex items-center p-1 bg-slate-100/80 rounded-xl">
+        {materials.map((material, index) => {
+          const typeInfo = getMaterialTypeInfo(material.type);
+          const TypeIcon = typeInfo.icon;
+          const isActive = index === currentIndex;
+
+          return (
+            <button
+              key={material.id}
+              onClick={() => onSelect(index)}
+              className={`relative px-2.5 py-1.5 rounded-lg transition-all duration-200 ${
+                isActive
+                  ? 'bg-white shadow-sm text-slate-800'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+              title={material.title}
+            >
+              <TypeIcon className={`w-4 h-4 ${isActive ? typeInfo.color : ''}`} />
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-6 py-3 border-b border-slate-100 bg-white/50">
+      <div className="inline-flex items-center p-1 bg-slate-100/80 rounded-xl">
+        {materials.map((material, index) => {
+          const typeInfo = getMaterialTypeInfo(material.type);
+          const TypeIcon = typeInfo.icon;
+          const isActive = index === currentIndex;
+
+          return (
+            <button
+              key={material.id}
+              onClick={() => onSelect(index)}
+              className={`relative px-4 py-2 rounded-lg transition-all duration-200 ${
+                isActive
+                  ? 'bg-white shadow-sm text-slate-800'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+              title={material.title}
+            >
+              <TypeIcon className={`w-5 h-5 ${isActive ? typeInfo.color : ''}`} />
+            </button>
+          );
+        })}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // 主组件
 const LessonPage: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
-  
-  // 从 URL 参数获取技能名称和课时名称
-  const searchParams = new URLSearchParams(window.location.search);
+  const location = useLocation();
+
+  // 从 URL 参数获取技能名称、课时名称、课程 ID
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const skillName = searchParams.get('skillName') || '技能实训';
   const lessonName = searchParams.get('lessonName') || '';
-  
+  const queryCourseId = searchParams.get('courseId');
+  const initialCourseId = queryCourseId ? parseInt(queryCourseId, 10) : NaN;
+
   const [isDocCollapsed, setIsDocCollapsed] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(45);
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const [materials, setMaterials] = useState<LessonMaterial[]>([]);
   const [currentMaterialIndex, setCurrentMaterialIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [markdownContent, setMarkdownContent] = useState<string>('');
   const [loadingContent, setLoadingContent] = useState(false);
-  
+  const [assistantIframeLoaded, setAssistantIframeLoaded] = useState(false);
+  const [courseId, setCourseId] = useState<number | null>(Number.isNaN(initialCourseId) ? null : initialCourseId);
+  const [courseTitle, setCourseTitle] = useState('');
+  const [courseDescription, setCourseDescription] = useState('');
+  const [difyIframeSrc, setDifyIframeSrc] = useState('');
+
   // 完成实验相关状态
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -683,6 +982,69 @@ const LessonPage: React.FC = () => {
     }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const navigateBackSafely = useCallback(() => {
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.focus();
+      }
+    } catch (err) {
+      console.warn('[LessonPage] 无法访问 opener:', err);
+    }
+
+    try {
+      window.close();
+    } catch (err) {
+      console.warn('[LessonPage] 关闭窗口失败，回退路由:', err);
+    }
+
+    window.setTimeout(() => {
+      if (window.closed) return;
+      if (window.history.length > 1) {
+        navigate(-1);
+        return;
+      }
+      navigate('/study', { replace: true });
+    }, 120);
+  }, [navigate]);
+
+  const handleResetLayout = useCallback(() => {
+    setIsDocCollapsed(false);
+    setLeftPanelWidth(45);
+  }, []);
+
+  const handleCompleteDialogClose = useCallback(() => {
+    setShowCompleteDialog(false);
+
+    const goStudyPage = () => {
+      navigate('/study', { replace: true });
+    };
+
+    try {
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.location.assign('/study');
+          window.opener.focus();
+        } catch (openerErr) {
+          console.warn('[LessonPage] 无法控制 opener，回退到当前页跳转:', openerErr);
+        }
+      }
+    } catch (err) {
+      console.warn('[LessonPage] 访问 opener 失败:', err);
+    }
+
+    try {
+      window.close();
+    } catch (err) {
+      console.warn('[LessonPage] 关闭窗口失败，回退到站内跳转:', err);
+    }
+
+    window.setTimeout(() => {
+      if (!window.closed) {
+        goStudyPage();
+      }
+    }, 120);
+  }, [navigate]);
 
   // 完成实验
   const handleCompleteLesson = async () => {
@@ -746,6 +1108,79 @@ const LessonPage: React.FC = () => {
 
     fetchMaterials();
   }, [lessonId]);
+
+  // 加载课程上下文（用于 Dify 动态开场）
+  useEffect(() => {
+    const fetchCourseContext = async () => {
+      const lessonNumber = lessonId ? parseInt(lessonId, 10) : NaN;
+      if (!lessonId || Number.isNaN(lessonNumber)) return;
+
+      let resolvedCourseId = Number.isNaN(initialCourseId) ? null : initialCourseId;
+
+      try {
+        if (!resolvedCourseId) {
+          const lessonResponse = await courseApi.getLessonById(lessonNumber);
+          if (lessonResponse.success && lessonResponse.data) {
+            resolvedCourseId = lessonResponse.data.courseId;
+          }
+        }
+
+        if (!resolvedCourseId) return;
+
+        const courseResponse = await courseApi.getById(resolvedCourseId);
+        if (!courseResponse.success || !courseResponse.data) return;
+
+        setCourseId(resolvedCourseId);
+        setCourseTitle(courseResponse.data.title || '');
+        setCourseDescription(courseResponse.data.description || '');
+      } catch (err) {
+        console.warn('[LessonPage] 加载课程上下文失败:', err);
+      }
+    };
+
+    fetchCourseContext();
+  }, [lessonId, initialCourseId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const buildDifyUrl = async () => {
+      const shortCourseDesc = courseDescription.length > 320
+        ? `${courseDescription.slice(0, 320)}...`
+        : courseDescription;
+      const difyUserId = courseId && lessonId
+        ? `course-${courseId}-lesson-${lessonId}`
+        : undefined;
+
+      const url = await getDifyChatbotUrlEncoded({
+        'sys.user_id': difyUserId,
+        course_id: courseId ?? undefined,
+        course_title: courseTitle || undefined,
+        course_desc: shortCourseDesc || undefined,
+        skill_name: skillName || undefined,
+        lesson_name: lessonName || undefined,
+      });
+
+      if (!cancelled) {
+        setDifyIframeSrc(url);
+      }
+    };
+
+    buildDifyUrl().catch((err) => {
+      console.warn('[LessonPage] 生成 Dify URL 失败:', err);
+      if (!cancelled) {
+        setDifyIframeSrc('');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseDescription, courseId, courseTitle, lessonId, lessonName, skillName]);
+
+  useEffect(() => {
+    setAssistantIframeLoaded(false);
+  }, [difyIframeSrc]);
 
   // 加载 Markdown 内容
   useEffect(() => {
@@ -875,6 +1310,18 @@ const LessonPage: React.FC = () => {
       );
     }
 
+    // Word 类型
+    if (currentMaterial.type === 4) {
+      return (
+        <div className="flex-1 overflow-hidden">
+          <DocxViewer
+            url={getStaticUrl(currentMaterial.fileUrl)}
+            title={currentMaterial.title}
+          />
+        </div>
+      );
+    }
+
     // 思维导图或其他类型 - 使用新的 MindMapViewer 组件
     return (
       <MindMapViewer
@@ -891,6 +1338,13 @@ const LessonPage: React.FC = () => {
       <div className="h-10 min-h-[40px] flex items-center justify-between px-4 bg-white border-b border-slate-200 select-none">
         {/* 左侧：技能图标 + 技能名称/课时名称 */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={navigateBackSafely}
+            className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 hover:text-slate-700"
+            title="返回"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
           <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm">
             <Zap className="w-4 h-4 text-white" />
           </div>
@@ -966,9 +1420,9 @@ const LessonPage: React.FC = () => {
       >
         {/* Header */}
         <div className="h-14 min-h-[56px] flex items-center justify-between px-6 border-b border-slate-100 bg-white/50">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => navigate(-1)}
+              onClick={navigateBackSafely}
               className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
               title="返回"
             >
@@ -980,9 +1434,23 @@ const LessonPage: React.FC = () => {
                 学习资料
               </span>
             </div>
+            {materials.length > 1 && (
+              <div className="max-w-[240px] overflow-x-auto">
+                <MaterialTabs
+                  materials={materials}
+                  currentIndex={currentMaterialIndex}
+                  onSelect={setCurrentMaterialIndex}
+                  compact
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400">
+            <button
+              onClick={handleResetLayout}
+              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+              title="重置布局"
+            >
               <Settings className="w-4 h-4" />
             </button>
             <button
@@ -994,15 +1462,6 @@ const LessonPage: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {/* 资料 Tab 标签页（多个资料时显示） */}
-        {materials.length > 1 && (
-          <MaterialTabs 
-            materials={materials} 
-            currentIndex={currentMaterialIndex}
-            onSelect={setCurrentMaterialIndex}
-          />
-        )}
 
         {/* 内容区域 */}
         {renderContent()}
@@ -1059,26 +1518,48 @@ const LessonPage: React.FC = () => {
       </AnimatePresence>
 
       {/* 右侧面板：AI 智能体教师 */}
-      <div className="flex-1 relative h-full bg-white overflow-hidden">
-        <iframe
-          src="http://117.50.80.138/chatbot/jtKQIZ598GEO7MX7"
-          className="w-full h-full border-0"
-          style={{ 
-            minHeight: '100%',
-            pointerEvents: isDragging ? 'none' : 'auto'
-          }}
-          allow="microphone"
-          title="AI 智能体教师"
-        />
+      <div className="flex-1 relative h-full bg-slate-100 overflow-hidden">
+        <div className="relative h-full overflow-hidden">
+          {!difyIframeSrc && (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500 px-6 text-center">
+              Dify 地址未配置，请在前端环境变量中设置 `VITE_DIFY_BASE_URL` 和 `VITE_DIFY_CHATBOT_TOKEN`。
+            </div>
+          )}
+          {difyIframeSrc && (
+            <>
+              {!assistantIframeLoaded && (
+                <div className="absolute inset-0 bg-slate-100" />
+              )}
+              <iframe
+                src={difyIframeSrc}
+                className="absolute inset-0 block w-full border-0"
+                style={{
+                  // Dify 在较低 iframe 视口时会裁切首条头像，这里做纵向缩放+高度补偿规避裁切
+                  height: '105.26%',
+                  transform: 'scaleY(0.95)',
+                  transformOrigin: 'top',
+                  pointerEvents: isDragging ? 'none' : 'auto',
+                  opacity: assistantIframeLoaded ? 1 : 0,
+                  transition: 'opacity 0.2s ease',
+                  background: '#f1f5f9',
+                }}
+                onLoad={() => setAssistantIframeLoaded(true)}
+                allow="microphone"
+                title="AI 智能体教师"
+              />
+            </>
+          )}
+        </div>
       </div>
       </div>
 
       {/* 完成实验 Dialog */}
       <CompleteLessonDialog
         isOpen={showCompleteDialog}
-        onClose={() => setShowCompleteDialog(false)}
+        onClose={handleCompleteDialogClose}
         lessonName={lessonName}
         earnedXP={earnedXP}
+        actionText="返回学习中心"
       />
     </div>
   );

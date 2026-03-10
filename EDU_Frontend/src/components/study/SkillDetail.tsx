@@ -186,7 +186,8 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
     // 跳转到对应页面
     const params = new URLSearchParams({
       skillName: skill.title,
-      lessonName: lessonTitle
+      lessonName: lessonTitle,
+      courseId: skill.id.toString(),
     });
 
     if (lessonType === 'text') {

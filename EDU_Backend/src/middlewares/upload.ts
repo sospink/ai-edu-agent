@@ -67,23 +67,24 @@ const imageFilter = (_req: Express.Request, file: Express.Multer.File, cb: multe
   }
 };
 
-// 学习资料文件过滤器 (markdown, pdf, 思维导图)
+// 学习资料文件过滤器 (markdown, pdf, word, 思维导图)
 const materialFilter = (_req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedMimes = [
     'text/markdown',
     'text/x-markdown',
     'text/plain',           // .md 文件有时被识别为 text/plain
     'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
     'application/x-xmind',  // XMind
     'application/octet-stream', // 通用二进制（某些思维导图格式）
   ];
-  const allowedExts = ['.md', '.markdown', '.pdf', '.xmind', '.mm', '.xmm'];
+  const allowedExts = ['.md', '.markdown', '.pdf', '.docx', '.xmind', '.mm', '.xmm'];
   const ext = path.extname(file.originalname).toLowerCase();
   
   if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error('只允许上传 Markdown、PDF 或思维导图文件 (.md, .pdf, .xmind, .mm)'));
+    cb(new Error('只允许上传 Markdown、PDF、Word 或思维导图文件 (.md, .pdf, .docx, .xmind, .mm)'));
   }
 };
 

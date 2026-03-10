@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { ArrowRight, Code2, MessageSquareText, Cpu, Terminal } from 'lucide-react';
+import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate, useAnimationFrame } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, Code2, MessageSquareText, Cpu } from 'lucide-react';
 
 const cn = (...classes: (string | undefined | null | false)[]) => {
   return classes.filter(Boolean).join(' ');
@@ -118,11 +119,11 @@ const FloatingCard = ({ icon: Icon, title, subtitle, color = "blue", xOffset = 0
       <motion.div
         animate={{ y: [0, -15, 0] }}
         transition={{ duration: 4 + Math.random() * 2, repeat: Infinity, ease: "easeInOut", delay: Math.random() * 2 }}
-        className="flex items-center gap-3 p-4 rounded-2xl backdrop-blur-xl border shadow-[0_8px_30px_rgb(0,0,0,0.06)] bg-white/60 border-white/50"
+        className="flex min-w-[190px] items-center gap-3 rounded-2xl border border-white/50 bg-white/60 p-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-xl"
       >
         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shadow-sm", 
           color === "blue" ? "bg-primary-50 text-primary-600" : 
-          color === "purple" ? "bg-secondary-50 text-secondary-600" : 
+          color === "purple" ? "bg-violet-50 text-violet-600" : 
           "bg-success-50 text-success-600"
         )}>
           <Icon className="w-5 h-5" />
@@ -136,8 +137,31 @@ const FloatingCard = ({ icon: Icon, title, subtitle, color = "blue", xOffset = 0
   );
 };
 
+const GridPattern = ({ offsetX, offsetY }: { offsetX: any; offsetY: any }) => {
+  return (
+    <svg className="h-full w-full">
+      <defs>
+        <motion.pattern
+          id="hero-grid-pattern"
+          width="40"
+          height="40"
+          patternUnits="userSpaceOnUse"
+          x={offsetX}
+          y={offsetY}
+        >
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-400" />
+        </motion.pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#hero-grid-pattern)" />
+    </svg>
+  );
+};
+
 const Hero: React.FC = () => {
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isHoveringHero, setIsHoveringHero] = useState(false);
+
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const springX = useSpring(mouseX, { damping: 30, stiffness: 100 });
@@ -145,9 +169,26 @@ const Hero: React.FC = () => {
   const rotateX = useTransform(springY, [-0.5, 0.5], [8, -8]);
   const rotateY = useTransform(springX, [-0.5, 0.5], [-8, 8]);
 
+  const revealX = useMotionValue(0);
+  const revealY = useMotionValue(0);
+  const gridOffsetX = useMotionValue(0);
+  const gridOffsetY = useMotionValue(0);
+  const maskImage = useMotionTemplate`radial-gradient(320px circle at ${revealX}px ${revealY}px, black, transparent)`;
+
+  useAnimationFrame(() => {
+    gridOffsetX.set((gridOffsetX.get() + 0.5) % 40);
+    gridOffsetY.set((gridOffsetY.get() + 0.5) % 40);
+  });
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!containerRef.current) return;
     const { width, height, left, top } = containerRef.current.getBoundingClientRect();
+    const offsetX = e.clientX - left;
+    const offsetY = e.clientY - top;
+
+    revealX.set(offsetX);
+    revealY.set(offsetY);
+
     mouseX.set((e.clientX - left) / width - 0.5);
     mouseY.set((e.clientY - top) / height - 0.5);
   };
@@ -159,51 +200,47 @@ const Hero: React.FC = () => {
 
   return (
     <section 
-      className="relative w-full min-h-[90vh] flex items-center justify-center overflow-hidden bg-slate-50"
+      className="relative flex min-h-[90vh] w-full items-center justify-center overflow-hidden bg-[#f7f9fc] pt-16 md:pt-20"
       onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHoveringHero(true)}
       onMouseLeave={handleMouseLeave}
       ref={containerRef}
       style={{ perspective: '1000px' }}
     >
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div 
-          className="absolute inset-0 opacity-[0.3]"
+        <div className="absolute inset-0 opacity-[0.07]">
+          <GridPattern offsetX={gridOffsetX} offsetY={gridOffsetY} />
+        </div>
+        <motion.div
+          className="absolute inset-0 opacity-40"
           style={{
-            backgroundImage: `linear-gradient(to right, #cbd5e1 1px, transparent 1px), linear-gradient(to bottom, #cbd5e1 1px, transparent 1px)`,
-            backgroundSize: '4rem 4rem',
-            maskImage: 'radial-gradient(ellipse at center, black 40%, transparent 80%)'
+            maskImage,
+            WebkitMaskImage: maskImage,
           }}
+          animate={{ opacity: isHoveringHero ? 0.38 : 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <GridPattern offsetX={gridOffsetX} offsetY={gridOffsetY} />
+        </motion.div>
+        <motion.div
+          className="absolute -right-[10%] -top-[18%] h-[36%] w-[36%] rounded-full bg-orange-500/25 blur-[120px]"
+          animate={{ scale: [1, 1.08, 1], opacity: [0.2, 0.32, 0.2] }}
+          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div 
-          className="absolute h-[1px] bg-gradient-to-r from-transparent via-primary-400 to-transparent w-[40%] top-[30%]"
-          animate={{ x: ['-100%', '200%'] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "linear", delay: 1 }}
-        />
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-tr from-primary-200/40 via-purple-200/40 to-cyan-100/40 rounded-full blur-[100px] mix-blend-multiply"
+        <motion.div
+          className="absolute -left-[12%] -bottom-[22%] h-[42%] w-[42%] rounded-full bg-blue-500/25 blur-[120px]"
+          animate={{ scale: [1, 1.06, 1], opacity: [0.18, 0.3, 0.18] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
 
       <motion.div
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="relative z-10 max-w-7xl mx-auto px-6 flex flex-col items-center justify-center text-center"
+        className="relative z-10 mx-auto mt-8 flex max-w-7xl flex-col items-center justify-center px-6 text-center md:mt-10"
       >
-        <FloatingCard icon={Code2} title="Auto-Coding" subtitle="Generating modules..." color="blue" xOffset={-350} yOffset={-180} delay={0.2} mouseX={springX} mouseY={springY} />
-        <FloatingCard icon={Cpu} title="Neural Processing" subtitle="Analyzing context..." color="purple" xOffset={380} yOffset={-120} delay={0.4} mouseX={springX} mouseY={springY} />
-        <FloatingCard icon={MessageSquareText} title="Natural Language" subtitle="Human-in-the-loop" color="green" xOffset={-320} yOffset={150} delay={0.6} mouseX={springX} mouseY={springY} />
-
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8 }}
-          className="mb-8 relative inline-flex items-center gap-2 px-6 py-2 rounded-full bg-white/50 border border-white/60 backdrop-blur-md shadow-sm"
-          style={{ transform: "translateZ(20px)" }}
-        >
-          <div className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
-          <span className="text-xs font-mono font-medium text-slate-600 tracking-wider">SYSTEM ONLINE: V2.0.4</span>
-        </motion.div>
+        <FloatingCard icon={Code2} title="自动编码" subtitle="模块实时生成" color="blue" xOffset={-350} yOffset={-180} delay={0.2} mouseX={springX} mouseY={springY} />
+        <FloatingCard icon={Cpu} title="神经推理" subtitle="上下文智能分析" color="purple" xOffset={380} yOffset={-120} delay={0.4} mouseX={springX} mouseY={springY} />
+        <FloatingCard icon={MessageSquareText} title="自然语言交互" subtitle="人机协同决策" color="green" xOffset={-320} yOffset={150} delay={0.6} mouseX={springX} mouseY={springY} />
 
         <h1 className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tight mb-6 text-slate-900 leading-[0.9]" style={{ transform: "translateZ(60px)" }}>
           Agent <br className="hidden md:block" /> 
@@ -225,23 +262,16 @@ const Hero: React.FC = () => {
           className="text-lg md:text-xl text-slate-500 max-w-2xl mb-12 leading-relaxed font-light"
           style={{ transform: "translateZ(30px)" }}
         >
-          深度集成 <span className="font-semibold text-slate-800">阿里通义 / 字节豆包</span> 等主流AI生态，构建从基础到 Multi-Agent 系统的全栈实训解决方案。
+          深度集成 <span className="font-semibold text-slate-800">阿里通义 / 智谱 GLM</span> 等主流 AI 生态，构建从基础到多智能体系统的全栈实训解决方案。
         </motion.p>
 
         <div className="flex flex-col sm:flex-row gap-6 items-center" style={{ transform: "translateZ(50px)" }}>
-          <MagneticButton className="rounded-2xl">
+          <MagneticButton className="rounded-2xl" onClick={() => navigate('/study')}>
             <div className="relative overflow-hidden rounded-2xl bg-slate-900 text-white shadow-xl shadow-primary/20 transition-transform active:scale-95">
               <div className="relative px-10 py-5 flex items-center gap-3 bg-slate-900 rounded-2xl z-10 hover:bg-slate-800 transition-colors">
                 <span className="font-semibold text-lg tracking-wide">开始探索</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </div>
-            </div>
-          </MagneticButton>
-
-          <MagneticButton className="rounded-2xl">
-            <div className="px-10 py-5 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/60 text-slate-700 font-medium shadow-sm hover:bg-white hover:shadow-lg transition-all flex items-center gap-2">
-              <Terminal className="w-5 h-5 text-slate-400" />
-              <span>预约演示</span>
             </div>
           </MagneticButton>
         </div>

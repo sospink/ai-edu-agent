@@ -1,0 +1,74 @@
+{
+  "aries": {
+    "name": "白羊座", "date": "3.21-4.19", "element": "火象",
+    "traits": "热情、冲动、勇敢、直接",
+    "lucky_color": "红色", "lucky_number": [1, 9],
+    "compatible": ["leo", "sagittarius"]
+  },
+  "taurus": {
+    "name": "金牛座", "date": "4.20-5.20", "element": "土象",
+    "traits": "稳重、务实、固执、忠诚",
+    "lucky_color": "绿色", "lucky_number": [2, 6],
+    "compatible": ["virgo", "capricorn"]
+  },
+  "gemini": {
+    "name": "双子座", "date": "5.21-6.21", "element": "风象",
+    "traits": "机智、善变、好奇、社交",
+    "lucky_color": "黄色", "lucky_number": [3, 5],
+    "compatible": ["libra", "aquarius"]
+  },
+  "cancer": {
+    "name": "巨蟹座", "date": "6.22-7.22", "element": "水象",
+    "traits": "敏感、顾家、情绪化、保护欲强",
+    "lucky_color": "白色", "lucky_number": [2, 7],
+    "compatible": ["scorpio", "pisces"]
+  },
+  "leo": {
+    "name": "狮子座", "date": "7.23-8.22", "element": "火象",
+    "traits": "自信、慷慨、骄傲、领导力",
+    "lucky_color": "金色", "lucky_number": [1, 4],
+    "compatible": ["aries", "sagittarius"]
+  },
+  "virgo": {
+    "name": "处女座", "date": "8.23-9.22", "element": "土象",
+    "traits": "完美主义、细心、挑剔、务实",
+    "lucky_color": "灰色", "lucky_number": [5, 6],
+    "compatible": ["taurus", "capricorn"]
+  },
+  "libra": {
+    "name": "天秤座", "date": "9.23-10.23", "element": "风象",
+    "traits": "优雅、公正、犹豫、追求平衡",
+    "lucky_color": "粉色", "lucky_number": [6, 9],
+    "compatible": ["gemini", "aquarius"]
+  },
+  "scorpio": {
+    "name": "天蝎座", "date": "10.24-11.22", "element": "水象",
+    "traits": "神秘、深情、执着、占有欲强",
+    "lucky_color": "深红色", "lucky_number": [3, 8],
+    "compatible": ["cancer", "pisces"]
+  },
+  "sagittarius": {
+    "name": "射手座", "date": "11.23-12.21", "element": "火象",
+    "traits": "乐观、自由、冒险、直率",
+    "lucky_color": "紫色", "lucky_number": [3, 7],
+    "compatible": ["aries", "leo"]
+  },
+  "capricorn": {
+    "name": "摩羯座", "date": "12.22-1.19", "element": "土象",
+    "traits": "务实、野心、严肃、自律",
+    "lucky_color": "黑色", "lucky_number": [4, 8],
+    "compatible": ["taurus", "virgo"]
+  },
+  "aquarius": {
+    "name": "水瓶座", "date": "1.20-2.18", "element": "风象",
+    "traits": "独立、创新、叛逆、人道主义",
+    "lucky_color": "蓝色", "lucky_number": [4, 7],
+    "compatible": ["gemini", "libra"]
+  },
+  "pisces": {
+    "name": "双鱼座", "date": "2.19-3.20", "element": "水象",
+    "traits": "浪漫、敏感、直觉、艺术",
+    "lucky_color": "海蓝色", "lucky_number": [3, 7],
+    "compatible": ["cancer", "scorpio"]
+  }
+}

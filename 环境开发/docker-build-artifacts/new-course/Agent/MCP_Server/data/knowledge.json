@@ -1,0 +1,17 @@
+{
+  "policies": {
+    "expense": {
+      "title": "报销管理制度",
+      "content": "1. 差旅费：飞机经济舱、高铁二等座\n2. 住宿：一线城市500元/晚，其他350元/晚\n3. 餐饮补贴：100元/天\n4. 报销时限：30天内提交"
+    },
+    "leave": {
+      "title": "请假管理制度",
+      "content": "1. 年假：满1年5天，每年+1天，上限15天\n2. 病假：需医院证明\n3. 事假：提前3天申请\n4. 审批：3天内主管批，超过需部门经理"
+    }
+  },
+  "contacts": {
+    "hr": {"name": "人力资源部", "email": "hr@example.com", "phone": "010-12345678"},
+    "it": {"name": "技术支持部", "email": "it@example.com", "phone": "010-12345679"},
+    "finance": {"name": "财务部", "email": "finance@example.com", "phone": "010-12345680"}
+  }
+}

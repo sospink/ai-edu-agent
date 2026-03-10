@@ -17,7 +17,7 @@ NC='\033[0m'
 
 echo ""
 echo -e "${CYAN}=========================================="
-echo "  AI 课程环境快速启动"
+echo "  AI 课程环境快速启动 (new-course)"
 echo "  (重新构建镜像后版本)"
 echo -e "==========================================${NC}"
 echo ""
@@ -83,8 +83,8 @@ if [ $TEST_RESULT -eq 0 ]; then
     echo ""
     echo "测试课程："
     echo "  docker exec -it ai-lab bash"
-    echo "  cd /workspace/courses/prompt-engineering"
-    echo "  python3 example.py"
+    echo "  cd /root/AgentFramework"
+    echo "  python3 main.py --demo"
 else
     echo -e "${YELLOW}! 部分测试失败${NC}"
     echo ""
@@ -96,4 +96,3 @@ else
 fi
 
 echo ""
-

@@ -22,9 +22,9 @@ const log = {
 };
 
 // 执行命令
-function exec(cmd, cwd) {
+function exec(cmd, cwd, extraEnv = {}) {
   log.info(`执行: ${cmd}`);
-  execSync(cmd, { cwd, stdio: 'inherit' });
+  execSync(cmd, { cwd, stdio: 'inherit', env: { ...process.env, ...extraEnv } });
 }
 
 // 复制目录
@@ -81,9 +81,8 @@ function main() {
 
   // 3. 构建前端
   log.step('构建前端');
-  const envContent = 'VITE_API_BASE_URL=/api\n';
-  fs.writeFileSync(path.join(FRONTEND_DIR, '.env.production'), envContent);
-  exec('npm run build', FRONTEND_DIR);
+  // 不覆盖 .env.production，避免抹掉业务配置（如 Dify、终端传输模式等）
+  exec('npm run build', FRONTEND_DIR, { VITE_API_BASE_URL: '/api' });
 
   // 4. 组装部署目录
   log.step('组装部署目录');

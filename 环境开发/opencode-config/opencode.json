@@ -24,7 +24,7 @@
   "mcp": {
     "filesystem": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/workspace"],
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/root"],
       "enabled": true
     },
     "memory": {
@@ -39,12 +39,12 @@
     },
     "git": {
       "type": "local",
-      "command": ["uvx", "mcp-server-git", "--repository", "/workspace"],
+      "command": ["uvx", "mcp-server-git", "--repository", "/root"],
       "enabled": true
     },
     "sqlite": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-sqlite", "/workspace/data.db"],
+      "command": ["npx", "-y", "@modelcontextprotocol/server-sqlite", "/root/data.db"],
       "enabled": true
     },
     "fetch": {

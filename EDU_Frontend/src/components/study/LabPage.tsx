@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -6,6 +6,7 @@ import {
   Terminal as TerminalIcon,
   Code2,
   Bot,
+  Globe,
   RefreshCw,
   HelpCircle,
   Wifi,
@@ -17,6 +18,8 @@ import {
   ArrowLeft,
   AlertCircle,
   ExternalLink,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   labApi,
@@ -32,6 +35,8 @@ const WebTerminal = lazy(() => import('./WebTerminal'));
 
 // 懒加载 AgentWidget 组件
 const AgentWidget = lazy(() => import('../agent/AgentWidget'));
+
+type LabTab = 'desktop' | 'terminal' | 'ide' | 'opencode' | 'openclaw' | 'gateway';
 
 // --- 启动序列组件 ---
 interface BootStep {
@@ -259,6 +264,47 @@ interface IframeContentProps {
 const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, description }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [loadingText, setLoadingText] = useState('正在加载...');
+  const initStartedAtRef = useRef<number>(Date.now());
+  const retryTimerRef = useRef<number | null>(null);
+  const MAX_INIT_WAIT_MS = 30000;
+  const RETRY_INTERVAL_MS = 3000;
+
+  useEffect(() => {
+    setLoading(true);
+    setError(false);
+    setRetryCount(0);
+    setLoadingText('正在加载...');
+    initStartedAtRef.current = Date.now();
+
+    return () => {
+      if (retryTimerRef.current) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+  }, [url]);
+
+  const handleFrameError = () => {
+    const elapsed = Date.now() - initStartedAtRef.current;
+    if (elapsed < MAX_INIT_WAIT_MS) {
+      setError(false);
+      setLoading(true);
+      setLoadingText('环境初始化中，正在等待服务启动...');
+
+      if (retryTimerRef.current) {
+        window.clearTimeout(retryTimerRef.current);
+      }
+      retryTimerRef.current = window.setTimeout(() => {
+        setRetryCount((prev) => prev + 1);
+      }, RETRY_INTERVAL_MS);
+      return;
+    }
+
+    setLoading(false);
+    setError(true);
+  };
 
   return (
     <div className="w-full h-full relative">
@@ -268,7 +314,11 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
             <Icon className="w-10 h-10 text-blue-500" />
           </div>
           <h2 className="text-xl font-bold tracking-tight mb-2 text-slate-200">{title}</h2>
-          <p className="text-slate-500 text-sm mb-4">{description}</p>
+          <p className="text-slate-500 text-sm mb-2">{description}</p>
+          <p className="text-slate-400 text-xs mb-4">
+            {loadingText}
+            {retryCount > 0 ? `（重试 ${retryCount}）` : ''}
+          </p>
           <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
         </div>
       )}
@@ -289,17 +339,23 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
         </div>
       )}
       <iframe
+        key={`${url}-${retryCount}`}
         src={url}
         className="w-full h-full border-0 overflow-hidden"
         title={title}
         allow="cross-origin-isolated"
         sandbox="allow-same-origin allow-scripts allow-forms allow-modals allow-popups"
         style={{ display: 'block' }}
-        onLoad={() => setLoading(false)}
-        onError={() => {
+        onLoad={() => {
           setLoading(false);
-          setError(true);
+          setError(false);
+          setLoadingText('正在加载...');
+          if (retryTimerRef.current) {
+            window.clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = null;
+          }
         }}
+        onError={handleFrameError}
       />
     </div>
   );
@@ -335,10 +391,13 @@ const TabButton: React.FC<TabButtonProps> = ({ label, icon: Icon, active, onClic
 // --- Header 组件 ---
 interface LabHeaderProps {
   activeTab: string;
-  setActiveTab: (tab: 'desktop' | 'terminal' | 'ide' | 'opencode') => void;
+  setActiveTab: (tab: LabTab) => void;
   timeLeft: number;
   onBack: () => void;
+  onHelp: () => void;
+  isProjectMode: boolean;
   hasIde: boolean;
+  hasGateway: boolean;
   onComplete: () => void;
   completing: boolean;
 }
@@ -348,16 +407,29 @@ const LabHeader: React.FC<LabHeaderProps> = ({
   setActiveTab,
   timeLeft,
   onBack,
+  onHelp,
+  isProjectMode,
   hasIde,
+  hasGateway,
   onComplete,
   completing,
 }) => {
-  const tabs = [
+  const tabs: Array<{ id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'desktop', label: 'Desktop', icon: Monitor },
     { id: 'terminal', label: 'Terminal', icon: TerminalIcon },
-    { id: 'opencode', label: 'CLI', icon: Bot },
-    ...(hasIde ? [{ id: 'ide', label: 'WebIDE', icon: Code2 }] : []),
   ];
+
+  if (isProjectMode) {
+    tabs.push({ id: 'openclaw', label: 'OpenClaw', icon: Bot });
+    if (hasGateway) {
+      tabs.push({ id: 'gateway', label: 'Gateway', icon: Globe });
+    }
+  } else {
+    tabs.push({ id: 'opencode', label: 'CLI', icon: Bot });
+    if (hasIde) {
+      tabs.push({ id: 'ide', label: 'WebIDE', icon: Code2 });
+    }
+  }
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -386,7 +458,7 @@ const LabHeader: React.FC<LabHeaderProps> = ({
             label={tab.label}
             icon={tab.icon}
             active={activeTab === tab.id}
-            onClick={() => setActiveTab(tab.id as 'desktop' | 'terminal')}
+            onClick={() => setActiveTab(tab.id)}
           />
         ))}
       </div>
@@ -419,6 +491,7 @@ const LabHeader: React.FC<LabHeaderProps> = ({
         <button
           className="text-slate-400 hover:text-white transition-colors"
           title="Help"
+          onClick={onHelp}
         >
           <HelpCircle className="w-4 h-4" />
         </button>
@@ -581,6 +654,7 @@ const LabPage: React.FC = () => {
   const sourceId = parseInt(sourceIdParam || '0');
   const lessonId = parseInt(lessonIdParam || '0');  // 课时 ID
   const unitId = parseInt(unitIdParam || '0');      // 单元 ID
+  const isProjectLab = sourceType === LabSourceType.PROJECT;
 
   // 计算 AgentWidget 的 sourceType 和 sourceId
   // 课程：sourceType=1, sourceId=lessonId
@@ -588,10 +662,12 @@ const LabPage: React.FC = () => {
   const agentSourceType = sourceType === LabSourceType.PROJECT ? 2 : 1;
   const agentSourceId = sourceType === LabSourceType.PROJECT ? unitId : (lessonId || sourceId);
 
-  const [activeTab, setActiveTab] = useState<'desktop' | 'terminal' | 'ide' | 'opencode'>('desktop');
+  const [activeTab, setActiveTab] = useState<LabTab>('desktop');
+  const [copiedGatewayToken, setCopiedGatewayToken] = useState(false);
+  const [opencodeRefreshToken, setOpencodeRefreshToken] = useState(0);
 
   // 包装 setActiveTab，在切换标签页时触发 resize 事件刷新终端
-  const handleSetActiveTab = useCallback((tab: 'desktop' | 'terminal' | 'ide' | 'opencode') => {
+  const handleSetActiveTab = useCallback((tab: LabTab) => {
     setActiveTab(tab);
     // 延迟触发 resize 事件，让终端有时间重新渲染
     setTimeout(() => {
@@ -606,6 +682,7 @@ const LabPage: React.FC = () => {
   const [retryKey, setRetryKey] = useState(0);
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictLoading, setConflictLoading] = useState(false);
+  const [timeoutHandled, setTimeoutHandled] = useState(false);
 
   // 完成实验相关状态
   const [completing, setCompleting] = useState(false);
@@ -614,6 +691,65 @@ const LabPage: React.FC = () => {
 
   // 检查登录状态
   const isLoggedIn = !!localStorage.getItem('authToken');
+  const isProjectOpenClawMode =
+    isProjectLab &&
+    (!!urls?.gatewayUrl || urls?.runtimeMode === 'openclaw' || session?.runtimeMode === 2);
+  const openClawExecCommand = "printf '🦞 OpenClaw\\n'; openclaw tui";
+  const gatewayFrameUrl = urls?.gatewayUrl
+    ? (() => {
+        const authToken = localStorage.getItem('authToken') || '';
+        if (!authToken) return urls.gatewayUrl || '';
+        const sep = urls.gatewayUrl.includes('?') ? '&' : '?';
+        return `${urls.gatewayUrl}${sep}authToken=${encodeURIComponent(authToken)}`;
+      })()
+    : '';
+
+  const maskToken = (token: string): string => {
+    if (!token) return '';
+    if (token.length <= 12) return token;
+    return `${token.slice(0, 6)}...${token.slice(-4)}`;
+  };
+
+  const copyGatewayToken = async (token: string) => {
+    if (!token) return;
+    try {
+      await navigator.clipboard.writeText(token);
+      setCopiedGatewayToken(true);
+      setTimeout(() => setCopiedGatewayToken(false), 1200);
+    } catch (error) {
+      console.error('[LabPage] 复制 Gateway Token 失败:', error);
+    }
+  };
+
+  const handleRefreshOpencode = useCallback(() => {
+    setOpencodeRefreshToken((prev) => prev + 1);
+  }, []);
+
+  const exitLabPage = useCallback(() => {
+    const fallbackPath = '/study';
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.focus();
+      }
+    } catch (err) {
+      console.warn('[LabPage] 无法访问 opener:', err);
+    }
+
+    try {
+      window.close();
+    } catch (err) {
+      console.warn('[LabPage] 关闭窗口失败，回退路由:', err);
+    }
+
+    window.setTimeout(() => {
+      if (window.closed) return;
+      if (window.history.length > 1) {
+        navigate(-1);
+        return;
+      }
+      navigate(fallbackPath, { replace: true });
+    }, 120);
+  }, [navigate]);
 
   // 检查是否有活跃会话
   useEffect(() => {
@@ -639,7 +775,18 @@ const LabPage: React.FC = () => {
         }
         
         if (response.data?.session) {
-          // 已有活跃会话，直接使用
+          const activeSession = response.data.session;
+          // 活跃会话来源不匹配，触发冲突流程（先关闭再重建）
+          if (
+            Number(activeSession.sourceType) !== Number(sourceType) ||
+            Number(activeSession.sourceId) !== Number(sourceId)
+          ) {
+            setShowConflictModal(true);
+            setIsBooting(false);
+            return;
+          }
+
+          // 已有活跃会话且来源匹配，直接复用
           setSession(response.data.session);
           setUrls(response.data.urls || null);
 
@@ -667,7 +814,7 @@ const LabPage: React.FC = () => {
       setError('缺少必要参数');
       setIsBooting(false);
     }
-  }, [sourceId, isLoggedIn]);
+  }, [sourceId, sourceType, isLoggedIn]);
 
   // 倒计时
   useEffect(() => {
@@ -686,6 +833,37 @@ const LabPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [session]);
 
+  useEffect(() => {
+    setTimeoutHandled(false);
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (!session || timeoutHandled || timeLeft > 0) return;
+
+    let cancelled = false;
+    setTimeoutHandled(true);
+
+    const autoStopAndExit = async () => {
+      if (session.status === LabSessionStatus.RUNNING) {
+        try {
+          await labApi.stopSession(session.id);
+        } catch (err) {
+          console.error('[LabPage] 自动结束实验失败:', err);
+        }
+      }
+
+      if (cancelled) return;
+      alert('实验时间已到，实验已自动结束。');
+      exitLabPage();
+    };
+
+    autoStopAndExit();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, timeoutHandled, timeLeft, exitLabPage]);
+
   // 完成实验
   const handleCompleteLesson = async () => {
     console.log('[LabPage] 完成实验被调用');
@@ -695,20 +873,14 @@ const LabPage: React.FC = () => {
     // 对于课程，使用 lessonId；对于项目，使用 unitId
     const targetId = sourceType === LabSourceType.PROJECT ? unitId : lessonId;
     
-    if (!targetId || targetId === 0) {
+      if (!targetId || targetId === 0) {
       // 项目单元暂时不需要调用完成 API，直接停止环境并返回
       if (sourceType === LabSourceType.PROJECT) {
         // 停止环境
         if (session) {
           await labApi.stopSession(session.id);
         }
-        // 关闭页面或返回
-        try {
-          window.close();
-          setTimeout(() => navigate(-1), 100);
-        } catch {
-          navigate(-1);
-        }
+        exitLabPage();
         return;
       }
       alert('课时ID无效，无法完成实验');
@@ -761,13 +933,7 @@ const LabPage: React.FC = () => {
           await labApi.stopSession(session.id);
           console.log('[LabPage] 实验环境已停止');
         }
-        // 直接关闭页面或返回（不弹出 Dialog，Agent 已经弹过了）
-        try {
-          window.close();
-          setTimeout(() => navigate(-1), 100);
-        } catch {
-          navigate(-1);
-        }
+        exitLabPage();
       }
     } catch (err) {
       console.error('[LabPage] 完成实验异常:', err);
@@ -794,8 +960,13 @@ const LabPage: React.FC = () => {
 
   // 返回
   const handleBack = () => {
-    navigate(-1);
+    if (completing) return;
+    exitLabPage();
   };
+
+  const handleHelp = useCallback(() => {
+    alert('操作提示：\n1. 点击“完成实验”将提交并关闭当前实验。\n2. 顶部倒计时结束后会自动停止实验并退出。\n3. 需要刷新终端会话可使用右上角刷新按钮。');
+  }, []);
 
   // 重试
   const handleRetry = () => {
@@ -905,7 +1076,10 @@ const LabPage: React.FC = () => {
             setActiveTab={handleSetActiveTab}
             timeLeft={timeLeft}
             onBack={handleBack}
+            onHelp={handleHelp}
+            isProjectMode={isProjectOpenClawMode}
             hasIde={!!urls.ideUrl}
+            hasGateway={!!urls.gatewayUrl}
             onComplete={handleCompleteLesson}
             completing={completing}
           />
@@ -934,33 +1108,117 @@ const LabPage: React.FC = () => {
                   <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                 </div>
               }>
-                <WebTerminal sessionId={session.id} sshPort={session.sshPort} terminalId="ssh" />
-              </Suspense>
-            </div>
-
-            {/* OpenCode Tab - 使用 Docker exec 直接执行 opencode */}
-            <div
-              className="absolute inset-0"
-              style={{ display: activeTab === 'opencode' ? 'block' : 'none' }}
-            >
-              <Suspense fallback={
-                <div className="w-full h-full bg-[#0c0c0c] flex items-center justify-center">
-                  <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                </div>
-              }>
-                <WebTerminal 
-                  sessionId={session.id} 
-                  sshPort={session.sshPort} 
-                  terminalId="opencode"
-                  disableMouse={true}
-                  mode="exec"
-                  command="opencode"
+                <WebTerminal
+                  sessionId={session.id}
+                  sshPort={session.sshPort}
+                  terminalId="ssh"
+                  isActive={activeTab === 'terminal'}
                 />
               </Suspense>
             </div>
 
-            {/* WebIDE Tab - 如果配置了 ideUrl */}
-            {urls.ideUrl && (
+            {/* 项目模式: OpenClaw CLI (SSH 自动执行 openclaw) */}
+            {isProjectOpenClawMode && (
+              <div
+                className="absolute inset-0"
+                style={{ display: activeTab === 'openclaw' ? 'block' : 'none' }}
+              >
+                <Suspense fallback={
+                  <div className="w-full h-full bg-[#0c0c0c] flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                  </div>
+                }>
+                  <WebTerminal
+                    sessionId={session.id}
+                    sshPort={session.sshPort}
+                    terminalId="openclaw"
+                    mode="exec"
+                    command={openClawExecCommand}
+                    isActive={activeTab === 'openclaw'}
+                  />
+                </Suspense>
+              </div>
+            )}
+
+            {/* 项目模式: Gateway 内置浏览器 */}
+            {isProjectOpenClawMode && (
+              <div
+                className="absolute inset-0"
+                style={{ display: activeTab === 'gateway' ? 'block' : 'none' }}
+              >
+                {gatewayFrameUrl ? (
+                  <div className="w-full h-full relative">
+                    <IframeContent
+                      url={gatewayFrameUrl}
+                      title="OpenClaw Gateway"
+                      icon={Globe}
+                      description="OpenClaw 控制台（首次访问需输入 Gateway Token）"
+                    />
+                    {urls.gatewayToken && (
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur border border-white/10 text-xs">
+                        <span className="text-slate-300">Gateway Token:</span>
+                        <code className="text-emerald-300">{maskToken(urls.gatewayToken)}</code>
+                        <button
+                          onClick={() => copyGatewayToken(urls.gatewayToken || '')}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-200"
+                          title="复制完整 Token"
+                        >
+                          {copiedGatewayToken ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                          {copiedGatewayToken ? '已复制' : '复制'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-[#1e1e1e] flex flex-col items-center justify-center gap-3 text-slate-300">
+                    <AlertCircle className="w-8 h-8 text-amber-400" />
+                    <p className="text-sm">Gateway 地址尚未就绪，请稍后刷新重试。</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 课程模式: OpenCode Tab (Docker exec opencode) */}
+            {!isProjectOpenClawMode && (
+              <div
+                className="absolute inset-0"
+                style={{ display: activeTab === 'opencode' ? 'block' : 'none' }}
+              >
+                {activeTab === 'opencode' && (
+                  <div className="absolute top-3 right-3 z-20">
+                    <button
+                      onClick={handleRefreshOpencode}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-black/70 hover:bg-black/80 border border-white/10 text-slate-200 text-xs"
+                      title="刷新 Opencode 会话（重新加载 Skills）"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      刷新 Opencode
+                    </button>
+                  </div>
+                )}
+                <Suspense fallback={
+                  <div className="w-full h-full bg-[#0c0c0c] flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                  </div>
+                }>
+                  <WebTerminal
+                    sessionId={session.id}
+                    sshPort={session.sshPort}
+                    terminalId="opencode"
+                    disableMouse={true}
+                    mode="exec"
+                    command="opencode"
+                    isActive={activeTab === 'opencode'}
+                    sessionPolicy="reuse"
+                    connectNonce={opencodeRefreshToken}
+                    restartToken={opencodeRefreshToken}
+                  />
+                </Suspense>
+              </div>
+            )}
+
+            {/* 课程模式: WebIDE Tab */}
+            {!isProjectOpenClawMode && urls.ideUrl && (
               <div
                 className="absolute inset-0"
                 style={{ display: activeTab === 'ide' ? 'block' : 'none' }}
@@ -982,6 +1240,7 @@ const LabPage: React.FC = () => {
               </span>
               <span className="flex items-center gap-1.5 cursor-pointer hover:bg-white/10 px-1 rounded">
                 <Wifi className="w-3 h-3" /> noVNC:{session.vncPort} | SSH:{session.sshPort}
+                {isProjectOpenClawMode && session.gatewayPort > 0 ? ` | Gateway:${session.gatewayPort}` : ''}
               </span>
             </div>
             <div className="flex items-center gap-4">

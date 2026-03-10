@@ -46,7 +46,7 @@ import { labApi, type DockerImage } from '@/services/lab';
 import { ToastContainer, useToast } from '@/components/common/Toast';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import UnitAgentModal from './UnitAgentModal';
-import { getImageUrl } from '@/config';
+import { getImageUrlCandidates, handleImageFallback } from '@/config';
 
 // ==================== 类型定义 ====================
 
@@ -466,9 +466,10 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                       >
                         {formData.coverUrl ? (
                           <img
-                            src={getImageUrl(formData.coverUrl)}
+                            src={getImageUrlCandidates(formData.coverUrl)[0]}
                             alt="Cover"
                             className="w-full h-full object-cover"
+                            onError={(e) => handleImageFallback(e, getImageUrlCandidates(formData.coverUrl))}
                           />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
@@ -1158,9 +1159,10 @@ const ProjectList: React.FC<ProjectListProps> = ({
                     <div className="relative w-16 h-10 rounded-lg overflow-hidden shrink-0 shadow-sm border border-slate-100 group-hover:scale-105 transition-transform duration-300 bg-slate-100">
                       {p.coverUrl ? (
                         <img
-                          src={getImageUrl(p.coverUrl)}
+                          src={getImageUrlCandidates(p.coverUrl)[0]}
                           alt={p.title}
                           className="w-full h-full object-cover"
+                          onError={(e) => handleImageFallback(e, getImageUrlCandidates(p.coverUrl))}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-slate-300">

@@ -86,6 +86,9 @@ router.post('/lessons/:lessonId/start', authMiddleware, (req, res) => controller
 // 完成课时
 router.post('/lessons/:lessonId/complete', authMiddleware, (req, res) => controller.completeLesson(req, res));
 
+// 获取单个课时
+router.get('/lessons/:lessonId', (req, res) => controller.getLessonById(req, res));
+
 // ==================== 课时学习资料管理 ====================
 
 // 获取课时学习资料列表

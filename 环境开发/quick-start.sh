@@ -17,7 +17,7 @@ NC='\033[0m'
 
 echo ""
 echo -e "${CYAN}=========================================="
-echo "  AI 课程环境快速启动"
+echo "  AI 课程环境快速启动 (new-course)"
 echo -e "==========================================${NC}"
 echo ""
 
@@ -95,7 +95,8 @@ if [ $TEST_RESULT -eq 0 ]; then
     echo "下一步："
     echo "  1. 访问 VNC 桌面: http://192.168.20.3:6080/"
     echo "  2. 或通过 SSH: ssh root@192.168.20.3 -p 2222"
-    echo "  3. 开始学习课程！"
+    echo "  3. 进入课程目录: /root (~)"
+    echo "  4. 开始学习课程！"
 else
     echo -e "${YELLOW}! 部分步骤失败${NC}"
     echo ""
@@ -106,4 +107,3 @@ else
 fi
 
 echo ""
-

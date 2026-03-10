@@ -7,6 +7,7 @@ interface CompleteLessonDialogProps {
   onClose: () => void;
   lessonName: string;
   earnedXP: number;
+  actionText?: string;
 }
 
 const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
@@ -14,6 +15,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
   onClose,
   lessonName,
   earnedXP,
+  actionText = '继续学习',
 }) => {
   return (
     <AnimatePresence>
@@ -121,7 +123,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                   onClick={onClose}
                   className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all hover:shadow-xl hover:shadow-emerald-500/40 hover:-translate-y-0.5"
                 >
-                  继续学习
+                  {actionText}
                 </motion.button>
               </div>
             </motion.div>

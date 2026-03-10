@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { Background } from '@/components/common/Background';
 import Navbar from '@/components/layout/Navbar';
 import Hero from '@/components/home/Hero';
@@ -12,10 +12,12 @@ import Footer from '@/components/layout/Footer';
 import LoginPage from '@/components/auth/LoginPage';
 import AdminPanel from '@/components/admin/AdminPanel';
 import BackToTop from '@/components/common/BackToTop';
+import GuideHub from '@/components/guide/GuideHub';
 import { ProfilePage } from '@/components/profile';
 import { ProjectList, ProjectDetail } from '@/components/project';
 import { SkillList, SkillDetail, LessonPage, LabPage } from '@/components/study';
 import { AISquare } from '@/components/ai-square';
+import OpenClawPage from '@/components/openclaw/OpenClawPage';
 import { authService } from '@/services/auth';
 import type { User } from '@/types';
 import type { Project } from '@/types/project';
@@ -131,12 +133,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentUser, onLogout
   const navigate = useNavigate();
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <div>
       <Background />
       <Navbar 
         onLoginClick={onLoginClick} 
@@ -171,12 +168,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentUser, onLogout
       
       <Footer />
       <BackToTop />
+      <GuideHub />
       
       {/* 全局 AI 助手 - 聊天模式 */}
       <Suspense fallback={null}>
         <AgentWidget mode="chat" />
       </Suspense>
-    </motion.div>
+    </div>
   );
 };
 
@@ -296,8 +294,8 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen font-sans text-foreground overflow-x-hidden bg-background">
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
+      <AnimatePresence mode="sync" initial={false}>
+        <Routes location={location}>
           {/* 用户登录 */}
           <Route 
             path="/login" 
@@ -326,6 +324,12 @@ const AppContent: React.FC = () => {
           <Route 
             path="/lab" 
             element={<LabPage />} 
+          />
+
+          {/* OpenClaw 页面 - 独立页面，无导航栏和Footer */}
+          <Route
+            path="/openclaw"
+            element={<OpenClawPage />}
           />
           
           {/* 用户端路由 */}

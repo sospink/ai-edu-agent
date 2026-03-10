@@ -1,8 +1,6 @@
-# 🚀 AI 课程环境使用指南
+# AI 课程环境使用指南（home-course）
 
-## 构建完成后的使用方法
-
-### 1. 启动容器
+## 1. 启动容器
 
 ```bash
 docker run -d \
@@ -13,315 +11,135 @@ docker run -d \
   opencode-lab-ai:latest
 ```
 
-**端口说明**:
-- `2222` → SSH 访问端口
-- `5901` → VNC 桌面端口
-- `6080` → noVNC 网页端口（推荐）
-
-### 2. 等待服务启动
+等待服务启动：
 
 ```bash
-# 等待 15 秒让所有服务启动
 sleep 15
-
-# 查看启动日志
 docker logs ai-lab
 ```
 
-应该看到：
-```
-==========================================
-  OpenCode Lab Environment Starting...
-==========================================
-[1/3] Starting SSH server on port 22...
-[2/3] Starting VNC server on port 5901...
-[3/3] Starting noVNC web client on port 6080...
-==========================================
-  Environment Ready!
-==========================================
-```
+## 2. 访问环境
 
-### 3. 访问环境
+- 网页桌面：`http://localhost:6080`
+- SSH：`ssh root@localhost -p 2222`
+- VS Code 图标：`/root/Desktop/VSCode.desktop`
 
-#### 方式1: 网页桌面（推荐）⭐
-
-打开浏览器访问：
-```
-http://localhost:6080
-```
-
-或者带自动连接参数：
-```
-http://localhost:6080/vnc.html?resize=scale&autoconnect=true
-```
-
-- ✅ 无需安装任何软件
-- ✅ 自动缩放适应窗口
-- ✅ 无需密码（已配置为无认证模式）
-
-#### 方式2: VNC 客户端
-
-使用 VNC Viewer、RealVNC 等客户端：
-- 地址：`localhost:5901`
-- 密码：无需密码（SecurityTypes=None）
-
-#### 方式3: SSH 终端
+## 3. 验证基础环境
 
 ```bash
-ssh root@localhost -p 2222
-```
-
-- 用户名：`root`
-- 密码：`opencode`
-
-### 4. 验证环境
-
-进入容器后，运行验证脚本：
-
-```bash
-# 方式1: 在网页桌面中打开终端，运行
-verify-env
-
-# 方式2: 通过 SSH
-ssh root@localhost -p 2222
-verify-env
-
-# 方式3: 使用 docker exec
 docker exec ai-lab verify-env
 ```
 
-应该看到：
-```
-===========================================
-  AI Courses Environment Verification
-===========================================
+## 4. 配置 API Keys
 
-Python Version:
-Python 3.10.x
-
-Node.js Version:
-v18.x.x
-
-✓ LangChain 0.1.0
-✓ LangGraph installed
-✓ FastAPI 0.109.0
-✓ Nemo Guardrails installed
-✓ OpenCode installed
-
-===========================================
-  All checks completed!
-===========================================
-```
-
-### 5. 开始学习课程
-
-课程文件位于 `/workspace/courses/`：
+推荐自动配置：
 
 ```bash
-cd /workspace/courses
+cd 环境开发
+./setup-api-keys.sh
+```
+
+手动配置（容器内 `/workspace/.env`）：
+
+```env
+ZHIPUAI_API_KEY=your-key
+ZHIPU_API_KEY=your-key
+OPENAI_API_KEY=your-key
+OPENAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+OPENAI_MODEL=glm-4-flash
+```
+
+## 5. 课程目录
+
+主目录：`/root`（即 `~`）
+
+```bash
+docker exec -it ai-lab bash
+cd /root
 ls -la
 ```
 
-你会看到：
-```
-prompt-engineering/    # ✍️ 提示词工程 - 万能文案生成器
-mcp-server/           # 🧠 MCP Server 开发 - 今日运势
-ade-skill/            # 🔁 ADE 配置与智能体开发
-agent-gordon/         # 🔎 智能体框架 - 毒舌 Gordon
-multi-agent/          # 💬 智能体框架 - 创意风暴
-guardrails/           # 🍸 安全与合规 - AI 酒吧调酒师
-```
+旧目录 `/workspace/courses` 已移除。
 
-查看课程说明：
-```bash
-cat /workspace/courses/README.md
-```
+## 6. 运行课程
 
-### 6. 配置 API Keys
+### 6.1 ADE 配置与智能体开发
 
 ```bash
-cd /workspace
-cp .env.template .env
-vim .env  # 或使用 nano、gedit
+cd /root/ADE_Agent
+ls -la .opencode
 ```
 
-填入你的 API Keys：
-```bash
-# OpenAI API Key (用于 GPT 模型)
-OPENAI_API_KEY=sk-your-key-here
-
-# Anthropic API Key (用于 Claude 模型)
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-
-# 通义千问 API Key (阿里云)
-DASHSCOPE_API_KEY=sk-your-key-here
-```
-
-### 7. 运行课程示例
-
-#### 课程1: 提示词工程
-```bash
-cd /workspace/courses/prompt-engineering
-python3 example.py
-```
-
-#### 课程2: MCP Server 开发
-```bash
-cd /workspace/courses/mcp-server
-node example.js
-```
-
-#### 课程3: 智能体开发 - Gordon
-```bash
-cd /workspace/courses/agent-gordon
-python3 example.py
-```
-
-#### 课程4: 多智能体协作
-```bash
-cd /workspace/courses/multi-agent
-python3 example.py
-```
-
-#### 课程5: 安全与合规
-```bash
-cd /workspace/courses/guardrails
-python3 example.py
-```
-
-### 8. 测试所有课程
+### 6.2 MCP Server 开发
 
 ```bash
-cd /workspace/courses
-./test-all-courses.sh
+cd /root/MCP_Server
+npm start
 ```
 
-## 容器管理命令
+### 6.3 单 Agent（毒舌 Gordon）
 
-### 查看容器状态
 ```bash
-docker ps | grep ai-lab
+cd /root/AgentFramework
+python3 main.py --demo
 ```
 
-### 查看日志
+### 6.4 多 Agent（创意风暴）
+
 ```bash
-docker logs ai-lab
-docker logs -f ai-lab  # 实时查看
+cd /root/MultiAgentFramework/brainstorm-mas
+python3 main.py --demo
+# 或启动 API
+python3 main.py --api
 ```
 
-### 停止容器
+### 6.5 安全与合规（Guardrails）
+
 ```bash
-docker stop ai-lab
+cd /root/SecurityGuardrails/bartender-guardrails
+python3 main.py --demo
 ```
 
-### 启动容器
+## 7. 快速测试脚本
+
 ```bash
-docker start ai-lab
+cd 环境开发
+./test-courses-quick.sh
 ```
 
-### 重启容器
-```bash
-docker restart ai-lab
-```
+该脚本会检查：
 
-### 删除容器
+- 容器运行状态
+- 家目录下的课程目录
+- 核心依赖可导入
+- MCP 构建产物
+- 各课程模块加载
+
+## 8. 常见问题
+
+### Q1: `docker: command not found`
+
+本机未安装 Docker 或环境变量未生效。
+
+### Q2: 课程目录缺失
+
+请确认使用最新镜像重建容器：
+
 ```bash
 docker rm -f ai-lab
+docker build -f Dockerfile.ai-courses-optimized -t opencode-lab-ai:latest .
 ```
 
-### 进入容器终端
-```bash
-docker exec -it ai-lab bash
-```
-
-## 数据持久化
-
-如果需要保存工作内容，挂载本地目录：
+若基础镜像拉取异常，可切换镜像源：
 
 ```bash
-docker run -d \
-  -p 2222:22 \
-  -p 5901:5901 \
-  -p 6080:6080 \
-  -v ~/ai-courses-workspace:/workspace \
-  --name ai-lab \
-  opencode-lab-ai:latest
+docker build --build-arg BASE_IMAGE=m.daocloud.io/docker.io/library/ubuntu:22.04 -f Dockerfile.ai-courses-optimized -t opencode-lab-ai:latest .
 ```
 
-这样你的代码和数据会保存在 `~/ai-courses-workspace` 目录中。
+### Q3: API 调用失败
 
-## 常见问题
+检查容器内 `.env`：
 
-### Q: 网页桌面打不开？
-A: 
-1. 确认容器正在运行：`docker ps | grep ai-lab`
-2. 等待 15 秒让服务完全启动
-3. 检查端口是否被占用：`netstat -an | grep 6080`
-
-### Q: SSH 连接失败？
-A: 
-1. 确认使用正确的端口：`-p 2222`
-2. 确认密码：`opencode`
-3. 检查容器日志：`docker logs ai-lab`
-
-### Q: 课程示例运行失败？
-A: 
-1. 确认已配置 API Keys：`cat /workspace/.env`
-2. 检查 Python 环境：`python3 --version`
-3. 验证包安装：`verify-env`
-
-### Q: 如何更新镜像？
-A: 
 ```bash
-# 停止并删除旧容器
-docker rm -f ai-lab
-
-# 删除旧镜像
-docker rmi opencode-lab-ai:latest
-
-# 重新构建
-cd ~/work/course
-sudo docker build -f Dockerfile.ai-courses-optimized -t opencode-lab-ai:latest .
-
-# 启动新容器
-docker run -d -p 2222:22 -p 5901:5901 -p 6080:6080 --name ai-lab opencode-lab-ai:latest
+docker exec ai-lab cat /workspace/.env
 ```
-
-## 性能优化
-
-### 调整分辨率
-```bash
-docker run -d \
-  -p 2222:22 -p 5901:5901 -p 6080:6080 \
-  -e VNC_RESOLUTION=1920x1080 \
-  --name ai-lab \
-  opencode-lab-ai:latest
-```
-
-### 限制资源使用
-```bash
-docker run -d \
-  -p 2222:22 -p 5901:5901 -p 6080:6080 \
-  --memory="4g" \
-  --cpus="2" \
-  --name ai-lab \
-  opencode-lab-ai:latest
-```
-
-## 与原镜像的区别
-
-| 特性 | 原镜像 (opencode-lab) | 新镜像 (opencode-lab-ai) |
-|------|----------------------|--------------------------|
-| 基础系统 | Ubuntu 20.04 | Ubuntu 22.04 |
-| Python 版本 | 3.8 | 3.10 |
-| 预装 AI 库 | ❌ 无 | ✅ 完整 |
-| 课程示例 | ❌ 无 | ✅ 6门课程 |
-| 启动方式 | 相同 | 相同 |
-| 端口配置 | 相同 | 相同 |
-| 访问方式 | 相同 | 相同 |
-
-**结论**: 使用方式完全相同，只是增加了 AI 课程环境和示例代码！
-
----
-
-**祝学习愉快！🎉**

@@ -1,0 +1,17 @@
+# NeMo Guardrails 核心
+nemoguardrails>=0.10.0
+langchain-community>=0.2.0
+langchain-openai>=0.1.0
+
+# LLM 接口
+openai>=1.0.0
+
+# 智谱AI SDK（方案A）
+zhipuai>=2.0.0
+
+# 工具依赖
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# 可选：用于更好的终端体验
+rich>=13.0.0

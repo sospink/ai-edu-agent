@@ -9,7 +9,14 @@
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
+
+# 基础检查
+if ! command -v docker >/dev/null 2>&1; then
+    echo -e "${RED}错误: 未检测到 docker 命令${NC}"
+    exit 1
+fi
 
 # 自动检测容器名称
 CONTAINER_NAME=$(docker ps --filter "ancestor=opencode-lab-ai:latest" --format "{{.Names}}" | head -n 1)
@@ -40,16 +47,56 @@ if [ ! -f "$BACKEND_ENV" ]; then
     exit 1
 fi
 
-# 提取配置
-DASHSCOPE_API_KEY=$(grep "^DASHSCOPE_API_KEY=" "$BACKEND_ENV" | cut -d'=' -f2)
-QWEN_MODEL=$(grep "^QWEN_MODEL=" "$BACKEND_ENV" | cut -d'=' -f2)
-QWEN_BASE_URL=$(grep "^QWEN_BASE_URL=" "$BACKEND_ENV" | cut -d'=' -f2)
+# 工具函数
+get_env_value() {
+    local key="$1"
+    grep -E "^${key}=" "$BACKEND_ENV" | tail -n 1 | cut -d'=' -f2-
+}
+
+first_non_empty() {
+    for value in "$@"; do
+        if [ -n "$value" ]; then
+            echo "$value"
+            return 0
+        fi
+    done
+    echo ""
+}
+
+# 提取配置（兼容多来源）
+ZHIPUAI_API_KEY_RAW=$(get_env_value "ZHIPUAI_API_KEY")
+ZHIPU_API_KEY_RAW=$(get_env_value "ZHIPU_API_KEY")
+OPENAI_API_KEY_RAW=$(get_env_value "OPENAI_API_KEY")
+DASHSCOPE_API_KEY=$(get_env_value "DASHSCOPE_API_KEY")
+
+QWEN_MODEL=$(get_env_value "QWEN_MODEL")
+OPENAI_MODEL_RAW=$(get_env_value "OPENAI_MODEL")
+
+QWEN_BASE_URL=$(get_env_value "QWEN_BASE_URL")
+OPENAI_BASE_URL_RAW=$(get_env_value "OPENAI_BASE_URL")
+
+# 归一化变量
+ZHIPUAI_API_KEY=$(first_non_empty "$ZHIPUAI_API_KEY_RAW" "$ZHIPU_API_KEY_RAW" "$OPENAI_API_KEY_RAW" "$DASHSCOPE_API_KEY")
+ZHIPU_API_KEY=$(first_non_empty "$ZHIPU_API_KEY_RAW" "$ZHIPUAI_API_KEY_RAW" "$OPENAI_API_KEY_RAW" "$DASHSCOPE_API_KEY")
+OPENAI_API_KEY=$(first_non_empty "$OPENAI_API_KEY_RAW" "$ZHIPUAI_API_KEY" "$ZHIPU_API_KEY" "$DASHSCOPE_API_KEY")
+OPENAI_BASE_URL=$(first_non_empty "$OPENAI_BASE_URL_RAW" "$QWEN_BASE_URL" "https://open.bigmodel.cn/api/paas/v4")
+OPENAI_MODEL=$(first_non_empty "$OPENAI_MODEL_RAW" "$QWEN_MODEL" "glm-4-flash")
 
 echo -e "${BLUE}[1/3]${NC} 从后端读取配置..."
+echo "  ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:0:20}..."
+echo "  ZHIPU_API_KEY: ${ZHIPU_API_KEY:0:20}..."
+echo "  OPENAI_API_KEY: ${OPENAI_API_KEY:0:20}..."
 echo "  DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:0:20}..."
-echo "  QWEN_MODEL: $QWEN_MODEL"
-echo "  QWEN_BASE_URL: $QWEN_BASE_URL"
+echo "  OPENAI_MODEL: $OPENAI_MODEL"
+echo "  OPENAI_BASE_URL: $OPENAI_BASE_URL"
 echo ""
+
+if [ -z "$OPENAI_API_KEY" ]; then
+    echo -e "${RED}错误: 未从后端读取到可用 API Key${NC}"
+    echo "请检查 $BACKEND_ENV 中是否存在以下任一键："
+    echo "  ZHIPUAI_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY / DASHSCOPE_API_KEY"
+    exit 1
+fi
 
 # 创建容器内的 .env 文件
 echo -e "${BLUE}[2/3]${NC} 创建容器内的 .env 文件..."
@@ -58,40 +105,36 @@ ENV_CONTENT="# AI API Keys Configuration
 # 自动从后端配置生成
 
 # ============================================
-# 通义千问配置 (阿里云)
+# 新版课程统一配置
 # ============================================
+# 智谱 SDK（单Agent/多Agent）
+ZHIPUAI_API_KEY=$ZHIPUAI_API_KEY
+# MCP Server 测试脚本
+ZHIPU_API_KEY=$ZHIPU_API_KEY
+
+# OpenAI 兼容（Guardrails/部分脚本）
+OPENAI_API_KEY=$OPENAI_API_KEY
+OPENAI_BASE_URL=$OPENAI_BASE_URL
+OPENAI_MODEL=$OPENAI_MODEL
+
+# 兼容通义千问变量
 DASHSCOPE_API_KEY=$DASHSCOPE_API_KEY
-
-# 通义千问模型
 QWEN_MODEL=$QWEN_MODEL
-
-# 通义千问 API 地址 (OpenAI 兼容模式)
 QWEN_BASE_URL=$QWEN_BASE_URL
-
-# ============================================
-# OpenAI 兼容配置
-# ============================================
-# 使用通义千问的 OpenAI 兼容模式
-OPENAI_API_KEY=$DASHSCOPE_API_KEY
-OPENAI_BASE_URL=$QWEN_BASE_URL
-OPENAI_MODEL=$QWEN_MODEL
 
 # ============================================
 # 其他 API Keys (可选)
 # ============================================
-# OpenAI 官方 API (如果有)
-# OPENAI_API_KEY=sk-your-openai-key-here
-
 # Anthropic API (如果有)
 # ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
 
 # ============================================
 # 使用说明
 # ============================================
-# 1. 课程代码会自动读取 OPENAI_API_KEY
-# 2. 实际使用的是通义千问的 OpenAI 兼容模式
-# 3. 模型: $QWEN_MODEL
-# 4. 如需使用其他模型，请修改 OPENAI_MODEL
+# 1. AgentFramework/MultiAgentFramework 读取 ZHIPUAI_API_KEY
+# 2. MCP_Server 测试脚本读取 ZHIPU_API_KEY
+# 3. Guardrails 读取 OPENAI_API_KEY + OPENAI_BASE_URL
+# 4. 如需切换模型，请修改 OPENAI_MODEL
 "
 
 # 写入容器
@@ -107,7 +150,7 @@ echo ""
 
 # 验证配置
 echo -e "${BLUE}[3/3]${NC} 验证配置..."
-docker exec $CONTAINER_NAME bash -c "cat /workspace/.env | grep -E '(DASHSCOPE|OPENAI|QWEN)' | grep -v '^#'"
+docker exec $CONTAINER_NAME bash -c "cat /workspace/.env | grep -E '(ZHIPU|DASHSCOPE|OPENAI|QWEN)' | grep -v '^#'"
 echo ""
 
 echo "=========================================="
@@ -115,13 +158,12 @@ echo -e "${GREEN}  ✓ API Keys 配置完成！${NC}"
 echo "=========================================="
 echo ""
 echo "配置详情:"
-echo "  - 使用通义千问 API"
-echo "  - 模型: $QWEN_MODEL"
-echo "  - OpenAI 兼容模式"
+echo "  - 已写入 ZHIPUAI/ZHIPU/OpenAI 兼容变量"
+echo "  - 模型: $OPENAI_MODEL"
+echo "  - Base URL: $OPENAI_BASE_URL"
 echo ""
 echo "测试配置:"
 echo "  docker exec -it $CONTAINER_NAME bash"
-echo "  cd /workspace/courses/prompt-engineering"
-echo "  python3 example.py"
+echo "  cd /root/AgentFramework"
+echo "  python3 main.py --demo"
 echo ""
-

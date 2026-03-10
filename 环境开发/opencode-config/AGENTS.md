@@ -6,7 +6,7 @@
 ### Python 环境
 - Python 3.10
 - LangChain, LangGraph
-- OpenAI, Anthropic SDK
+- OpenAI SDK, ZhipuAI SDK
 - FastAPI, Uvicorn
 - Nemo Guardrails
 
@@ -23,21 +23,32 @@
 - **sqlite** - SQLite 数据库操作
 - **fetch** - HTTP 请求，API 调用
 - **sequential-thinking** - 逐步推理思考
-- **brave-search** - 网页搜索 (需配置 API Key)
 
 ## 课程目录
-- `/workspace/courses/prompt-engineering/` - 提示词工程
-- `/workspace/courses/mcp-server/` - MCP Server 开发
-- `/workspace/courses/ade-skill/` - ADE 智能体开发
-- `/workspace/courses/agent-gordon/` - 单 Agent 开发
-- `/workspace/courses/multi-agent/` - 多 Agent 协作
-- `/workspace/courses/guardrails/` - Guardrails 安全护栏
+主目录：`/root`（即 `~`）
+
+- `/root/ADE_Agent/` - ADE 智能体开发
+- `/root/MCP_Server/` - MCP Server 开发
+- `/root/AgentFramework/` - 单 Agent 开发
+- `/root/MultiAgentFramework/brainstorm-mas/` - 多 Agent 协作
+- `/root/SecurityGuardrails/bartender-guardrails/` - Guardrails 安全护栏
 
 ## API 配置
 在运行示例前，请先配置 API Keys：
+
 ```bash
 cp /workspace/.env.template /workspace/.env
 # 编辑 .env 文件，填入你的 API Keys
+```
+
+建议最少配置：
+
+```env
+ZHIPUAI_API_KEY=your-key
+ZHIPU_API_KEY=your-key
+OPENAI_API_KEY=your-key
+OPENAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+OPENAI_MODEL=glm-4-flash
 ```
 
 ## 验证环境
@@ -57,10 +68,11 @@ opencode
 # 验证环境
 verify-env
 
-# 诊断 API
-cd /workspace/courses && bash diagnose-api.sh
+# 运行单 Agent 示例
+cd /root/AgentFramework
+python3 main.py --demo
 
-# 运行课程示例
-cd /workspace/courses/prompt-engineering
-python3 example.py
+# 运行多 Agent 示例
+cd /root/MultiAgentFramework/brainstorm-mas
+python3 main.py --demo
 ```

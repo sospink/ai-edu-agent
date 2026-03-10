@@ -656,6 +656,8 @@ export class CourseService {
       return MaterialType.PDF;
     } else if (['.xmind', '.mm', '.xmm'].includes(ext)) {
       return MaterialType.MINDMAP;
+    } else if (ext === '.docx') {
+      return MaterialType.WORD;
     }
     return MaterialType.MARKDOWN; // 默认
   }
