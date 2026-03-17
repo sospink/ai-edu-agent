@@ -265,7 +265,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [loadingText, setLoadingText] = useState('正在加载...');
+  const [loadingText, setLoadingText] = useState('正在连接...');
   const initStartedAtRef = useRef<number>(Date.now());
   const retryTimerRef = useRef<number | null>(null);
   const MAX_INIT_WAIT_MS = 30000;
@@ -275,7 +275,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
     setLoading(true);
     setError(false);
     setRetryCount(0);
-    setLoadingText('正在加载...');
+    setLoadingText('正在连接...');
     initStartedAtRef.current = Date.now();
 
     return () => {
@@ -349,7 +349,6 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
         onLoad={() => {
           setLoading(false);
           setError(false);
-          setLoadingText('正在加载...');
           if (retryTimerRef.current) {
             window.clearTimeout(retryTimerRef.current);
             retryTimerRef.current = null;

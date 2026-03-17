@@ -23,7 +23,7 @@ import AILogoGif from '@/images/AI logo Foriday.gif';
 const sidebarNav = [
   {
       title: '入门指南',
-      items: ['快速开始', '核心概念']
+      items: ['快速开始', '核心概念', '开始使用学习中心', '开始使用OpenClaw']
   },
   {
       title: '产品探索',
@@ -136,7 +136,7 @@ const MemoizedArticle = React.memo(({ content, headingToId }: { content: string 
       )}
 
       <div className="mt-20 pt-8 border-t border-slate-100 flex justify-between items-center text-slate-400 text-xs">
-        <span>最后更新于 2026年3月16日</span>
+        <span>最后更新于 2026年3月17日</span>
         <div className="flex gap-4">
           <button className="flex items-center gap-1.5 hover:text-slate-900 transition-colors"><Edit3 className="w-3.5 h-3.5" /> 编辑此页</button>
           <button className="flex items-center gap-1.5 hover:text-slate-900 transition-colors"><ThumbsUp className="w-3.5 h-3.5" /> 有帮助</button>

@@ -177,7 +177,6 @@ export class LabService {
     // 分配端口
     const ports = await this.allocatePorts();
     const containerName = `lab-${userId}-${Date.now()}`;
-    let ideContainerName = ideImage ? `ide-${userId}-${Date.now()}` : '';
     const gatewayToken = useOpenClawRuntime ? this.generateGatewayToken() : '';
 
     // 创建会话记录
@@ -244,8 +243,10 @@ export class LabService {
       await container.start();
       session.containerId = container.id;
 
-      // 如果配置了 WebIDE 镜像，创建 IDE 容器
+      // 如果配置了 WebIDE 镜像，创建独立 IDE 容器
+      // 主容器（opencode-lab）不含 VS Code Server，需要通过独立的 gitpod/openvscode-server 容器提供
       if (ideImage) {
+        const ideContainerName = `ide-${userId}-${Date.now()}`;
         try {
           await this.ensureImageExists(ideImage);
 
@@ -264,6 +265,7 @@ export class LabService {
               PortBindings: {
                 '3000/tcp': [{ HostPort: String(ports.ide) }],
               },
+              // 与主容器共享网络，使 IDE 可以访问主容器的文件系统
               Memory: 1 * 1024 * 1024 * 1024, // 1GB 内存限制
               NanoCpus: 1 * 1000000000,       // 1 CPU 核心
               RestartPolicy: { Name: 'unless-stopped' },
@@ -271,13 +273,12 @@ export class LabService {
           });
 
           await ideContainer.start();
-          // 存储 IDE 容器名到 session（可以用 errorMessage 字段临时存储，或者添加新字段）
-          session.errorMessage = ideContainerName; // 临时用这个字段存储 IDE 容器名
+          // 存储 IDE 容器名供停止时清理
+          session.errorMessage = ideContainerName;
+          console.log(`[LabService] WebIDE 容器已启动: ${ideContainerName}, 端口: ${ports.ide}`);
         } catch (ideError) {
-          console.error('创建 WebIDE 容器失败:', ideError);
-          // IDE 容器创建失败不影响主容器
-          ideImage = '';
-          ideContainerName = '';
+          console.error('[LabService] 创建 WebIDE 容器失败:', ideError instanceof Error ? ideError.message : ideError);
+          // IDE 容器创建失败，重置 idePort，WebIDE 将不可用但不影响其他功能
           session.idePort = 0;
           session.errorMessage = '';
         }
@@ -331,19 +332,15 @@ export class LabService {
 
     // 停止 IDE 容器（如果存在）
     // errorMessage 字段临时存储了 IDE 容器名
-    if (
-      session.sourceType === LabSourceType.COURSE &&
-      session.errorMessage &&
-      session.errorMessage.startsWith('ide-')
-    ) {
+    if (session.errorMessage && session.errorMessage.startsWith('ide-')) {
       try {
-        const ideContainerName = session.errorMessage;
         const containers = await docker.listContainers({ all: true });
-        const ideContainer = containers.find(c => c.Names.includes(`/${ideContainerName}`));
+        const ideContainer = containers.find(c => c.Names.includes(`/${session.errorMessage}`));
         if (ideContainer) {
           const container = docker.getContainer(ideContainer.Id);
-          await container.stop();
+          try { await container.stop(); } catch { /* 可能已停止 */ }
           await container.remove();
+          console.log(`[LabService] IDE 容器已清理: ${session.errorMessage}`);
         }
       } catch (ideError) {
         console.log('停止 IDE 容器时出错（可能已不存在）:', ideError);
@@ -352,7 +349,7 @@ export class LabService {
 
     // 无论容器操作是否成功，都更新会话状态
     session.status = LabSessionStatus.STOPPED;
-    session.errorMessage = ''; // 清除临时存储的 IDE 容器名
+    session.errorMessage = '';
     await labSessionRepo.save(session);
 
     return { success: true };
@@ -398,31 +395,51 @@ export class LabService {
     ssh: number;
     gateway: number;
   }> {
-    // 获取已使用的端口
+    // 获取所有未停止的会话端口（包括 CREATING 和 RUNNING 状态）
     const activeSessions = await labSessionRepo.find({
-      where: { status: LabSessionStatus.RUNNING },
+      where: [
+        { status: LabSessionStatus.RUNNING },
+        { status: LabSessionStatus.CREATING },
+      ],
       select: ['vncPort', 'idePort', 'sshPort', 'gatewayPort'],
     });
 
-    const usedNovncPorts = new Set(activeSessions.map((s) => s.vncPort));
-    const usedIdePorts = new Set(activeSessions.map((s) => s.idePort));
-    const usedSshPorts = new Set(activeSessions.map((s) => s.sshPort));
-    const usedGatewayPorts = new Set(activeSessions.map((s) => s.gatewayPort).filter((port) => port > 0));
+    const usedPorts = new Set<number>();
+    for (const s of activeSessions) {
+      if (s.vncPort > 0) usedPorts.add(s.vncPort);
+      if (s.idePort > 0) usedPorts.add(s.idePort);
+      if (s.sshPort > 0) usedPorts.add(s.sshPort);
+      if (s.gatewayPort > 0) usedPorts.add(s.gatewayPort);
+    }
 
-    // 找到可用端口
-    let novncPort = NOVNC_PORT_START;
-    while (usedNovncPorts.has(novncPort)) novncPort++;
+    // 同时检查 Docker 层面实际占用的端口（防止残留容器占用端口而数据库不知道）
+    try {
+      const containers = await docker.listContainers({ all: false }); // 只查运行中的
+      for (const c of containers) {
+        if (c.Ports) {
+          for (const p of c.Ports) {
+            if (p.PublicPort) usedPorts.add(p.PublicPort);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[LabService] 无法获取 Docker 容器端口列表:', err instanceof Error ? err.message : err);
+    }
 
-    let idePort = IDE_PORT_START;
-    while (usedIdePorts.has(idePort)) idePort++;
+    // 找到可用端口（所有端口放在一个 Set 里检查，避免不同类型端口之间冲突）
+    const findAvailablePort = (start: number): number => {
+      let port = start;
+      while (usedPorts.has(port)) port++;
+      usedPorts.add(port); // 标记为已用，避免后续分配到同一个端口
+      return port;
+    };
 
-    let sshPort = SSH_PORT_START;
-    while (usedSshPorts.has(sshPort)) sshPort++;
-
-    let gatewayPort = GATEWAY_PORT_START;
-    while (usedGatewayPorts.has(gatewayPort)) gatewayPort++;
-
-    return { novnc: novncPort, ide: idePort, ssh: sshPort, gateway: gatewayPort };
+    return {
+      novnc: findAvailablePort(NOVNC_PORT_START),
+      ide: findAvailablePort(IDE_PORT_START),
+      ssh: findAvailablePort(SSH_PORT_START),
+      gateway: findAvailablePort(GATEWAY_PORT_START),
+    };
   }
 
   /**
