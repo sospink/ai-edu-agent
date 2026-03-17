@@ -15,6 +15,7 @@
     "test:docker": "ts-node src/scripts/testDocker.ts"
   },
   "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.59.0",
     "@types/dockerode": "^3.3.47",
     "@types/multer": "^2.0.0",
     "cors": "^2.8.5",
@@ -27,6 +28,7 @@
     "openai": "^6.16.0",
     "reflect-metadata": "^0.2.2",
     "ssh2": "^1.17.0",
+    "tweetnacl": "^1.0.3",
     "typeorm": "^0.3.27",
     "winston": "^3.13.0",
     "ws": "^8.18.3",

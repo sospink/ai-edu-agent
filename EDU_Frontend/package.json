@@ -13,13 +13,16 @@
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.67",
     "@tailwindcss/typography": "^0.5.19",
+    "@types/three": "^0.183.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
     "docx-preview": "^0.3.7",
     "framer-motion": "^11.0.8",
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.344.0",
+    "mermaid": "^11.13.0",
     "pdfjs-dist": "^5.4.530",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -28,7 +31,9 @@
     "react-router-dom": "^7.12.0",
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^3.5.0",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",

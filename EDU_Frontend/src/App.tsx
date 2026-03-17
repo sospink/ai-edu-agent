@@ -18,6 +18,7 @@ import { ProjectList, ProjectDetail } from '@/components/project';
 import { SkillList, SkillDetail, LessonPage, LabPage } from '@/components/study';
 import { AISquare } from '@/components/ai-square';
 import OpenClawPage from '@/components/openclaw/OpenClawPage';
+import DocsPage from '@/components/docs/DocsPage';
 import { authService } from '@/services/auth';
 import type { User } from '@/types';
 import type { Project } from '@/types/project';
@@ -153,6 +154,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentUser, onLogout
               break;
             case 'profile':
               navigate('/profile');
+              break;
+            case 'docs':
+              navigate('/docs');
               break;
             default:
               navigate('/');
@@ -326,10 +330,16 @@ const AppContent: React.FC = () => {
             element={<LabPage />} 
           />
 
-          {/* OpenClaw 页面 - 独立页面，无导航栏和Footer */}
+          {/* OpenClaw 页面 - 独立页面，无导航栏和Footer，支持子路由 */}
           <Route
-            path="/openclaw"
+            path="/openclaw/*"
             element={<OpenClawPage />}
+          />
+          
+          {/* 文档页面 - 独立页面，自定义导航 */}
+          <Route
+            path="/docs"
+            element={<DocsPage />}
           />
           
           {/* 用户端路由 */}

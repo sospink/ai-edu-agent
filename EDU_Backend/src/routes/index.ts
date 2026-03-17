@@ -10,6 +10,8 @@ import learningRoutes from './learningRoutes';
 import dockerRoutes from './dockerRoutes';
 import labRoutes from './labRoutes';
 import agentRoutes from './agentRoutes';
+import openclawViewRoutes from './openclawViewRoutes';
+import integrationRoutes from './integrationRoutes';
 
 const router = Router();
 
@@ -45,6 +47,12 @@ router.use('/lab', labRoutes);
 
 // Agent 教学智能体路由
 router.use('/agent', agentRoutes);
+
+// OpenClaw 视图聚合路由
+router.use('/openclaw-view', openclawViewRoutes);
+
+// 第三方集成健康路由
+router.use('/integrations', integrationRoutes);
 
 // 健康检查
 router.get('/health', (req, res) => {

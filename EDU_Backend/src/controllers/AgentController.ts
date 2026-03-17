@@ -369,6 +369,27 @@ export async function getVerificationSuggestion(req: Request, res: Response) {
   }
 }
 
+// POST /api/agent/prompt-enhance
+export async function promptEnhance(req: Request, res: Response) {
+  try {
+    const { rawPrompt, mode } = req.body;
+
+    if (!rawPrompt) {
+      return res.status(400).json({ error: '请输入原始提示词' });
+    }
+
+    const result = await QwenService.promptEnhance({
+      rawPrompt,
+      mode: mode || '通用',
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error('[AgentController] promptEnhance error:', error);
+    res.status(500).json({ error: error.message || 'AI 提示词优化服务暂时不可用' });
+  }
+}
+
 // POST /api/admin/agent/import
 export async function importMarkdown(req: Request, res: Response) {
   try {

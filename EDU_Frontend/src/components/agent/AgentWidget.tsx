@@ -117,6 +117,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   const [showInputBox, setShowInputBox] = useState(false);  // 控制输入框显示
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);  // 控制返回底部按钮显示
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);  // 控制恭喜完成对话框显示
+  const widgetStartRef = useRef(Date.now());
   const scrollRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);  // 输入框引用
@@ -1181,6 +1182,13 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
         onClose={() => setShowCompleteDialog(false)}
         lessonName={manualTitle || '实验'}
         earnedXP={100}
+        duration={(() => {
+          const elapsed = Math.round((Date.now() - widgetStartRef.current) / 1000);
+          const mins = Math.floor(elapsed / 60);
+          const secs = elapsed % 60;
+          if (mins > 0) return `${mins}分 ${secs}秒`;
+          return `${secs}秒`;
+        })()}
       />
     </>
   );

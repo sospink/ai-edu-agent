@@ -31,6 +31,9 @@ router.post('/progress', AgentController.updateProgress);
 // AI 验证建议
 router.post('/suggestion', AgentController.getVerificationSuggestion);
 
+// 提示词智能增强
+router.post('/prompt-enhance', AgentController.promptEnhance);
+
 // ============ Admin Routes ============
 // 获取手册（管理员）
 router.get('/admin/manual/:sourceType/:sourceId', adminMiddleware, AgentController.getManualForAdmin);

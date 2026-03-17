@@ -173,3 +173,79 @@ export async function getVerificationHelp(req: VerificationHelpRequest): Promise
     throw new Error('AI 服务暂时不可用');
   }
 }
+
+// 提示词智能增强
+interface PromptEnhanceRequest {
+  rawPrompt: string;
+  mode: '通用' | '代码' | '创作';
+}
+
+export async function promptEnhance(req: PromptEnhanceRequest): Promise<{
+  content: string;
+  score: number;
+  tokens: number;
+  suggestions: string[];
+}> {
+  const modeGuide: Record<string, string> = {
+    '通用': '适用于通用任务场景，注重逻辑清晰、角色设定明确、输出约束完整。',
+    '代码': '适用于编程开发场景，注重技术精确性、代码规范、错误处理和最佳实践。',
+    '创作': '适用于内容创作场景，注重创意表达、风格一致性、结构美感和感染力。',
+  };
+
+  const systemPrompt = `你是一位顶级 Prompt Engineering 专家。你的任务是将用户提供的原始提示词优化为高质量的结构化提示词。
+
+当前优化模式：${req.mode} — ${modeGuide[req.mode] || modeGuide['通用']}
+
+## 优化原则
+1. **角色设定**：为 AI 设定清晰的专家角色
+2. **任务拆解**：将模糊需求拆解为具体的执行步骤
+3. **输出约束**：明确输出格式、字数、语言风格等要求
+4. **上下文补充**：补充必要的背景信息和约束条件
+5. **Few-shot 引导**：如果合适，添加示例说明
+
+## 输出格式要求
+请严格按照以下 JSON 格式返回（不要包含 markdown 代码块标记）：
+{
+  "content": "优化后的完整提示词（使用 Markdown 格式，包含角色设定、核心指令、输出约束等部分）",
+  "score": 优化质量评分(1-100的整数),
+  "suggestions": ["改进建议1", "改进建议2"]
+}`;
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `请优化以下原始提示词：\n\n${req.rawPrompt}` },
+      ],
+      temperature: 0.7,
+    });
+
+    const raw = completion.choices[0]?.message?.content || '';
+    const tokens = completion.usage?.total_tokens || Math.ceil(raw.length / 1.5);
+
+    // 尝试解析 JSON
+    try {
+      // 清理可能的 markdown 代码块标记
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const parsed = JSON.parse(cleaned);
+      return {
+        content: parsed.content || raw,
+        score: Math.max(1, Math.min(100, parsed.score || 85)),
+        tokens,
+        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+      };
+    } catch {
+      // JSON 解析失败，返回原始文本作为优化结果
+      return {
+        content: raw,
+        score: 85,
+        tokens,
+        suggestions: ['建议添加更多上下文信息以获得更精准的优化结果。'],
+      };
+    }
+  } catch (error: any) {
+    console.error('[QwenService] promptEnhance error:', error);
+    throw new Error('AI 提示词优化服务暂时不可用，请稍后再试');
+  }
+}

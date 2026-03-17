@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, X, Zap, Award } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ShieldCheck, Clock, Zap, X } from 'lucide-react';
 
 interface CompleteLessonDialogProps {
   isOpen: boolean;
@@ -8,6 +8,10 @@ interface CompleteLessonDialogProps {
   lessonName: string;
   earnedXP: number;
   actionText?: string;
+  /** 完成耗时文本（可选） */
+  duration?: string;
+  /** 准确率/评分（可选，0-100） */
+  accuracy?: number;
 }
 
 const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
@@ -15,117 +19,133 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
   onClose,
   lessonName,
   earnedXP,
-  actionText = '继续学习',
+  actionText = '返回项目',
+  duration = '—',
+  accuracy = 100,
 }) => {
+  const [animateContent, setAnimateContent] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => setAnimateContent(true), 10);
+      return () => clearTimeout(timer);
+    } else {
+      setAnimateContent(false);
+    }
+  }, [isOpen]);
+
+  // ESC 关闭
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, handleKeyDown]);
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* 背景遮罩 */}
+          {/* 背景遮罩 - 毛玻璃 */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-[4px] z-[100]"
           />
 
-          {/* Dialog 内容 */}
-          <div className="fixed inset-0 flex items-center justify-center z-[101] pointer-events-none">
+          {/* Dialog 容器 */}
+          <div className="fixed inset-0 flex items-center justify-center z-[101] pointer-events-none p-6">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              ref={modalRef}
+              initial={{ scale: 0.96, opacity: 0, y: 32 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-3xl shadow-2xl max-w-md w-full mx-4 overflow-hidden pointer-events-auto"
+              exit={{ scale: 0.96, opacity: 0, y: 32 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+              className="relative w-full max-w-[420px] bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-200/60 overflow-hidden pointer-events-auto"
             >
-              {/* 顶部装饰 */}
-              <div className="relative h-32 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 overflow-hidden">
-                {/* 动画背景 */}
-                <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-0 left-0 w-40 h-40 bg-white rounded-full blur-3xl animate-pulse"></div>
-                  <div className="absolute bottom-0 right-0 w-32 h-32 bg-white rounded-full blur-2xl animate-pulse delay-300"></div>
+              {/* 核心指标区域 */}
+              <div className="px-8 pt-12 pb-6 text-center">
+                <div className={`flex flex-col items-center transition-all duration-700 delay-100 ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck className="w-4 h-4 text-[#1677FF]" />
+                    <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400">
+                      评估结果
+                    </span>
+                  </div>
+
+                  <div className="relative inline-flex items-baseline gap-1">
+                    <h1 className="text-6xl font-extrabold text-slate-900 tracking-tighter tabular-nums">
+                      {accuracy}
+                    </h1>
+                    <span className="text-2xl font-bold text-slate-400 -ml-1">%</span>
+                  </div>
+
+                  <p className="mt-2 text-sm font-medium text-slate-500">
+                    {lessonName}
+                  </p>
                 </div>
-                
-                {/* 成功图标 */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ delay: 0.2, type: 'spring', damping: 15 }}
-                    className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl"
+              </div>
+
+              {/* 元数据栅格 */}
+              <div className="px-8 pb-8 space-y-6">
+                <div className={`grid grid-cols-2 gap-px bg-slate-100 rounded-xl border border-slate-100 overflow-hidden transition-all duration-700 delay-200 ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                  {/* 用时 */}
+                  <div className="bg-white p-4">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">训练耗时</span>
+                    </div>
+                    <div className="text-sm font-semibold text-slate-800">{duration}</div>
+                  </div>
+
+                  {/* 经验增长 */}
+                  <div className="bg-white p-4">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">经验增长</span>
+                    </div>
+                    <div className="text-sm font-semibold text-slate-800">+{earnedXP} XP</div>
+                  </div>
+                </div>
+
+                {/* 底部分隔线 */}
+                <div className={`flex items-center justify-center gap-2 transition-all duration-700 delay-300 ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                  <div className="h-px flex-1 bg-slate-100" />
+                  <span className="text-[11px] font-medium text-slate-400 px-2 italic">恭喜完成实验 🎉</span>
+                  <div className="h-px flex-1 bg-slate-100" />
+                </div>
+
+                {/* 按钮动作组 */}
+                <div className={`flex flex-col gap-3 transition-all duration-700 delay-[400ms] ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                  <button
+                    onClick={onClose}
+                    className="relative inline-flex items-center justify-center w-full py-3 rounded-lg text-sm font-semibold transition-all duration-200 bg-[#1677FF] text-white hover:bg-[#0057D9] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_rgba(22,119,255,0.2)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1677FF]"
                   >
-                    <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-                  </motion.div>
+                    {actionText}
+                  </button>
                 </div>
-
-                {/* 关闭按钮 */}
-                <button
-                  onClick={onClose}
-                  className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
               </div>
 
-              {/* 内容区域 */}
-              <div className="p-8 text-center">
-                <motion.h2
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-2xl font-bold text-slate-900 mb-2"
-                >
-                  恭喜完成实验
-                </motion.h2>
-                
-                <motion.p
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="text-slate-600 mb-6"
-                >
-                  {lessonName}
-                </motion.p>
-
-                {/* 经验值奖励 */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5, type: 'spring' }}
-                  className="inline-flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border-2 border-amber-200 mb-6"
-                >
-                  <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Zap className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-xs font-medium text-amber-700 mb-0.5">获得经验值</div>
-                    <div className="text-2xl font-bold text-amber-600">+{earnedXP} XP</div>
-                  </div>
-                </motion.div>
-
-                {/* 成就提示 */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className="flex items-center justify-center gap-2 text-sm text-slate-500 mb-6"
-                >
-                  <Award className="w-4 h-4 text-purple-500" />
-                  <span>继续学习，解锁更多成就</span>
-                </motion.div>
-
-                {/* 按钮 */}
-                <motion.button
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 }}
-                  onClick={onClose}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all hover:shadow-xl hover:shadow-emerald-500/40 hover:-translate-y-0.5"
-                >
-                  {actionText}
-                </motion.button>
-              </div>
+              {/* 关闭按钮 */}
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-full transition-all duration-200"
+                aria-label="关闭"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </motion.div>
           </div>
         </>

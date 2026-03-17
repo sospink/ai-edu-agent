@@ -32,4 +32,17 @@ export const config = {
 
   // WebSocket配置
   wsPort: parseInt(process.env.WS_PORT || '4001'),
+
+  // OpenClaw Gateway 配置
+  openclaw: {
+    gatewayUrl: process.env.OPENCLAW_GATEWAY_URL || 'http://127.0.0.1:18789',
+    gatewayToken: process.env.OPENCLAW_GATEWAY_TOKEN || '',
+  },
+
+  // Feishu 配置
+  feishu: {
+    appId: process.env.FEISHU_APP_ID || '',
+    appSecret: process.env.FEISHU_APP_SECRET || '',
+    domain: process.env.FEISHU_DOMAIN || 'https://open.feishu.cn',
+  },
 };

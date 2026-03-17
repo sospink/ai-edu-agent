@@ -1560,6 +1560,12 @@ const LessonPage: React.FC = () => {
         lessonName={lessonName}
         earnedXP={earnedXP}
         actionText="返回学习中心"
+        duration={(() => {
+          const mins = Math.floor(studySeconds / 60);
+          const secs = studySeconds % 60;
+          if (mins > 0) return `${mins}分 ${secs}秒`;
+          return `${secs}秒`;
+        })()}
       />
     </div>
   );

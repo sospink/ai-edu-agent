@@ -50,18 +50,38 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      const rawText = await response.text();
+      let data: ApiResponse<T> = {
+        success: false,
+        error: 'Invalid response format',
+      };
+
+      if (rawText) {
+        try {
+          data = JSON.parse(rawText) as ApiResponse<T>;
+        } catch {
+          data = {
+            success: false,
+            error: rawText.slice(0, 200) || `HTTP ${response.status}`,
+          };
+        }
+      } else {
+        data = {
+          success: false,
+          error: `Empty response body (HTTP ${response.status})`,
+        };
+      }
       
       console.log('[API] 响应:', endpoint, {
         status: response.status,
-        success: data.success,
-        error: data.error,
+        success: (data as ApiResponse<T>).success,
+        error: (data as ApiResponse<T>).error,
       });
       
       // 如果返回 401 且错误信息表明 token 无效或过期，才清除 token
       // 不要因为"未提供认证令牌"就清除（可能是页面刷新导致的临时问题）
-      if (response.status === 401 && data.error) {
-        const errorMsg = data.error.toLowerCase();
+      if (response.status === 401 && (data as ApiResponse<T>).error) {
+        const errorMsg = ((data as ApiResponse<T>).error || '').toLowerCase();
         // 只有在 token 明确无效或过期时才清除
         if (errorMsg.includes('无效') || errorMsg.includes('过期') || errorMsg.includes('invalid') || errorMsg.includes('expired')) {
           console.warn('[API] Token无效或过期，清除token');

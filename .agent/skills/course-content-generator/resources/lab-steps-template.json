@@ -1,0 +1,32 @@
+{
+  "lesson_id": "lesson-XXXX",
+  "lesson_title": "实训课标题",
+  "estimated_minutes": 30,
+  "environment": "docker",
+  "base_image": "node:18-alpine",
+  "steps": [
+    {
+      "step_number": 1,
+      "title": "环境确认",
+      "instruction": "## 第一步：确认环境\n\n在终端中执行以下命令，确认开发环境已就绪：\n\n```bash\nnode --version\nnpm --version\n```\n\n确认输出类似 `v18.x.x` 后，继续下一步。",
+      "validation_script": "validate_step1.sh",
+      "hints": [
+        "如果命令未找到，请刷新实训环境",
+        "Node.js 版本需要 >= 16"
+      ],
+      "expected_output": "Node.js 和 npm 版本信息正常显示"
+    },
+    {
+      "step_number": 2,
+      "title": "创建项目文件",
+      "instruction": "## 第二步：创建项目\n\n在 `/workspace` 目录下执行：\n\n```bash\nmkdir my-project && cd my-project\nnpm init -y\n```",
+      "validation_script": "validate_step2.sh",
+      "hints": [
+        "确保在 /workspace 目录下执行命令",
+        "npm init -y 会自动生成 package.json"
+      ],
+      "expected_output": "package.json 文件已在 /workspace/my-project 中创建"
+    }
+  ],
+  "completion_message": "🎉 恭喜！你已完成本次实训。总结：[本次实训完成的核心任务]"
+}

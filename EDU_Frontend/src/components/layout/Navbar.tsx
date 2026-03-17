@@ -24,6 +24,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
     { view: 'study' as ViewState, path: '/study', label: '学习中心' },
     { view: 'projects' as ViewState, path: '/projects', label: '项目实战' },
     { view: 'ai-square' as ViewState, path: '/ai-square', label: 'AI 广场' },
+    { view: 'docs' as ViewState, path: '/docs', label: '文档' },
   ];
 
   const isActive = (path: string) => {

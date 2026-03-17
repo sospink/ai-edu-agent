@@ -5,15 +5,20 @@ import {
   ArrowRight,
   Bot,
   Brain,
+  Briefcase,
+  Bug,
   Code2,
   Image,
+  Megaphone,
   MessageSquare,
   Music,
   Search,
   Sparkles,
   Star,
   Video,
+  Zap,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 type FeaturedTool = {
   id: string;
@@ -94,6 +99,60 @@ const featuredTools: FeaturedTool[] = [
     colorClass: 'bg-sky-100 text-sky-700',
     score: '4.7',
     url: 'https://www.coze.cn/',
+  },
+];
+
+type OpenClawScene = {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: React.ElementType;
+  colorClass: string;
+  logoText: string;
+  dotColor: string;
+};
+
+const openClawScenes: OpenClawScene[] = [
+  {
+    id: 'presales',
+    title: '售前工程师',
+    subtitle: '方案设计 · 需求分析',
+    description: '围绕客户需求梳理、技术路线设计、解决方案书与商务报价进行一体化输出。',
+    icon: Briefcase,
+    colorClass: 'bg-sky-100 text-sky-700',
+    logoText: 'PE',
+    dotColor: '#0ea5e9',
+  },
+  {
+    id: 'marketing',
+    title: '品牌营销专家',
+    subtitle: '品牌定位 · 传播策略',
+    description: '聚焦品牌定位、市场洞察、传播策略和年度营销方案的结构化协同产出。',
+    icon: Megaphone,
+    colorClass: 'bg-emerald-100 text-emerald-700',
+    logoText: 'MK',
+    dotColor: '#10b981',
+  },
+  {
+    id: 'fullstack',
+    title: '全栈开发工程师',
+    subtitle: '源码开发 · 部署上线',
+    description: '覆盖需求分析、技术选型、架构设计、源码实现、测试与部署全链路交付。',
+    icon: Code2,
+    colorClass: 'bg-amber-100 text-amber-700',
+    logoText: 'FS',
+    dotColor: '#f59e0b',
+  },
+  {
+    id: 'qa',
+    title: '软件质量工程师',
+    subtitle: '缺陷评估 · 回归验证',
+    description: '聚焦代码缺陷评估、回归测试、修复方案验证与最终交付质量闭环。',
+    icon: Bug,
+    colorClass: 'bg-violet-100 text-violet-700',
+    logoText: 'QA',
+    dotColor: '#8b5cf6',
   },
 ];
 
@@ -180,6 +239,7 @@ function BrandLogo({
 }
 
 const AISquare: React.FC = () => {
+  const navigate = useNavigate();
   const [heroHovered, setHeroHovered] = useState(false);
   const mouseX = useMotionValue(300);
   const mouseY = useMotionValue(220);
@@ -291,31 +351,100 @@ const AISquare: React.FC = () => {
             </button>
           </div>
 
-          <div className="hide-scrollbar flex snap-x gap-5 overflow-x-auto pb-4">
-            {featuredTools.map((tool, index) => (
-              <motion.a
-                key={tool.id}
-                href={tool.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group min-w-[290px] snap-start rounded-3xl border border-white/60 bg-white/75 p-6 shadow-[0_8px_28px_rgba(15,23,42,0.06)] backdrop-blur"
-                initial={{ opacity: 0, y: 18 }}
+          <div className="marquee-container relative overflow-hidden">
+            {/* 左右淡出遮罩 */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-r from-[#f7f9fc] to-transparent" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-l from-[#f7f9fc] to-transparent" />
+            <div className="marquee-track flex gap-5 pb-4">
+              {[...featuredTools, ...featuredTools].map((tool, index) => (
+                <a
+                  key={`${tool.id}-${index}`}
+                  href={tool.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group w-[240px] flex-shrink-0 rounded-3xl border border-white/60 bg-white/75 p-6 shadow-[0_8px_28px_rgba(15,23,42,0.06)] backdrop-blur transition-all hover:shadow-xl hover:-translate-y-1"
+                >
+                  <div className={`mb-5 flex h-12 w-12 flex-col items-center justify-center rounded-xl ${tool.colorClass}`}>
+                    <tool.icon className="h-4 w-4" />
+                    <span className="mt-0.5 text-[9px] font-bold leading-none">{tool.logoText}</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">{tool.name}</h3>
+                  <p className="mt-1 text-xs font-medium text-slate-400">{tool.vendor}</p>
+                  <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-600">{tool.desc}</p>
+                  <div className="mt-4 flex items-center text-xs font-semibold text-slate-400">
+                    <Star className="mr-1 h-3.5 w-3.5 fill-current text-amber-400" />
+                    {tool.score}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ====== OpenClaw 工作场景 ====== */}
+        <section className="mb-24">
+          <div className="mb-10 text-center">
+            <motion.h2
+              initial={{ opacity: 0, y: 14 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.06 }}
+              className="text-3xl font-bold text-slate-900"
+            >
+              OpenClaw
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.12 }}
+              className="mx-auto mt-3 max-w-2xl text-sm text-slate-500"
+            >
+              选择一个真实工作场景，体验 OpenClaw 如何通过 Agent 自主完成多步骤任务编排与执行。
+            </motion.p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {openClawScenes.map((scene, index) => (
+              <motion.div
+                key={scene.id}
+                initial={{ opacity: 0, y: 22 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.06 }}
+                transition={{ delay: index * 0.08 }}
+                onClick={() => navigate('/openclaw')}
+                className="group relative cursor-pointer overflow-hidden rounded-3xl border border-white/60 bg-white/80 p-7 shadow-[0_8px_28px_rgba(15,23,42,0.06)] backdrop-blur transition-all hover:shadow-xl hover:-translate-y-1"
               >
-                <div className={`mb-5 flex h-12 w-12 flex-col items-center justify-center rounded-xl ${tool.colorClass}`}>
-                  <tool.icon className="h-4 w-4" />
-                  <span className="mt-0.5 text-[9px] font-bold leading-none">{tool.logoText}</span>
+                {/* 图标 */}
+                <div className={`mb-5 flex h-12 w-12 flex-col items-center justify-center rounded-xl ${scene.colorClass}`}>
+                  <scene.icon className="h-4 w-4" />
+                  <span className="mt-0.5 text-[9px] font-bold leading-none">{scene.logoText}</span>
                 </div>
-                <h3 className="text-lg font-bold text-slate-800">{tool.name}</h3>
-                <p className="mt-1 text-xs font-medium text-slate-400">{tool.vendor}</p>
-                <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-600">{tool.desc}</p>
-                <div className="mt-4 flex items-center text-xs font-semibold text-slate-400">
-                  <Star className="mr-1 h-3.5 w-3.5 fill-current text-amber-400" />
-                  {tool.score}
+
+                {/* 标题 */}
+                <h3 className="text-lg font-bold text-slate-800 group-hover:text-slate-900 transition-colors">
+                  {scene.title}
+                </h3>
+                <p className="mt-1 text-xs font-semibold text-slate-400">{scene.subtitle}</p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600 line-clamp-2">
+                  {scene.description}
+                </p>
+
+                {/* 底部操作指示 */}
+                <div className="mt-5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: scene.dotColor }} />
+                      <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: scene.dotColor }} />
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ready</span>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1">
+                    启动场景
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
                 </div>
-              </motion.a>
+              </motion.div>
             ))}
           </div>
         </section>
@@ -367,6 +496,17 @@ const AISquare: React.FC = () => {
       <style>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes marqueeScroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .marquee-track {
+          animation: marqueeScroll 30s linear infinite;
+        }
+        .marquee-container:hover .marquee-track {
+          animation-play-state: paused;
+        }
       `}</style>
     </div>
   );

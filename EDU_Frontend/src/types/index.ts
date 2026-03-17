@@ -1,7 +1,7 @@
 import { LucideIcon } from 'lucide-react';
 
 // View state types
-export type ViewState = 'home' | 'login' | 'study' | 'projects' | 'ai-square' | 'admin-login' | 'admin-panel' | 'profile';
+export type ViewState = 'home' | 'login' | 'study' | 'projects' | 'ai-square' | 'admin-login' | 'admin-panel' | 'profile' | 'docs';
 
 // Feature types
 export interface FeatureItem {
