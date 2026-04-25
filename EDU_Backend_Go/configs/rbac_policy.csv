@@ -1,0 +1,54 @@
+p, student, /api/auth/refresh, POST
+p, student, /api/learning/*, GET
+p, student, /api/courses/*/enroll, POST
+p, student, /api/courses/*/progress, GET
+p, student, /api/courses/lessons/*/start, POST
+p, student, /api/courses/lessons/*/complete, POST
+p, student, /api/lab/active, GET
+p, student, /api/lab/sessions, GET
+p, student, /api/lab/create, POST
+p, student, /api/lab/stop/*, POST
+p, student, /api/lab/urls, GET
+p, student, /api/lab/execute, POST
+p, student, /api/agent/manual/*, GET
+p, student, /api/agent/verify, POST
+p, student, /api/agent/chat, POST
+p, student, /api/agent/chat/stream, POST
+p, student, /api/agent/coach/*, GET|POST
+p, student, /api/agent/faq, GET
+p, student, /api/agent/reflect, POST
+p, student, /api/agent/reflections/*, POST
+p, student, /api/agent/pending-interventions, GET
+p, student, /api/agent/interventions/*, POST
+p, student, /api/agent/explain, POST
+p, student, /api/agent/progress/*, GET
+p, student, /api/agent/progress, POST
+p, student, /api/agent/suggestion, POST
+p, student, /api/agent/prompt-enhance, POST
+p, student, /api/openclaw-view/*, GET|POST
+p, student, /api/student/*, GET|POST
+p, student, /api/users/*, GET|PUT
+
+p, teacher, /api/courses, POST
+p, teacher, /api/courses/*, POST|PUT|DELETE
+p, teacher, /api/projects, POST
+p, teacher, /api/projects/*, POST|PUT|DELETE
+p, teacher, /api/skills, POST
+p, teacher, /api/skills/*, PUT|DELETE
+p, teacher, /api/tags, POST
+p, teacher, /api/tags/*, PUT|DELETE
+p, teacher, /api/upload/*, POST|DELETE
+p, teacher, /api/agent/admin/*, GET|POST|PUT|DELETE
+p, teacher, /api/teacher/*, GET|POST|PUT|DELETE|PATCH
+
+p, admin, /api/users, GET|POST
+p, admin, /api/users/*, GET|POST|PUT|DELETE
+p, admin, /api/integrations/*, GET|POST|PUT|DELETE|PATCH
+p, admin, /api/admin/*, GET|POST|PUT|DELETE|PATCH
+p, admin, /api/lab/images, GET
+
+g, role:1, student
+g, role:2, teacher
+g, role:10, admin
+g, teacher, student
+g, admin, teacher

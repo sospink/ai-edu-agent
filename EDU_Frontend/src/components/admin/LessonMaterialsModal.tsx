@@ -76,8 +76,8 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
     setLoading(true);
     try {
       const response = await materialApi.getList(lessonId);
-      if (response.success && response.data) {
-        setMaterials(response.data);
+      if (response.success) {
+        setMaterials(response.data || []);
       } else {
         showToast(response.error || '加载资料失败', 'error');
       }

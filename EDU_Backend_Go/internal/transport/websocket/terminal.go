@@ -1,0 +1,405 @@
+package websocket
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"k8s.io/client-go/tools/remotecommand"
+
+	"edu-platform/internal/config"
+	"edu-platform/internal/domain/lab"
+	"edu-platform/internal/infra/authz"
+	"edu-platform/internal/middleware"
+	"edu-platform/pkg/jwt"
+)
+
+type TerminalHandler struct {
+	jwtManager     *jwt.Manager
+	labService     *lab.Service
+	cfg            *config.Config
+	tokenBlacklist *authz.TokenBlacklist
+}
+
+func NewTerminalHandler(jwtManager *jwt.Manager, labService *lab.Service, cfg *config.Config, tokenBlacklist *authz.TokenBlacklist) *TerminalHandler {
+	return &TerminalHandler{jwtManager: jwtManager, labService: labService, cfg: cfg, tokenBlacklist: tokenBlacklist}
+}
+
+type terminalMessage struct {
+	Type string `json:"type"`
+	Data string `json:"data,omitempty"`
+	Rows int    `json:"rows,omitempty"`
+	Cols int    `json:"cols,omitempty"`
+}
+
+type terminalTransport string
+
+const (
+	transportJSON terminalTransport = "json"
+	transportRaw  terminalTransport = "raw"
+)
+
+func (h *TerminalHandler) Handle(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "缺少 token"})
+		return
+	}
+	claims, err := h.jwtManager.ParseToken(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "token 无效"})
+		return
+	}
+	revoked, err := h.tokenBlacklist.IsRevoked(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "认证状态校验失败"})
+		return
+	}
+	if revoked {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "token 已失效"})
+		return
+	}
+	if h.labService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "Lab 服务未启用"})
+		return
+	}
+
+	sessionID, err := strconv.ParseUint(c.Query("sessionId"), 10, 64)
+	if err != nil || sessionID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "缺少或无效的 sessionId"})
+		return
+	}
+
+	session, err := h.labService.GetActiveSession(c.Request.Context(), claims.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "查询实验会话失败"})
+		return
+	}
+	if session == nil || session.ID != sessionID {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "实验会话不存在或已过期"})
+		return
+	}
+
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return middleware.IsOriginAllowed(h.cfg, r.Header.Get("Origin"))
+		},
+	}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	if rawConn := conn.UnderlyingConn(); rawConn != nil {
+		_ = rawConn.SetDeadline(time.Time{})
+	}
+
+	transportMode := normalizeTransport(c.DefaultQuery("transport", "json"))
+	terminalID := c.DefaultQuery("terminalId", "default")
+	mode := c.DefaultQuery("mode", "ssh")
+	command := c.DefaultQuery("command", "/bin/bash")
+	sessionPolicy := c.DefaultQuery("sessionPolicy", "reuse")
+	initialCommand := strings.TrimSpace(c.Query("initialCommand"))
+
+	if err := h.handleK8SExec(c.Request.Context(), conn, session, terminalID, mode, command, sessionPolicy, initialCommand, transportMode); err != nil {
+		_ = conn.WriteJSON(gin.H{"type": "error", "message": err.Error()})
+	}
+}
+
+func (h *TerminalHandler) handleK8SExec(
+	parent context.Context,
+	conn *websocket.Conn,
+	session *lab.UserLabSession,
+	terminalID string,
+	mode string,
+	command string,
+	sessionPolicy string,
+	initialCommand string,
+	transportMode terminalTransport,
+) error {
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	defer writer.Close()
+
+	sizeQueue := newTerminalSizeQueue()
+	writeMu := &sync.Mutex{}
+	outputWriter := websocketOutputWriter{conn: conn, transport: transportMode, writeMu: writeMu}
+	execCommand := buildExecCommand(mode, command, sessionPolicy, terminalID)
+
+	streamDone := make(chan error, 1)
+	go func() {
+		streamDone <- h.labService.StreamExec(ctx, session, execCommand, true, reader, outputWriter, nil, sizeQueue)
+	}()
+
+	writeMu.Lock()
+	err := conn.WriteJSON(gin.H{"type": "connected"})
+	writeMu.Unlock()
+	if err != nil {
+		cancel()
+		return err
+	}
+
+	if initial := effectiveInitialCommand(initialCommand, terminalID, mode); initial != "" {
+		go func() {
+			timer := time.NewTimer(1200 * time.Millisecond)
+			defer timer.Stop()
+			select {
+			case <-ctx.Done():
+			case <-timer.C:
+				_, _ = writer.Write([]byte(initial + "\n"))
+			}
+		}()
+	}
+
+	pingDone := startPingLoop(ctx, conn, writeMu, cancel)
+	defer func() {
+		cancel()
+		<-pingDone
+	}()
+
+	readDone := make(chan error, 1)
+	go func() {
+		readDone <- pumpWebSocketInput(ctx, conn, writer, sizeQueue, transportMode)
+	}()
+
+	select {
+	case err := <-streamDone:
+		cancel()
+		if err != nil && !strings.Contains(err.Error(), "context canceled") {
+			return fmt.Errorf("K8S exec 失败: %w", err)
+		}
+		return nil
+	case err := <-readDone:
+		cancel()
+		if err != nil && !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		return nil
+	}
+}
+
+func pumpWebSocketInput(
+	ctx context.Context,
+	conn *websocket.Conn,
+	writer *io.PipeWriter,
+	sizeQueue *terminalSizeQueue,
+	transportMode terminalTransport,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		messageType, payload, err := conn.ReadMessage()
+		if err != nil {
+			_ = writer.CloseWithError(err)
+			return err
+		}
+
+		if transportMode == transportRaw {
+			if messageType == websocket.BinaryMessage {
+				if len(payload) > 0 {
+					_, _ = writer.Write(payload)
+				}
+				continue
+			}
+			if handleResizePayload(payload, sizeQueue) {
+				continue
+			}
+			if len(payload) > 0 {
+				_, _ = writer.Write(payload)
+			}
+			continue
+		}
+
+		var msg terminalMessage
+		if err := json.Unmarshal(payload, &msg); err != nil {
+			if len(payload) > 0 {
+				_, _ = writer.Write(payload)
+			}
+			continue
+		}
+
+		switch msg.Type {
+		case "input":
+			if msg.Data != "" {
+				_, _ = writer.Write([]byte(msg.Data))
+			}
+		case "input_binary_base64":
+			decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(msg.Data))
+			if err == nil && len(decoded) > 0 {
+				_, _ = writer.Write(decoded)
+			}
+		case "resize":
+			sizeQueue.Push(msg.Rows, msg.Cols)
+		}
+	}
+}
+
+type websocketOutputWriter struct {
+	conn      *websocket.Conn
+	transport terminalTransport
+	writeMu   *sync.Mutex
+}
+
+func (w websocketOutputWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	w.writeMu.Lock()
+	defer w.writeMu.Unlock()
+	if w.transport == transportRaw {
+		if err := w.conn.WriteMessage(websocket.BinaryMessage, p); err != nil {
+			return 0, err
+		}
+		return len(p), nil
+	}
+	if err := w.conn.WriteJSON(gin.H{"type": "output", "data": string(p)}); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+type terminalSizeQueue struct {
+	ch chan remotecommand.TerminalSize
+}
+
+func newTerminalSizeQueue() *terminalSizeQueue {
+	return &terminalSizeQueue{ch: make(chan remotecommand.TerminalSize, 8)}
+}
+
+func (q *terminalSizeQueue) Next() *remotecommand.TerminalSize {
+	size, ok := <-q.ch
+	if !ok {
+		return nil
+	}
+	return &size
+}
+
+func (q *terminalSizeQueue) Push(rows, cols int) {
+	if rows < 2 || cols < 2 {
+		return
+	}
+	size := remotecommand.TerminalSize{Width: uint16(cols), Height: uint16(rows)}
+	select {
+	case q.ch <- size:
+	default:
+		select {
+		case <-q.ch:
+		default:
+		}
+		q.ch <- size
+	}
+}
+
+func normalizeTransport(raw string) terminalTransport {
+	if raw == string(transportRaw) {
+		return transportRaw
+	}
+	return transportJSON
+}
+
+func buildExecCommand(mode, command, sessionPolicy, terminalID string) []string {
+	if mode != "exec" {
+		return []string{"/bin/bash", "-l"}
+	}
+
+	sessionName := "edu_" + sanitizeTerminalSessionName(command)
+	escapedCommand := strings.ReplaceAll(command, "'", `'\''`)
+	restart := ""
+	if sessionPolicy == "restart" {
+		restart = fmt.Sprintf("tmux kill-session -t %s 2>/dev/null || true;", sessionName)
+	}
+	termValue := "xterm"
+	if terminalID == "opencode" || terminalID == "openclaw" || regexp.MustCompile(`(?i)(opencode|openclaw)`).MatchString(command) {
+		termValue = "xterm-256color"
+	}
+	run := strings.Join([]string{
+		fmt.Sprintf("export TERM=%s COLORTERM=truecolor;", termValue),
+		"if command -v tmux >/dev/null 2>&1; then",
+		restart,
+		fmt.Sprintf("tmux has-session -t %s 2>/dev/null && tmux attach-session -t %s || tmux new-session -s %s -d '%s; exec bash' \\; attach-session -t %s;",
+			sessionName, sessionName, sessionName, escapedCommand, sessionName),
+		"else",
+		fmt.Sprintf("bash -lc '%s; exec bash';", escapedCommand),
+		"fi",
+	}, " ")
+	return []string{"/bin/bash", "-lc", run}
+}
+
+func effectiveInitialCommand(initialCommand, terminalID, mode string) string {
+	if mode == "exec" {
+		return ""
+	}
+	if initialCommand != "" {
+		return initialCommand
+	}
+	if terminalID == "openclaw" {
+		return "openclaw tui"
+	}
+	return ""
+}
+
+func sanitizeTerminalSessionName(value string) string {
+	re := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+	cleaned := strings.Trim(re.ReplaceAllString(value, "_"), "_")
+	if cleaned == "" {
+		return "shell"
+	}
+	if len(cleaned) > 40 {
+		return cleaned[:40]
+	}
+	return cleaned
+}
+
+func handleResizePayload(payload []byte, sizeQueue *terminalSizeQueue) bool {
+	var msg terminalMessage
+	if err := json.Unmarshal(payload, &msg); err != nil || msg.Type != "resize" {
+		return false
+	}
+	sizeQueue.Push(msg.Rows, msg.Cols)
+	return true
+}
+
+func startPingLoop(ctx context.Context, conn *websocket.Conn, writeMu *sync.Mutex, cancel context.CancelFunc) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				writeMu.Lock()
+				err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second))
+				writeMu.Unlock()
+				if err != nil {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+	conn.SetPongHandler(func(string) error { return nil })
+	return done
+}

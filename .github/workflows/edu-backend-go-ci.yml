@@ -1,0 +1,25 @@
+name: edu-backend-go-ci
+
+on:
+  push:
+    paths:
+      - "EDU_Backend_Go/**"
+      - ".github/workflows/edu-backend-go-ci.yml"
+  pull_request:
+    paths:
+      - "EDU_Backend_Go/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: EDU_Backend_Go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: EDU_Backend_Go/go.mod
+      - run: go mod tidy
+      - run: go test ./...
+      - run: go build ./cmd/server

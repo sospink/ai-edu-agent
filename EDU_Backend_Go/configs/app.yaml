@@ -1,0 +1,107 @@
+app:
+  name: edu-backend-go
+  env: development
+  version: 0.1.0
+
+server:
+  host: 0.0.0.0
+  port: 4002
+  read_timeout_seconds: 30
+  write_timeout_seconds: 30
+
+database:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: ""
+  name: edu_db
+  charset: utf8mb4
+  max_open_conns: 20
+  max_idle_conns: 10
+  conn_max_lifetime_minutes: 60
+  auto_migrate: false
+
+redis:
+  addr: 127.0.0.1:6379
+  password: ""
+  db: 0
+  enabled: false
+
+log:
+  level: debug
+  dir: logs
+
+jwt:
+  secret: change-me-in-env
+  expires_in: 168h
+  issuer: edu-backend-go
+
+security:
+  allowed_origins:
+    - http://localhost:3000
+    - http://127.0.0.1:3000
+  default_admin_password: ""
+
+upload:
+  root: public/uploads
+  public_base: /uploads
+  max_image_mb: 10
+  max_file_mb: 50
+
+lab_ssh:
+  host: ""
+  port: 22
+  user: ""
+  password: ""
+
+websocket:
+  port: 4001
+  terminal_debug: false
+
+docker:
+  host: 117.50.80.138
+  port: 2376
+  tls: true
+  cert_path: ./conf
+
+k8s:
+  enabled: true
+  in_cluster: false
+  kubeconfig: .kube/remote-dev.yaml
+  namespace: edu-backend-go-dev
+  runtime_namespace: edu-runtime-dev
+  ingress_class: nginx
+  lab_image_pull_secret: aliyun-registry
+
+qwen:
+  api_key: ""
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen3-max
+
+openclaw:
+  gateway_url: http://139.199.68.121:28199
+  gateway_token: ""
+  gateway_password: ""
+  model_id: qwen3-max
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  api_key: ""
+  api_protocol: openai-completions
+  context_window: "200000"
+  max_tokens: "65536"
+  connect_timeout_ms: 12000
+  request_timeout_ms: 15000
+  retry_times: 1
+  client_id: gateway-client
+  client_version: ai-edu-agent
+  client_mode: backend
+  client_role: operator
+  client_scopes: operator.admin,operator.approvals,operator.pairing
+  device_identity_path: ""
+  project_lab_runtime: auto
+
+feishu:
+  app_id: ""
+  app_secret: ""
+  domain: https://open.feishu.cn
+  chat_id: ""
+  bot_open_id: ""

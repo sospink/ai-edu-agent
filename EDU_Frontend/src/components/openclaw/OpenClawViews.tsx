@@ -355,7 +355,7 @@ export const StatusChip: React.FC<{ icon: React.ReactNode; label: string; online
 };
 
 export const IdleDesktop: React.FC = () => {
-  const pixelOfficeUrl = import.meta.env.VITE_OPENCLAW_PIXEL_OFFICE_URL || 'http://117.50.80.138:26080/';
+  const pixelOfficeUrl = import.meta.env.VITE_OPENCLAW_PIXEL_OFFICE_URL || 'http://139.199.68.121:26080/';
   const frameViewportRef = useRef<HTMLDivElement>(null);
   const [frameLayout, setFrameLayout] = useState({ scale: 1, left: 0, top: 0 });
   const baseWidth = 1720;
@@ -388,14 +388,12 @@ export const IdleDesktop: React.FC = () => {
       const x = baseWidth * safeFocusX * scale;
       const y = baseHeight * safeFocusY * scale;
       const renderedVisibleWidth = visibleWidth * scale;
-      const renderedVisibleHeight = visibleHeight * scale;
       const centeredLeft = (clientWidth - renderedVisibleWidth) / 2;
-      const centeredTop = (clientHeight - renderedVisibleHeight) / 2;
 
       setFrameLayout({
         scale,
         left: centeredLeft - x,
-        top: centeredTop - y,
+        top: -y,
       });
     };
 

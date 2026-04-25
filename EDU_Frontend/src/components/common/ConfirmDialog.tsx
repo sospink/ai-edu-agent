@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X, Loader2 } from 'lucide-react';
+import { useBodyScrollLock } from '@/components/common/bodyScrollLock';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -26,6 +27,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  useBodyScrollLock(isOpen);
+
   const typeStyles = {
     danger: {
       icon: 'bg-red-100 text-red-600',

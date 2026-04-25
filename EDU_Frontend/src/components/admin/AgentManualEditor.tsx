@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Spinner, addToast } from '@heroui/react';
-import { Plus, Save, Trash2, ChevronUp, ChevronDown, GripVertical, Upload, FileText, X } from 'lucide-react';
+import { Plus, Save, Trash2, ChevronUp, ChevronDown, GripVertical, Upload, FileText, X, Rocket, ShieldCheck } from 'lucide-react';
 import { ConfirmDialog, useConfirmDialog } from '@/components/common/ConfirmDialog';
 import * as AdminAgentAPI from '@/services/adminAgent';
 import type { AgentStepAdmin, ContentBlock } from '@/services/adminAgent';
+import { teacherManualApi } from '@/services/teacherManual';
+import { teacherAssignmentApi } from '@/services/assignment';
+import { teacherPublishingApi, type PublishCheckResult } from '@/services/publishing';
+import PageDialog from '@/components/common/PageDialog';
+import PublishCheckDrawer from '@/components/teacher/PublishCheckDrawer';
+import { ToolbarSelect } from '@/components/common/ToolbarControls';
 
 interface AgentManualEditorProps {
   sourceType: 1 | 2;
@@ -31,7 +37,7 @@ const SimpleStepEditor: React.FC<{
   };
 
   return (
-    <div className="border border-slate-200 rounded-lg mb-3 bg-white overflow-hidden">
+    <div className="card-surface mb-3 overflow-hidden rounded-lg">
       {/* 步骤头部 */}
       <div 
         className="flex items-center gap-2 px-4 py-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
@@ -85,13 +91,14 @@ const SimpleStepEditor: React.FC<{
 
           {jsonMode ? (
             <textarea
-              value={JSON.stringify({ content: step.content, quickQuestions: step.quickQuestions, verification: step.verification }, null, 2)}
+              value={JSON.stringify({ content: step.content, quickQuestions: step.quickQuestions, verification: step.verification, skillTags: step.skillTags || [] }, null, 2)}
               onChange={(e) => {
                 try {
                   const data = JSON.parse(e.target.value);
                   if (data.content) updateField('content', data.content);
                   if (data.quickQuestions) updateField('quickQuestions', data.quickQuestions);
                   if (data.verification !== undefined) updateField('verification', data.verification);
+                  if (data.skillTags) updateField('skillTags', data.skillTags);
                 } catch { /* ignore */ }
               }}
               className="w-full h-64 px-3 py-2 text-xs font-mono border border-slate-200 rounded bg-slate-50 focus:outline-none focus:border-blue-400"
@@ -103,19 +110,21 @@ const SimpleStepEditor: React.FC<{
                 <div className="text-xs font-bold text-slate-500 mb-2">内容块</div>
                 {step.content.map((block, bi) => (
                   <div key={bi} className="flex gap-2 mb-2 p-2 bg-slate-50 rounded">
-                    <select
+                    <ToolbarSelect
+                      ariaLabel="内容块类型"
                       value={block.type}
-                      onChange={(e) => {
+                      onChange={(value) => {
                         const newContent = [...step.content];
-                        newContent[bi] = { type: e.target.value as any };
+                        newContent[bi] = { type: value as any };
                         updateField('content', newContent);
                       }}
-                      className="px-2 py-1 text-xs border border-slate-200 rounded bg-white"
-                    >
-                      <option value="text">文本</option>
-                      <option value="heading">标题</option>
-                      <option value="code">代码</option>
-                    </select>
+                      options={[
+                        { key: 'text', label: '文本' },
+                        { key: 'heading', label: '标题' },
+                        { key: 'code', label: '代码' },
+                      ]}
+                      className="w-28 shrink-0"
+                    />
                     {(block.type === 'text' || block.type === 'heading') && (
                       <input
                         type="text"
@@ -132,19 +141,17 @@ const SimpleStepEditor: React.FC<{
                     {block.type === 'code' && (
                       <div className="flex-1 space-y-1">
                         <div className="flex gap-2">
-                          <select
+                          <ToolbarSelect
+                            ariaLabel="代码语言"
                             value={block.language || 'bash'}
-                            onChange={(e) => {
+                            onChange={(value) => {
                               const newContent = [...step.content];
-                              newContent[bi] = { ...block, language: e.target.value };
+                              newContent[bi] = { ...block, language: value };
                               updateField('content', newContent);
                             }}
-                            className="px-2 py-1 text-xs border border-slate-200 rounded bg-white"
-                          >
-                            {['bash', 'sql', 'python', 'javascript', 'json'].map(l => (
-                              <option key={l} value={l}>{l}</option>
-                            ))}
-                          </select>
+                            options={['bash', 'sql', 'python', 'javascript', 'json'].map(l => ({ key: l, label: l }))}
+                            className="w-36 shrink-0"
+                          />
                           <label className="flex items-center gap-1 text-xs">
                             <input
                               type="checkbox"
@@ -218,22 +225,37 @@ const SimpleStepEditor: React.FC<{
                 </button>
               </div>
 
+              {/* 技能标签 */}
+              <div className="mb-4">
+                <div className="text-xs font-bold text-slate-500 mb-2">Skill Tags</div>
+                <input
+                  type="text"
+                  value={(step.skillTags || []).join(', ')}
+                  onChange={(e) => updateField('skillTags', e.target.value.split(',').map(item => item.trim()).filter(Boolean) as AgentStepAdmin['skillTags'])}
+                  className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:border-blue-400"
+                  placeholder="Kubernetes, kubectl, namespace"
+                />
+                <div className="mt-1 text-[11px] text-slate-400">用于教师观察台薄弱点统计，多个标签用英文逗号分隔。</div>
+              </div>
+
               {/* 验证规则 */}
               <div>
                 <div className="text-xs font-bold text-slate-500 mb-2">验证规则</div>
-                <select
+                <ToolbarSelect
+                  ariaLabel="验证规则"
                   value={step.verification?.type || 'none'}
-                  onChange={(e) => {
-                    const v = e.target.value;
+                  onChange={(value) => {
+                    const v = value;
                     updateField('verification', v === 'none' ? null : { type: v as any });
                   }}
-                  className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white mb-2"
-                >
-                  <option value="none">无需验证</option>
-                  <option value="file_exists">文件存在</option>
-                  <option value="command_output">命令输出</option>
-                  <option value="service_running">服务运行</option>
-                </select>
+                  options={[
+                    { key: 'none', label: '无需验证' },
+                    { key: 'file_exists', label: '文件存在' },
+                    { key: 'command_output', label: '命令输出' },
+                    { key: 'service_running', label: '服务运行' },
+                  ]}
+                  className="mb-2"
+                />
                 {step.verification?.type === 'file_exists' && (
                   <input
                     type="text"
@@ -288,8 +310,13 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
   const [showImportModal, setShowImportModal] = useState(false);
   const [importPreview, setImportPreview] = useState<AdminAgentAPI.ParsedManualPreview | null>(null);
   const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
   const [markdownContent, setMarkdownContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [checkDrawerOpen, setCheckDrawerOpen] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<PublishCheckResult | null>(null);
+  const [checkTitle, setCheckTitle] = useState('手册发布检查');
 
   useEffect(() => {
     loadManual();
@@ -335,24 +362,124 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
     }
   };
 
-  const handleSave = async () => {
-    if (!manualId) {
-      await handleCreate();
-      return;
-    }
+  const persistManualContent = async (showSuccessToast = true): Promise<number | null> => {
     setSaving(true);
     try {
-      await AdminAgentAPI.updateManual(manualId, { title, description, isPublished: isPublished ? 1 : 0 });
-      const savedSteps = await AdminAgentAPI.updateSteps(manualId, steps.map(s => ({
-        title: s.title,
-        content: s.content,
-        quickQuestions: s.quickQuestions,
-        verification: s.verification,
+      let nextManualId = manualId;
+      if (!nextManualId) {
+        const created = await AdminAgentAPI.createManual({ sourceType, sourceId, title, description });
+        if (!created) {
+          addToast({ title: '创建手册失败', color: 'danger' });
+          return null;
+        }
+        nextManualId = created.id;
+        setManualId(created.id);
+      }
+
+      const updateResponse = await teacherManualApi.updateManual(nextManualId, { title, description });
+      if (!updateResponse.success) {
+        addToast({ title: updateResponse.error || '保存基础信息失败', color: 'danger' });
+        return null;
+      }
+
+      const savedSteps = await AdminAgentAPI.updateSteps(nextManualId, steps.map((step) => ({
+        title: step.title,
+        content: step.content,
+        quickQuestions: step.quickQuestions,
+        verification: step.verification,
+        skillTags: step.skillTags || [],
       })));
-      setSteps(savedSteps);
-      addToast({ title: '保存成功', color: 'success' });
+      const nextSteps = savedSteps.map((step, index) => ({
+        ...step,
+        skillTags: steps[index]?.skillTags || [],
+      }));
+      await Promise.all(nextSteps.map((step) => (
+        step.id ? teacherAssignmentApi.updateAgentStepSkillTags(step.id, step.skillTags || []) : Promise.resolve()
+      )));
+      setSteps(nextSteps);
+
+      if (showSuccessToast) {
+        addToast({ title: '手册内容已保存', color: 'success' });
+      }
+      return nextManualId;
     } catch (err: any) {
       addToast({ title: err.message || '保存失败', color: 'danger' });
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openCheckDrawer = (titleText: string, result: PublishCheckResult | null = null) => {
+    setCheckTitle(titleText);
+    setCheckResult(result);
+    setCheckDrawerOpen(true);
+  };
+
+  const handleSave = async () => {
+    await persistManualContent(true);
+  };
+
+  const handlePublishCheck = async (): Promise<PublishCheckResult | null> => {
+    const nextManualId = await persistManualContent(false);
+    if (!nextManualId) return null;
+
+    setChecking(true);
+    openCheckDrawer(`${title || sourceName || '未命名手册'} · 发布检查`);
+    try {
+      const response = await teacherPublishingApi.checkManual(nextManualId);
+      if (response.success && response.data) {
+        setCheckResult(response.data);
+        return response.data;
+      }
+      addToast({ title: response.error || '发布检查失败', color: 'danger' });
+      return null;
+    } catch (err: any) {
+      addToast({ title: err.message || '发布检查失败', color: 'danger' });
+      return null;
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    const check = await handlePublishCheck();
+    if (!check?.canPublish) return;
+
+    const nextManualId = manualId || check.contentId;
+    setSaving(true);
+    try {
+      const response = await teacherManualApi.updateManual(nextManualId, { title, description, isPublished: 1 });
+      if (response.success) {
+        setIsPublished(true);
+        addToast({ title: '手册发布成功', color: 'success' });
+        setCheckDrawerOpen(false);
+        return;
+      }
+
+      const blocked = teacherPublishingApi.extractBlockedCheck(response);
+      if (blocked) {
+        openCheckDrawer(`${title || sourceName || '未命名手册'} · 发布检查`, blocked);
+      }
+      addToast({ title: response.error || '手册发布失败', color: 'danger' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSetDraft = async () => {
+    const nextManualId = await persistManualContent(false);
+    if (!nextManualId) return;
+
+    setSaving(true);
+    try {
+      const response = await teacherManualApi.updateManual(nextManualId, { title, description, isPublished: 0 });
+      if (!response.success) {
+        addToast({ title: response.error || '设为草稿失败', color: 'danger' });
+        return;
+      }
+      setIsPublished(false);
+      addToast({ title: '手册已设为草稿', color: 'success' });
     } finally {
       setSaving(false);
     }
@@ -390,6 +517,7 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
       content: [{ type: 'text', text: '' }] as ContentBlock[],
       quickQuestions: [],
       verification: null,
+      skillTags: [],
     }]);
   };
 
@@ -406,6 +534,7 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
   const closeImportModal = () => {
     setShowImportModal(false);
     setImportPreview(null);
+    setImportError('');
     setMarkdownContent('');
   };
 
@@ -415,6 +544,8 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
     try {
       const content = await AdminAgentAPI.readMarkdownFile(file);
       setMarkdownContent(content);
+      setImportPreview(null);
+      setImportError('');
     } catch (err) {
       addToast({ title: '文件读取失败', color: 'danger' });
     }
@@ -424,11 +555,14 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
   const handlePreview = async () => {
     if (!markdownContent.trim()) return;
     setImporting(true);
+    setImportError('');
     try {
       const preview = await AdminAgentAPI.parseMarkdownPreview(markdownContent);
       setImportPreview(preview);
     } catch (err: any) {
-      addToast({ title: err.message || '解析失败', color: 'danger' });
+      const message = err.message || '解析失败';
+      setImportError(message);
+      addToast({ title: message, color: 'danger' });
     } finally {
       setImporting(false);
     }
@@ -437,6 +571,7 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
   const handleImport = async () => {
     if (!markdownContent.trim()) return;
     setImporting(true);
+    setImportError('');
     try {
       const result = await AdminAgentAPI.importMarkdown(sourceType, sourceId, markdownContent);
       // 关闭弹窗
@@ -452,7 +587,9 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
       }
       addToast({ title: `导入成功，共 ${result.stepsCount} 个步骤`, color: 'success' });
     } catch (err: any) {
-      addToast({ title: err.message || '导入失败', color: 'danger' });
+      const message = err.message || '导入失败';
+      setImportError(message);
+      addToast({ title: message, color: 'danger' });
     } finally {
       setImporting(false);
     }
@@ -551,15 +688,40 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
       </div>
 
       {/* 操作按钮 */}
-      <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
+      <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-200">
         <button
           onClick={handleSave}
           disabled={saving}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
           {saving ? <Spinner size="sm" color="white" /> : <Save size={16} />}
-          {manualId ? '保存' : '创建手册'}
+          {manualId ? '保存内容' : '创建并保存'}
         </button>
+        <button
+          onClick={() => void handlePublishCheck()}
+          disabled={saving || checking}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors"
+        >
+          {checking ? <Spinner size="sm" color="primary" /> : <ShieldCheck size={16} />}
+          发布检查
+        </button>
+        <button
+          onClick={() => void handlePublish()}
+          disabled={saving || checking}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+        >
+          {(saving || checking) ? <Spinner size="sm" color="white" /> : <Rocket size={16} />}
+          检查后发布
+        </button>
+        {manualId && isPublished && (
+          <button
+            onClick={() => void handleSetDraft()}
+            disabled={saving || checking}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 disabled:opacity-50 transition-colors"
+          >
+            <FileText size={16} /> 设为草稿
+          </button>
+        )}
         <button
           onClick={() => setShowImportModal(true)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
@@ -586,9 +748,8 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
       </div>
 
       {/* MD 导入弹窗 */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+      <PageDialog isOpen={showImportModal} onClose={closeImportModal} panelClassName="max-w-2xl" zIndexClassName="z-[10020]">
+        <div className="bg-white rounded-xl shadow-xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
               <h3 className="text-lg font-bold text-slate-800">导入 Markdown 手册</h3>
               <button onClick={closeImportModal} className="p-1 text-slate-400 hover:text-slate-600">
@@ -619,11 +780,18 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
                     <label className="block text-xs font-bold text-slate-600 mb-1">或直接粘贴 Markdown 内容</label>
                     <textarea
                       value={markdownContent}
-                      onChange={(e) => setMarkdownContent(e.target.value)}
+                      onChange={(e) => {
+                        setMarkdownContent(e.target.value);
+                        setImportPreview(null);
+                        setImportError('');
+                      }}
                       className="w-full h-40 px-3 py-2 text-sm font-mono border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-blue-400"
                       placeholder="# 手册标题&#10;&#10;> 手册描述&#10;&#10;## 步骤 1: 步骤标题&#10;&#10;步骤内容..."
                     />
                   </div>
+                  {importError && (
+                    <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{importError}</div>
+                  )}
                   <button
                     onClick={handlePreview}
                     disabled={!markdownContent.trim() || importing}
@@ -673,9 +841,8 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
                 </div>
               )}
             </div>
-          </div>
         </div>
-      )}
+      </PageDialog>
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
@@ -685,6 +852,50 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
         confirmText="删除"
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.hideConfirm}
+      />
+
+      <PublishCheckDrawer
+        isOpen={checkDrawerOpen}
+        title={checkTitle}
+        result={checkResult}
+        loading={checking}
+        onClose={() => setCheckDrawerOpen(false)}
+        preview={
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">实训手册</div>
+              <div className="mt-1 text-xl font-black text-slate-900">{title || '未命名手册'}</div>
+              <div className="mt-2 text-sm leading-relaxed text-slate-600">{description || '暂无描述'}</div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl bg-slate-50 p-3">
+                <div className="text-xs text-slate-400">步骤数</div>
+                <div className="text-lg font-black text-slate-800">{steps.length}</div>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-3">
+                <div className="text-xs text-slate-400">验证规则</div>
+                <div className="text-lg font-black text-slate-800">{steps.filter((step) => step.verification).length}</div>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-3">
+                <div className="text-xs text-slate-400">当前状态</div>
+                <div className="text-lg font-black text-slate-800">{isPublished ? '已发布' : '草稿'}</div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className="mb-3 text-sm font-bold text-slate-700">学生将看到的步骤摘要</div>
+              <div className="space-y-2">
+                {steps.length === 0 && <div className="text-sm text-slate-500">当前还没有步骤，发布前请先完善内容与验证规则。</div>}
+                {steps.map((step, index) => (
+                  <div key={`${step.id || index}-${step.title}`} className="rounded-xl bg-white px-3 py-2 text-sm text-slate-600">
+                    <span className="font-semibold text-slate-900">步骤 {index + 1}</span>
+                    <span className="ml-2">{step.title || '未命名步骤'}</span>
+                    <span className="ml-2 text-xs text-slate-400">{step.verification ? `验证：${step.verification.type}` : '未配置验证'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        }
       />
     </div>
   );

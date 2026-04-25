@@ -35,9 +35,13 @@ export interface Project {
   labsCount: number;
   challengesCount: number;
   studentsCount: number;
+  envImage?: string;
+  ideImage?: string;
+  labTemplateId?: number;
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+  labRuntimeMode?: 'classic' | 'openclaw';
   // 关联数据
   tags?: Tag[];
 }

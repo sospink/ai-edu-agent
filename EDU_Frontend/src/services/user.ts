@@ -33,6 +33,19 @@ export interface UpdateUserParams {
   status?: UserStatus;
 }
 
+export interface StudentLeaderboardItem {
+  id: number;
+  rank: number;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  skillsCount: number;
+  completedLessons: number;
+  enrolledCourses: number;
+  lastActiveAt?: string;
+  isCurrentUser: boolean;
+}
+
 export const userService = {
   async getUsers(params: UserQueryParams = {}): Promise<ApiResponse<PaginatedResponse<User>>> {
     const query = new URLSearchParams();
@@ -47,6 +60,10 @@ export const userService = {
 
   async getUserById(id: number): Promise<ApiResponse<User>> {
     return api.get<User>(`/users/${id}`);
+  },
+
+  async getStudentLeaderboard(limit = 4): Promise<ApiResponse<StudentLeaderboardItem[]>> {
+    return api.get<StudentLeaderboardItem[]>(`/users/student-leaderboard?limit=${limit}`);
   },
 
   async createUser(params: CreateUserParams): Promise<ApiResponse<User>> {

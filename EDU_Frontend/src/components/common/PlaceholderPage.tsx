@@ -7,7 +7,7 @@ interface PlaceholderPageProps {
 
 const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ title }) => (
   <div className="min-h-screen pt-12 md:pt-24 px-6 md:px-12 max-w-7xl mx-auto flex flex-col items-center justify-center">
-    <div className="w-full max-w-2xl bg-white/50 backdrop-blur-md border border-white/60 rounded-3xl p-12 text-center shadow-sm">
+    <div className="card-surface w-full max-w-2xl rounded-3xl p-12 text-center backdrop-blur-md">
       <div className="w-20 h-20 bg-primary-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-primary-600 shadow-sm">
         <Layers className="w-10 h-10" /> 
       </div>

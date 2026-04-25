@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search,
-  Filter,
   Plus,
   FileText,
   Settings,
@@ -28,23 +26,31 @@ import {
   Monitor,
   Box,
   Bot,
+  ShieldCheck,
+  Eye,
+  Rocket,
 } from 'lucide-react';
 import { Select, SelectItem } from '@heroui/react';
 import ReactMarkdown from 'react-markdown';
+import { ToolbarSearchField, ToolbarSelect } from '@/components/common/ToolbarControls';
 import {
-  projectApi,
-  unitApi,
-  tagApi,
-  uploadApi,
   type Project,
   type ProjectUnit,
   type Tag,
   type CreateProjectDTO,
   type CreateUnitDTO,
 } from '@/services/project';
+import {
+  teacherProjectApi as projectApi,
+  teacherUnitApi as unitApi,
+  teacherTagApi as tagApi,
+  teacherUploadApi as uploadApi,
+} from '@/services/teacherProject';
 import { labApi, type DockerImage } from '@/services/lab';
+import { teacherPublishingApi, type LabTemplate, type PublishCheckResult } from '@/services/publishing';
 import { ToastContainer, useToast } from '@/components/common/Toast';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import PublishCheckDrawer from '@/components/teacher/PublishCheckDrawer';
 import UnitAgentModal from './UnitAgentModal';
 import { getImageUrlCandidates, handleImageFallback } from '@/config';
 
@@ -65,6 +71,7 @@ interface ProjectFormData {
   units: ProjectUnit[];
   envImage: string;
   ideImage: string;
+  labTemplateId: number;
 }
 
 // ==================== 辅助函数 ====================
@@ -81,6 +88,14 @@ const formatDate = (dateStr: string) => {
   if (hours < 24) return `${hours} 小时前`;
   if (days < 7) return `${days} 天前`;
   return date.toLocaleDateString('zh-CN');
+};
+
+const labTemplatePortSummary = (template: LabTemplate) => {
+  const ports = Array.isArray(template.exposedPorts) && template.exposedPorts.length > 0
+    ? template.exposedPorts
+    : (Array.isArray(template.appPorts) ? template.appPorts.map((port) => ({ ...port, type: 'web' })) : []);
+  if (ports.length === 0) return '';
+  return ` · 端口 ${ports.map((port) => `${port.type === 'novnc' ? 'Desktop' : (port.label || port.name)}:${port.containerPort}`).join('/')}`;
 };
 
 // ==================== 项目编辑器组件 ====================
@@ -111,23 +126,30 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
   
   // Docker 镜像列表
   const [dockerImages, setDockerImages] = useState<DockerImage[]>([]);
+  const [labTemplates, setLabTemplates] = useState<LabTemplate[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   
   // Agent 手册 Modal 状态
   const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<{ id: number; title: string } | null>(null);
 
-  // 加载 Docker 镜像列表
+  // 加载镜像与 Lab 模板列表
   useEffect(() => {
     const fetchImages = async () => {
       setLoadingImages(true);
       try {
-        const response = await labApi.getImages();
-        if (response.success && response.data) {
-          setDockerImages(response.data);
+        const [imageResponse, templateResponse] = await Promise.all([
+          labApi.getImages(),
+          teacherPublishingApi.getLabTemplates(),
+        ]);
+        if (imageResponse.success && imageResponse.data) {
+          setDockerImages(imageResponse.data);
+        }
+        if (templateResponse.success && templateResponse.data) {
+          setLabTemplates(templateResponse.data);
         }
       } catch (err) {
-        console.error('加载镜像列表失败:', err);
+        console.error('加载实验环境配置失败:', err);
       } finally {
         setLoadingImages(false);
       }
@@ -287,10 +309,10 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-full"
+      className="card-surface rounded-3xl overflow-hidden flex flex-col h-full"
     >
       {/* Header */}
-      <div className="h-20 px-8 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-20">
+      <div className="h-20 px-8 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-20">
         <div className="flex items-center gap-4">
           <button onClick={onCancel} className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
             <ArrowLeft className="w-5 h-5" />
@@ -330,7 +352,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
           {/* Left Column */}
           <div className="lg:col-span-1 space-y-6">
             {/* Tabs */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-2 shadow-sm">
+            <div className="card-surface rounded-2xl p-2">
               {[
                 { id: 'basics', label: '基础信息', icon: FileText },
                 { id: 'syllabus', label: '教学大纲', icon: Layers },
@@ -352,7 +374,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
             </div>
 
             {/* Status Card */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+            <div className="card-surface rounded-2xl p-6">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">发布状态</h3>
               <div className="space-y-3">
                 {[
@@ -390,7 +412,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
             {activeTab === 'basics' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                 {/* Basic Info */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm space-y-6">
+                <div className="card-surface rounded-2xl p-8 space-y-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700">项目名称 *</label>
                     <input
@@ -434,7 +456,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                           trigger: 'bg-slate-50 border-slate-200 rounded-xl h-12 data-[hover=true]:bg-slate-100',
                           value: 'text-sm font-medium text-slate-700',
                           selectorIcon: 'right-3 left-auto',
-                          popoverContent: 'bg-white border border-slate-200 shadow-lg rounded-xl',
+                          popoverContent: 'card-surface rounded-xl',
                           listbox: 'bg-white',
                         }}
                       >
@@ -537,7 +559,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                 </div>
 
                 {/* Tags */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm">
+                <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <TagIcon className="w-4 h-4 text-slate-400" />
@@ -670,7 +692,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                 </div>
 
                 {/* Learning Goals */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm">
+                <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center gap-2 mb-4">
                     <Target className="w-4 h-4 text-slate-400" />
                     <h3 className="text-sm font-bold text-slate-700">学习目标</h3>
@@ -707,7 +729,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                 </div>
 
                 {/* Prerequisites */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm">
+                <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center gap-2 mb-4">
                     <BookOpen className="w-4 h-4 text-slate-400" />
                     <h3 className="text-sm font-bold text-slate-700">前置知识</h3>
@@ -747,7 +769,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
 
             {activeTab === 'syllabus' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm">
+                <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-800">课程单元</h3>
                     <button
@@ -771,7 +793,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                     {formData.units.map((unit, index) => (
                       <div
                         key={unit.id}
-                        className="group flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-200 transition-all"
+                        className="group card-surface-muted flex items-center gap-4 p-4 rounded-xl hover:shadow-md transition-all"
                       >
                         <div className="cursor-grab text-slate-300 hover:text-slate-500">
                           <GripVertical className="w-4 h-4" />
@@ -813,7 +835,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                                 trigger: 'bg-slate-50 border-slate-200 rounded-lg min-h-8 h-8 data-[hover=true]:bg-slate-100',
                                 value: 'text-xs font-medium text-slate-600',
                                 selectorIcon: 'right-2 left-auto',
-                                popoverContent: 'bg-white border border-slate-200 shadow-lg rounded-lg',
+                                popoverContent: 'card-surface rounded-lg',
                                 listbox: 'bg-white',
                               }}
                             >
@@ -835,7 +857,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                                 trigger: 'bg-slate-50 border-slate-200 rounded-lg min-h-8 h-8 data-[hover=true]:bg-slate-100',
                                 value: 'text-xs font-medium text-slate-600',
                                 selectorIcon: 'right-2 left-auto',
-                                popoverContent: 'bg-white border border-slate-200 shadow-lg rounded-lg',
+                                popoverContent: 'card-surface rounded-lg',
                                 listbox: 'bg-white',
                               }}
                             >
@@ -890,33 +912,47 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                 className="space-y-6"
               >
                 {/* Lab Environment Config */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm">
+                <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center gap-2 mb-6">
                     <Monitor className="w-5 h-5 text-blue-500" />
                     <h3 className="text-lg font-bold text-slate-800">实验环境配置</h3>
                   </div>
                   <div className="space-y-5">
+                    <div>
+                      <label className="text-sm font-bold text-slate-700 mb-2 block">Lab 模板</label>
+                      <ToolbarSelect
+                        ariaLabel="Lab 模板"
+                        value={String(formData.labTemplateId || 0)}
+                        onChange={(value) => handleChange('labTemplateId', Number(value))}
+                        options={[
+                          { key: '0', label: '不绑定模板，使用下方镜像配置' },
+                          ...labTemplates.map(template => ({
+                            key: String(template.id),
+                            label: `${template.name} · ${template.envImage}${labTemplatePortSummary(template)}`,
+                          })),
+                        ]}
+                      />
+                      <p className="text-xs text-slate-400 mt-2">Classic 项目发布会校验启用中的 Lab 模板；OpenClaw 项目不强制绑定模板。</p>
+                    </div>
+
                     {/* Ubuntu 桌面镜像 */}
                     <div>
                       <label className="text-sm font-bold text-slate-700 mb-2 block">Ubuntu 桌面镜像</label>
                       <div className="flex items-center gap-3">
                         <Monitor className="w-5 h-5 text-slate-400 shrink-0" />
-                        <div className="flex-1 relative">
-                          <select
-                            value={formData.envImage}
-                            onChange={e => handleChange('envImage', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                            disabled={loadingImages}
-                          >
-                            <option value="">-- 选择镜像 --</option>
-                            {dockerImages.map(img => (
-                              <option key={img.id} value={img.name}>
-                                {img.name} ({(img.size / 1024 / 1024 / 1024).toFixed(2)} GB)
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
+                        <ToolbarSelect
+                          ariaLabel="Ubuntu 桌面镜像"
+                          value={formData.envImage}
+                          placeholder="选择镜像"
+                          isDisabled={loadingImages}
+                          disallowEmptySelection={false}
+                          onChange={(value) => handleChange('envImage', value)}
+                          options={dockerImages.map(img => ({
+                            key: img.name,
+                            label: `${img.name} (${(img.size / 1024 / 1024 / 1024).toFixed(2)} GB)`,
+                          }))}
+                          className="flex-1"
+                        />
                       </div>
                       <p className="text-xs text-slate-400 mt-2">提供 Ubuntu 桌面环境 (noVNC)</p>
                     </div>
@@ -926,22 +962,19 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                       <label className="text-sm font-bold text-slate-700 mb-2 block">WebIDE 镜像</label>
                       <div className="flex items-center gap-3">
                         <Box className="w-5 h-5 text-slate-400 shrink-0" />
-                        <div className="flex-1 relative">
-                          <select
-                            value={formData.ideImage}
-                            onChange={e => handleChange('ideImage', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                            disabled={loadingImages}
-                          >
-                            <option value="">-- 选择镜像 --</option>
-                            {dockerImages.map(img => (
-                              <option key={img.id} value={img.name}>
-                                {img.name} ({(img.size / 1024 / 1024 / 1024).toFixed(2)} GB)
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
+                        <ToolbarSelect
+                          ariaLabel="WebIDE 镜像"
+                          value={formData.ideImage}
+                          placeholder="选择镜像"
+                          isDisabled={loadingImages}
+                          disallowEmptySelection={false}
+                          onChange={(value) => handleChange('ideImage', value)}
+                          options={dockerImages.map(img => ({
+                            key: img.name,
+                            label: `${img.name} (${(img.size / 1024 / 1024 / 1024).toFixed(2)} GB)`,
+                          }))}
+                          className="flex-1"
+                        />
                         {loadingImages && <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />}
                       </div>
                       <p className="text-xs text-slate-400 mt-2">提供在线代码编辑器环境</p>
@@ -985,6 +1018,11 @@ interface ProjectListProps {
   onPageChange: (page: number) => void;
   onSearch: (keyword: string) => void;
   onStatusFilter: (status: number | undefined) => void;
+  onCheck: (project: Project) => void;
+  onPreview: (project: Project) => void;
+  onPublish: (project: Project) => void;
+  onArchive: (project: Project) => void;
+  onDraft: (project: Project) => void;
   onShowConfirm: (options: { title: string; message: string; type?: 'danger' | 'warning' | 'info'; onConfirm: () => void }) => void;
 }
 
@@ -1000,11 +1038,15 @@ const ProjectList: React.FC<ProjectListProps> = ({
   onPageChange,
   onSearch,
   onStatusFilter,
+  onCheck,
+  onPreview,
+  onPublish,
+  onArchive,
+  onDraft,
   onShowConfirm,
 }) => {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined);
-  const [showStatusMenu, setShowStatusMenu] = useState(false);
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -1040,17 +1082,16 @@ const ProjectList: React.FC<ProjectListProps> = ({
   const handleStatusChange = (status: number | undefined) => {
     setStatusFilter(status);
     onStatusFilter(status);
-    setShowStatusMenu(false);
   };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-full min-h-[700px]"
+      className="card-surface rounded-3xl overflow-hidden flex flex-col h-full min-h-[700px]"
     >
       {/* Header */}
-      <div className="p-8 pb-4 border-b border-slate-100">
+      <div className="p-8 pb-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
           <div>
             <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
@@ -1072,53 +1113,32 @@ const ProjectList: React.FC<ProjectListProps> = ({
 
         {/* Filters */}
         <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-md group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-            <input
-              type="text"
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="输入项目名称、Slug..."
-              className="w-full pl-11 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all hover:bg-white hover:shadow-sm"
-            />
-          </div>
+          <ToolbarSearchField
+            value={searchKeyword}
+            onChange={setSearchKeyword}
+            onEnter={handleSearch}
+            placeholder="输入项目名称、Slug..."
+            className="max-w-md flex-1"
+          />
           <button
             onClick={handleSearch}
-            className="px-4 py-2.5 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700"
+            className="h-12 rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
           >
             搜索
           </button>
           <div className="h-6 w-px bg-slate-200 mx-1"></div>
-          <div className="relative">
-            <button
-              onClick={() => setShowStatusMenu(!showStatusMenu)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-full text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all"
-            >
-              <Filter className="w-4 h-4" />
-              <span>{statusFilter === undefined ? '全部状态' : statusFilter === 0 ? '草稿' : statusFilter === 1 ? '已发布' : '已下架'}</span>
-            </button>
-            {showStatusMenu && (
-              <div className="absolute top-full mt-2 right-0 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-20 min-w-[120px]">
-                {[
-                  { value: undefined, label: '全部状态' },
-                  { value: 0, label: '草稿' },
-                  { value: 1, label: '已发布' },
-                  { value: 2, label: '已下架' },
-                ].map((opt) => (
-                  <button
-                    key={String(opt.value)}
-                    onClick={() => handleStatusChange(opt.value)}
-                    className={`w-full px-4 py-2 text-left text-sm hover:bg-slate-50 ${
-                      statusFilter === opt.value ? 'text-blue-600 font-medium' : 'text-slate-600'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <ToolbarSelect
+            ariaLabel="按项目状态筛选"
+            value={statusFilter === undefined ? 'all' : String(statusFilter)}
+            onChange={(value) => handleStatusChange(value === 'all' ? undefined : Number(value))}
+            options={[
+              { key: 'all', label: '全部状态' },
+              { key: '0', label: '草稿' },
+              { key: '1', label: '已发布' },
+              { key: '2', label: '已下架' },
+            ]}
+            className="w-40"
+          />
         </div>
       </div>
 
@@ -1130,7 +1150,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
           </div>
         )}
         <table className="w-full text-left border-collapse">
-          <thead className="bg-white sticky top-0 z-10 shadow-[0_1px_0_rgba(241,245,249,1)]">
+          <thead className="bg-slate-50/60 sticky top-0 z-10">
             <tr>
               <th className="pl-8 pr-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider w-[35%]">
                 项目信息
@@ -1209,6 +1229,45 @@ const ProjectList: React.FC<ProjectListProps> = ({
                 <td className="pl-4 pr-8 py-5 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
+                      onClick={() => onCheck(p)}
+                      className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                      title="发布检查"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onPreview(p)}
+                      className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
+                      title="学生视角预览"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    {p.status === 1 ? (
+                      <button
+                        onClick={() => onArchive(p)}
+                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        title="下架"
+                      >
+                        <Archive className="w-4 h-4" />
+                      </button>
+                    ) : p.status === 2 ? (
+                      <button
+                        onClick={() => onDraft(p)}
+                        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
+                        title="设为草稿"
+                      >
+                        <FileEdit className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onPublish(p)}
+                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="检查后发布"
+                      >
+                        <Rocket className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
                       onClick={() => onEdit(p)}
                       className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       title="编辑"
@@ -1238,7 +1297,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
       </div>
 
       {/* Pagination */}
-      <div className="p-6 border-t border-slate-100 flex items-center justify-between bg-white">
+      <div className="p-6 flex items-center justify-between bg-white">
         <span className="text-xs font-medium text-slate-400">
           显示 <span className="text-slate-900 font-bold">{(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)}</span> / 共{' '}
           <span className="text-slate-900 font-bold">{total}</span> 个项目
@@ -1292,6 +1351,11 @@ const ProjectManagement: React.FC = () => {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined);
+  const [checkDrawerOpen, setCheckDrawerOpen] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<PublishCheckResult | null>(null);
+  const [checkTitle, setCheckTitle] = useState('发布检查');
+  const [previewProject, setPreviewProject] = useState<Project | null>(null);
   const { toast, success, error, hideToast } = useToast();
   
   // 确认对话框状态
@@ -1383,6 +1447,7 @@ const ProjectManagement: React.FC = () => {
       units: [],
       envImage: '',
       ideImage: '',
+      labTemplateId: 0,
     });
     setView('editor');
   };
@@ -1410,6 +1475,7 @@ const ProjectManagement: React.FC = () => {
           units: p.units || [],
           envImage: p.envImage || '',
           ideImage: p.ideImage || '',
+          labTemplateId: p.labTemplateId || 0,
         });
         setView('editor');
       }
@@ -1446,6 +1512,7 @@ const ProjectManagement: React.FC = () => {
         tagIds: data.tagIds,
         envImage: data.envImage,
         ideImage: data.ideImage,
+        labTemplateId: data.labTemplateId,
       };
 
       let projectId: number;
@@ -1533,6 +1600,74 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
+  const openProjectPreview = (project: Project, result: PublishCheckResult | null = null) => {
+    setCheckTitle(`${project.title} · 学生视角预览`);
+    setPreviewProject(project);
+    setCheckResult(result);
+    setCheckDrawerOpen(true);
+  };
+
+  const handlePublishCheck = async (project: Project, withPreview = false): Promise<PublishCheckResult | null> => {
+    setChecking(true);
+    setCheckTitle(`${project.title} · 发布检查`);
+    setPreviewProject(withPreview ? project : null);
+    setCheckResult(null);
+    setCheckDrawerOpen(true);
+    try {
+      const response = await teacherPublishingApi.checkProject(project.id);
+      if (response.success && response.data) {
+        setCheckResult(response.data);
+        return response.data;
+      }
+      error(response.error || '发布检查失败');
+      return null;
+    } catch (err) {
+      console.error('项目发布检查失败:', err);
+      error('发布检查失败');
+      return null;
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const handlePublishProject = async (project: Project) => {
+    const check = await handlePublishCheck(project, true);
+    if (!check?.canPublish) return;
+    const response = await projectApi.publish(project.id);
+    if (response.success) {
+      success('项目发布成功');
+      await loadProjects();
+      setCheckDrawerOpen(false);
+      return;
+    }
+    const blocked = teacherPublishingApi.extractBlockedCheck(response);
+    if (blocked) {
+      setCheckResult(blocked);
+      setCheckDrawerOpen(true);
+    }
+    error(response.error || '项目发布失败');
+  };
+
+  const handleArchiveProject = async (project: Project) => {
+    const response = await projectApi.archive(project.id);
+    if (response.success) {
+      success('项目已下架');
+      await loadProjects();
+    } else {
+      error(response.error || '项目下架失败');
+    }
+  };
+
+  const handleDraftProject = async (project: Project) => {
+    const response = await projectApi.draft(project.id);
+    if (response.success) {
+      success('项目已设为草稿');
+      await loadProjects();
+    } else {
+      error(response.error || '设置草稿失败');
+    }
+  };
+
   // 取消编辑
   const handleCancel = () => {
     setView('list');
@@ -1574,6 +1709,11 @@ const ProjectManagement: React.FC = () => {
             onPageChange={handlePageChange}
             onSearch={handleSearch}
             onStatusFilter={handleStatusFilter}
+            onCheck={(project) => void handlePublishCheck(project)}
+            onPreview={(project) => openProjectPreview(project)}
+            onPublish={(project) => void handlePublishProject(project)}
+            onArchive={(project) => void handleArchiveProject(project)}
+            onDraft={(project) => void handleDraftProject(project)}
             onShowConfirm={showConfirm}
           />
         ) : (

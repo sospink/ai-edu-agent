@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, AlertCircle, X, Info } from 'lucide-react';
+import { OverlayPortal } from '@/components/common/PageDialog';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -40,10 +41,10 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration =
       initial={{ opacity: 0, y: -20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      className={`fixed top-4 right-4 z-[110] flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg ${colors[type]}`}
+      className={`pointer-events-auto fixed right-4 top-4 z-[10050] flex max-w-[360px] items-center gap-3 rounded-xl px-4 py-3 shadow-lg ${colors[type]}`}
     >
-      <Icon className="w-5 h-5" />
-      <span className="font-medium">{message}</span>
+      <Icon className="h-5 w-5 shrink-0" />
+      <span className="truncate font-medium">{message}</span>
       <button onClick={onClose} className="ml-2 hover:opacity-80 transition-opacity">
         <X className="w-4 h-4" />
       </button>
@@ -59,9 +60,13 @@ interface ToastContainerProps {
 
 export const ToastContainer: React.FC<ToastContainerProps> = ({ toast, onClose }) => {
   return (
-    <AnimatePresence>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={onClose} />}
-    </AnimatePresence>
+    <OverlayPortal>
+      <div className="pointer-events-none fixed inset-0 z-[10050]">
+        <AnimatePresence>
+          {toast && <Toast message={toast.message} type={toast.type} onClose={onClose} />}
+        </AnimatePresence>
+      </div>
+    </OverlayPortal>
   );
 };
 
@@ -69,26 +74,26 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toast, onClose }
 export const useToast = () => {
   const [toast, setToast] = React.useState<ToastData | null>(null);
 
-  const showToast = (message: string, type: ToastType = 'info') => {
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
     setToast({ message, type });
-  };
+  }, []);
 
-  const hideToast = () => {
+  const hideToast = useCallback(() => {
     setToast(null);
-  };
+  }, []);
 
-  const success = (message: string) => showToast(message, 'success');
-  const error = (message: string) => showToast(message, 'error');
-  const info = (message: string) => showToast(message, 'info');
+  const success = useCallback((message: string) => showToast(message, 'success'), [showToast]);
+  const error = useCallback((message: string) => showToast(message, 'error'), [showToast]);
+  const info = useCallback((message: string) => showToast(message, 'info'), [showToast]);
 
-  return {
+  return useMemo(() => ({
     toast,
     showToast,
     hideToast,
     success,
     error,
     info,
-  };
+  }), [toast, showToast, hideToast, success, error, info]);
 };
 
 export default Toast;

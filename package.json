@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Agent EDU - AI 智能教育实训平台",
   "scripts": {
-    "build:deploy": "node scripts/build-deploy.js"
+    "build:deploy": "bash scripts/build-deploy-go.sh",
+    "deploy:prod": "bash scripts/deploy-go-prod.sh"
   },
   "devDependencies": {}
 }

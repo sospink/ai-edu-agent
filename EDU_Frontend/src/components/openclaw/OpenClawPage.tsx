@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ChevronUp, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight, ChevronUp, FolderOpen, Loader2 } from 'lucide-react';
 import CompleteLessonDialog from '@/components/study/CompleteLessonDialog';
 import { courseApi } from '@/services/course';
 import AILogoGif from '@/images/AI logo Foriday.gif';
@@ -39,18 +39,18 @@ function stateToPath(state: SessionState): string {
   }
 }
 
+interface OpenClawPageProps {
+  onLoginRequired?: () => void;
+}
+
 /** 外层 Provider 包裹 */
-const OpenClawPage: React.FC = () => {
+const OpenClawPage: React.FC<OpenClawPageProps> = ({ onLoginRequired }) => {
   const location = useLocation();
-  
+  const authToken = typeof window === 'undefined' ? '' : localStorage.getItem('authToken') || '';
+
   const activeSessionId = useMemo(() => {
     const params = new URLSearchParams(location.search);
-    return (
-      params.get('sessionId')
-      || params.get('sessionKey')
-      || import.meta.env.VITE_OPENCLAW_SESSION_ID
-      || 'default'
-    );
+    return params.get('sessionId') || '';
   }, [location.search]);
 
   const activeScope = useMemo(() => {
@@ -58,6 +58,51 @@ const OpenClawPage: React.FC = () => {
     return params.get('scope') === 'all' ? 'all' as const : 'latest_turn' as const;
   }, [location.search]);
 
+  useEffect(() => {
+    if (authToken || !onLoginRequired) return;
+    onLoginRequired();
+  }, [authToken, onLoginRequired]);
+
+  if (!authToken) {
+    const redirect = `${location.pathname}${location.search}`;
+    if (!onLoginRequired) {
+      return <Navigate to={`/login?redirect=${encodeURIComponent(redirect)}`} replace />;
+    }
+
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
+        <div className="max-w-md text-center">
+          <div className="text-lg font-semibold">需要登录后进入 OpenClaw</div>
+          <p className="mt-2 text-sm text-slate-400">请使用学生账号登录，登录后会回到当前 OpenClaw 页面。</p>
+          <button
+            type="button"
+            onClick={onLoginRequired}
+            className="mt-6 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary-700"
+          >
+            打开登录弹窗
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeSessionId) {
+    return <OpenClawProjectEntryGuide />;
+  }
+
+  return (
+    <OpenClawSessionBridge
+      key={`${activeSessionId}:${activeScope}`}
+      activeSessionId={activeSessionId}
+      activeScope={activeScope}
+    />
+  );
+};
+
+const OpenClawSessionBridge: React.FC<{ activeSessionId: string; activeScope: 'all' | 'latest_turn' }> = ({
+  activeSessionId,
+  activeScope,
+}) => {
   const sessionValue = useOpenClawSessionProvider(activeSessionId, activeScope);
 
   return (
@@ -72,6 +117,10 @@ const OpenClawPageInner: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const session = useOpenClawSession();
+  const returnTo = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('returnTo') || '/projects';
+  }, [location.search]);
 
   // 当前 Tab（纯 UI 路由）
   const currentTab = useMemo(() => pathToTab(location.pathname), [location.pathname]);
@@ -96,13 +145,13 @@ const OpenClawPageInner: React.FC = () => {
 
   /** Tab 切换：通过路由导航（不影响 sessionPhase） */
   const navigateToTab = (state: SessionState) => {
-    navigate(stateToPath(state));
+    navigate(`${stateToPath(state)}${location.search}`);
   };
 
   /** 工作场景"开始"按钮回调 */
   const handleStartScene = (sceneIndex: number) => {
     session.startScene(sceneIndex);
-    navigate('/openclaw/thinking');
+    navigate(`/openclaw/thinking${location.search}`);
   };
 
   /** 完成实验 */
@@ -142,8 +191,8 @@ const OpenClawPageInner: React.FC = () => {
   const handleCompleteDialogClose = useCallback(() => {
     setShowCompleteDialog(false);
     session.resetSession();
-    navigate('/projects');
-  }, [navigate, session]);
+    navigate(returnTo, { replace: true });
+  }, [navigate, returnTo, session]);
 
   /** Tab 按钮组件 */
   const TabButton: React.FC<{ state: SessionState; label: string }> = ({ state, label }) => (
@@ -166,7 +215,7 @@ const OpenClawPageInner: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate('/projects')}
+              onClick={() => navigate(returnTo)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
               title="返回"
             >
@@ -213,7 +262,7 @@ const OpenClawPageInner: React.FC = () => {
 
         {/* 内容区域 - 使用子路由 + 页面过渡动画 */}
         <Routes>
-          <Route index element={<Navigate to="/openclaw/idle" replace />} />
+          <Route index element={<Navigate to={`/openclaw/idle${location.search}`} replace />} />
           
           {/* 待机 */}
           <Route path="idle" element={
@@ -358,7 +407,7 @@ const OpenClawPageInner: React.FC = () => {
           } />
 
           {/* 其他路径重定向到 idle */}
-          <Route path="*" element={<Navigate to="/openclaw/idle" replace />} />
+          <Route path="*" element={<Navigate to={`/openclaw/idle${location.search}`} replace />} />
         </Routes>
       </div>
 
@@ -387,5 +436,40 @@ const PageTransition: React.FC<{ viewKey: string; children: React.ReactNode }> =
     {children}
   </div>
 );
+
+const OpenClawProjectEntryGuide: React.FC = () => {
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16">
+      <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+          <FolderOpen className="h-6 w-6" />
+        </div>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900">选择 OpenClaw 项目进入</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          OpenClaw 是项目实战中的独立场景演示，需要从带有 OpenClaw 标签的项目进入，才能为当前项目建立专属观察会话。
+        </p>
+        <div className="mt-7 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/projects')}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary-600 px-4 text-sm font-bold text-white transition hover:bg-primary-700"
+          >
+            前往项目实战
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
+          >
+            返回上一页
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default OpenClawPage;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   X, Menu, Send, CheckCircle2, XCircle,
-  Loader2, MessageCircle, Settings, HelpCircle, ChevronDown
+  Loader2, HelpCircle, ChevronDown, Lightbulb, BookOpen, Wrench
 } from 'lucide-react';
 import EnergyRobotGif from '@/images/Energy Robot.gif';
 import { Button } from '@heroui/react';
@@ -10,6 +10,7 @@ import { StructuredContent } from './StructuredContent';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { Step, ContentBlock } from './types';
 import * as AgentAPI from '@/services/agent';
+import { studentClassApi } from '@/services/studentClass';
 import confetti from 'canvas-confetti';
 import CompleteLessonDialog from '../study/CompleteLessonDialog';
 
@@ -61,6 +62,8 @@ interface AgentWidgetProps {
   sourceId?: number;
   // 容器 ID（用于验证）
   containerId?: string;
+  // 班级上下文（用于 FAQ / 教师干预）
+  classId?: number;
   // 静态步骤数据（优先级低于 API）
   steps?: Step[];
   // 模式：'teaching' = 教学模式（有手册）, 'chat' = 纯聊天模式
@@ -69,13 +72,67 @@ interface AgentWidgetProps {
   resetProgress?: boolean;
   // 回调
   onComplete?: () => void;
-  onExecuteCommand?: (command: string) => Promise<{ output: string; exitCode: number; error?: string }>;
+  onExecuteCommand?: (command: string, context?: { manualId?: number; stepOrder?: number }) => Promise<{ output: string; exitCode: number; error?: string }>;
 }
+
+type ChatEntry = {
+  role: 'user' | 'agent';
+  content: string | ContentBlock[];
+  hintLevel?: 1 | 2 | 3;
+};
+
+const chatStorageKey = (manualId: number) => `agent:coach:chat:${manualId}`;
+
+const toAPIChatHistory = (chat: ChatEntry[]): AgentAPI.ChatMessage[] => chat
+  .filter(msg => typeof msg.content === 'string' && msg.content.trim())
+  .slice(-20)
+  .map(msg => ({
+    role: msg.role === 'agent' ? 'assistant' as const : 'user' as const,
+    content: msg.content as string,
+  }));
+
+const restoreSessionChat = (manualId: number): ChatEntry[] => {
+  try {
+    const raw = sessionStorage.getItem(chatStorageKey(manualId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ChatEntry[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item => item.role === 'user' || item.role === 'agent').slice(-20);
+  } catch {
+    return [];
+  }
+};
+
+const persistSessionChat = (manualId: number | null, chat: ChatEntry[]) => {
+  if (!manualId) return;
+  try {
+    sessionStorage.setItem(chatStorageKey(manualId), JSON.stringify(chat.slice(-20)));
+  } catch {
+    // sessionStorage 不可用时忽略，服务端仍保持无状态
+  }
+};
+
+const agentBubbleClass = (hintLevel?: 1 | 2 | 3) => {
+  if (hintLevel === 2) return 'bg-white text-slate-700 rounded-tl-none border border-primary/25';
+  if (hintLevel === 3) return 'bg-white text-slate-700 rounded-tl-none border border-warning-300';
+  return 'bg-white text-slate-700 rounded-tl-none';
+};
+
+const HintBadge: React.FC<{ level?: 1 | 2 | 3 }> = ({ level }) => {
+  if (level === 2) {
+    return <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-1 text-[11px] font-bold text-primary-700"><Lightbulb size={12} />方向提示</div>;
+  }
+  if (level === 3) {
+    return <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-warning-50 px-2 py-1 text-[11px] font-bold text-warning-700"><BookOpen size={12} />完整提示</div>;
+  }
+  return null;
+};
 
 export const AgentWidget: React.FC<AgentWidgetProps> = ({
   sourceType,
   sourceId,
   containerId,
+  classId,
   steps: propSteps,
   mode: propMode,
   resetProgress = false,
@@ -106,14 +163,19 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
     checkItems?: Array<{ name: string; status: 'passed' | 'failed'; message?: string }>;
   } | null>(null);
   const [isExiting, setIsExiting] = useState(false);  // 控制离场动画
-  const [chatLog, setChatLog] = useState<{ role: 'user' | 'agent'; content: string | ContentBlock[] }[]>([]);
+  const [chatLog, setChatLog] = useState<ChatEntry[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const [streamingHintLevel, setStreamingHintLevel] = useState<1 | 2 | 3>(1);
   const [widgetWidth, setWidgetWidth] = useState(620);
   const [isResizing, setIsResizing] = useState(false);
   const [showResizeHandle, setShowResizeHandle] = useState(false);
-  const [stepChatHistory, setStepChatHistory] = useState<Record<number, { role: 'user' | 'agent'; content: string | ContentBlock[] }[]>>({});
+  const [canEscalateHint, setCanEscalateHint] = useState(false);
+  const [activeClassId, setActiveClassId] = useState<number | null>(null);
+  const [faqItems, setFaqItems] = useState<AgentAPI.AgentFAQItem[]>([]);
+  const [pendingInterventions, setPendingInterventions] = useState<AgentAPI.AgentInterventionRecord[]>([]);
+  const [faqOpen, setFaqOpen] = useState(false);
   const [showInputBox, setShowInputBox] = useState(false);  // 控制输入框显示
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);  // 控制返回底部按钮显示
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);  // 控制恭喜完成对话框显示
@@ -122,6 +184,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   const widgetRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);  // 输入框引用
   const dragRef = useRef({ startX: 0, startWidth: 620, isActive: false });
+  const streamingHintLevelRef = useRef<1 | 2 | 3>(1);
 
   // 从 API 加载手册数据
   useEffect(() => {
@@ -152,6 +215,11 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           quickQuestions: s.quickQuestions || [],
           verification: s.verification || undefined,
         })));
+        const cachedChat = restoreSessionChat(manual.id);
+        if (cachedChat.length > 0) {
+          setChatLog(cachedChat);
+        }
+        void loadV2Context(manual.id, currentStep);
       } else {
         setHasManual(false);
         console.log('[AgentWidget] No manual found for sourceType:', sourceType, 'sourceId:', sourceId);
@@ -163,7 +231,6 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
         setCurrentStep(0);
         setCompletedSteps([]);
         setChatLog([]);
-        setStepChatHistory({});
         // 清除服务器端进度
         try {
           await AgentAPI.updateProgress(sourceType, sourceId, {
@@ -182,18 +249,19 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       if (progress) {
         setCurrentStep(progress.currentStep);
         setCompletedSteps(progress.completedSteps);
-        // 恢复聊天历史
-        if (progress.chatHistory && progress.chatHistory.length > 0) {
+        const cachedChat = manual?.id ? restoreSessionChat(manual.id) : [];
+        // v1 coach 对话优先从 sessionStorage 恢复；没有本地历史时兼容旧服务端进度。
+        if (cachedChat.length > 0) {
+          setChatLog(cachedChat);
+        } else if (progress.chatHistory && progress.chatHistory.length > 0) {
           const restoredChat = progress.chatHistory.map(msg => ({
             role: msg.role === 'assistant' ? 'agent' as const : 'user' as const,
             content: msg.content,
           }));
           setChatLog(restoredChat);
-          // 保存到当前步骤的历史记录
-          setStepChatHistory(prev => ({
-            ...prev,
-            [progress.currentStep]: restoredChat,
-          }));
+        }
+        if (manual?.id) {
+          void loadV2Context(manual.id, progress.currentStep);
         }
       }
     } catch (err) {
@@ -204,8 +272,38 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
     }
   };
 
+  const loadV2Context = async (nextManualId: number, stepOrder: number) => {
+    if (isChatMode) return;
+    try {
+      const [history, interventions, classesResponse] = await Promise.all([
+        AgentAPI.getCoachHistory(nextManualId, stepOrder),
+        AgentAPI.getPendingInterventions(nextManualId),
+        classId ? Promise.resolve({ data: [] }) : studentClassApi.getMyClasses(),
+      ]);
+      if (history.length > 0) {
+        setChatLog(history.map(msg => ({
+          role: msg.role === 'assistant' ? 'agent' as const : 'user' as const,
+          content: msg.content,
+        })));
+      }
+      setPendingInterventions(interventions);
+      const fallbackClass = [...(classesResponse.data || [])].sort((a, b) => a.id - b.id)[0];
+      const nextClassId = classId || fallbackClass?.id || 0;
+      if (nextClassId) {
+        setActiveClassId(nextClassId);
+        const faq = await AgentAPI.getFAQ(nextManualId, stepOrder, nextClassId);
+        setFaqItems(faq);
+      } else {
+        setActiveClassId(null);
+        setFaqItems([]);
+      }
+    } catch (error) {
+      console.warn('[AgentWidget] load V2 context failed:', error);
+    }
+  };
+
   // 保存进度（带 debounce）
-  const saveProgressImpl = async (step: number, completed: number[], chat: { role: 'user' | 'agent'; content: string | ContentBlock[] }[]) => {
+  const saveProgressImpl = async (step: number, completed: number[], chat: ChatEntry[]) => {
     if (!sourceType || !sourceId) return;
     try {
       // 转换聊天记录格式
@@ -226,7 +324,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   const debouncedSaveProgress = useDebounce(saveProgressImpl, 1000);
 
   // 保存进度（立即保存，用于步骤切换）
-  const saveProgressNow = (step: number, completed: number[], chat: { role: 'user' | 'agent'; content: string | ContentBlock[] }[] = []) => {
+  const saveProgressNow = (step: number, completed: number[], chat: ChatEntry[] = []) => {
     saveProgressImpl(step, completed, chat);
   };
 
@@ -274,6 +372,22 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       setShowScrollToBottom(false);
     }
   }, [currentStep, chatLog, isValidating, streamingContent, verificationResult]);
+
+  useEffect(() => {
+    persistSessionChat(manualId, chatLog);
+  }, [manualId, chatLog]);
+
+  useEffect(() => {
+    if (isOpen && manualId) {
+      void AgentAPI.recordEvent({ manualId, stepOrder: currentStep, eventType: 'widget_open' });
+      void loadV2Context(manualId, currentStep);
+    }
+  }, [isOpen, manualId, classId]);
+
+  useEffect(() => {
+    if (!manualId || !isOpen) return;
+    void loadV2Context(manualId, currentStep);
+  }, [currentStep, manualId, isOpen, classId]);
 
   // 监听滚动事件，判断是否显示返回底部按钮
   useEffect(() => {
@@ -363,6 +477,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
         setVerificationResult(verifyResult);
         
         if (!result.success) {
+          setCanEscalateHint(true);
           setVerifyError(result.message + (result.details ? `\n${result.details}` : ''));
           setIsValidating(false);
           return;
@@ -463,6 +578,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
         ],
       };
       setVerificationResult(errorResult);
+      setCanEscalateHint(true);
       setVerifyError(err.message || '验证失败');
     } finally {
       setIsValidating(false);
@@ -479,24 +595,14 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
     }
 
     if (currentStep < steps.length - 1) {
-      // 保存当前步骤的聊天历史
-      setStepChatHistory(prev => ({
-        ...prev,
-        [currentStep]: chatLog,
-      }));
-      
       const nextStep = currentStep + 1;
       setCurrentStep(nextStep);
-      
-      // 恢复下一步骤的聊天历史（如果有）
-      const nextStepChat = stepChatHistory[nextStep] || [];
-      setChatLog(nextStepChat);
-      
+
       // 清除验证结果
       setVerificationResult(null);
       setVerifyError(null);
-      
-      saveProgressNow(nextStep, newCompleted, nextStepChat);
+
+      saveProgressNow(nextStep, newCompleted, chatLog);
     }
   };
 
@@ -507,30 +613,104 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
     handleContinue();
   };
 
-  // 处理跳过
-  const handleSkip = () => {
-    setVerificationResult(null);
-    setVerifyError(null);
-    proceedToNextStep();
+  const handleTroubleshoot = () => {
+    if (!verificationResult) return;
+    const output = verificationResult.details || verificationResult.message || '验证失败，暂无详细输出';
+    if (manualId) {
+      void AgentAPI.recordEvent({
+        manualId,
+        stepOrder: currentStep,
+        eventType: 'troubleshoot_click',
+        meta: { hasDetails: Boolean(verificationResult.details) },
+      });
+    }
+    setShowInputBox(true);
+    void handleQuestion(`验证失败，错误输出：${output}`, { troubleshootMode: true });
+  };
+
+  const handleEscalateHint = () => {
+    if (!canEscalateHint) return;
+    setShowInputBox(true);
+    void handleQuestion('请给我完整提示，我还是卡在这一步。', { escalate: true });
   };
 
   // 处理 AI 问答（流式）
-  const handleQuestion = async (question: string) => {
+  const handleQuestion = async (question: string, options: { escalate?: boolean; troubleshootMode?: boolean } = {}) => {
     if (!question.trim()) return;
     
     // 用户开始提问时，隐藏验证结果气泡
     setVerificationResult(null);
     setVerifyError(null);
     
-    setChatLog(prev => [...prev, { role: 'user', content: question }]);
+    const userMessage: ChatEntry = { role: 'user', content: question };
+    const nextChat = [...chatLog, userMessage];
+    setChatLog(nextChat);
     setInputValue('');
     setIsAsking(true);
     setStreamingContent('');
+    setStreamingHintLevel(1);
+    streamingHintLevelRef.current = 1;
 
-    // 构建上下文：教学模式使用步骤上下文，聊天模式使用通用上下文
+    if (manualId && options.escalate) {
+      void AgentAPI.recordEvent({
+        manualId,
+        stepOrder: currentStep,
+        eventType: 'hint_requested',
+        meta: { troubleshootMode: Boolean(options.troubleshootMode) },
+      });
+    }
+
+    // 构建上下文：聊天模式继续使用通用流式接口；教学模式使用 coach 接口。
     const stepContext = isChatMode 
       ? '你是 EDU Agent，Agent EDU 平台的智能助手，帮助用户解答编程和学习相关的问题。'
       : `当前步骤: ${step.title}\n内容摘要: ${step.content.map(b => b.text || b.code || '').join(' ').slice(0, 500)}`;
+
+    const onDone = () => {
+      setStreamingContent(currentContent => {
+        if (currentContent) {
+          setTimeout(() => {
+            setChatLog(logs => {
+              const newLogs = [...logs, { role: 'agent' as const, content: currentContent, hintLevel: streamingHintLevelRef.current }];
+              if (!isChatMode) {
+                debouncedSaveProgress(currentStep, completedSteps, newLogs);
+              }
+              return newLogs;
+            });
+            setIsAsking(false);
+          }, 0);
+        } else {
+          setIsAsking(false);
+        }
+        return '';
+      });
+    };
+
+    if (!isChatMode && manualId) {
+      await AgentAPI.coachStream(
+        {
+          manualId,
+          stepOrder: currentStep,
+          question,
+          chatHistory: toAPIChatHistory(chatLog),
+          escalate: options.escalate,
+          troubleshootMode: options.troubleshootMode,
+        },
+        (meta) => {
+          setStreamingHintLevel(meta.hintLevel);
+          streamingHintLevelRef.current = meta.hintLevel;
+        },
+        (content) => {
+          setStreamingContent(prev => prev + content);
+        },
+        onDone,
+        (error) => {
+          setChatLog(prev => [...prev, { role: 'agent', content: `抱歉，${error}` }]);
+          setStreamingContent('');
+          setIsAsking(false);
+        }
+      );
+      return;
+    }
 
     // 使用流式 API
     await AgentAPI.chatStream(
@@ -540,33 +720,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       (content) => {
         setStreamingContent(prev => prev + content);
       },
-      () => {
-        // 完成时，将流式内容添加到聊天记录
-        // 需要先获取当前的 streamingContent 值，然后按正确顺序更新状态
-        setStreamingContent(currentContent => {
-          if (currentContent) {
-            // 使用 setTimeout 确保状态更新的顺序正确
-            // 1. 先添加消息到 chatLog
-            // 2. 然后设置 isAsking 为 false
-            // 3. 最后清空 streamingContent（通过返回 ''）
-            setTimeout(() => {
-              setChatLog(logs => {
-                const newLogs = [...logs, { role: 'agent' as const, content: currentContent }];
-                // 教学模式下保存进度
-                if (!isChatMode) {
-                  debouncedSaveProgress(currentStep, completedSteps, newLogs);
-                }
-                return newLogs;
-              });
-              // 在 chatLog 更新后设置 isAsking 为 false
-              setIsAsking(false);
-            }, 0);
-          } else {
-            setIsAsking(false);
-          }
-          return '';
-        });
-      },
+      onDone,
       (error) => {
         setChatLog(prev => [...prev, { role: 'agent', content: `抱歉，${error}` }]);
         setStreamingContent('');
@@ -578,7 +732,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   // 处理代码执行
   const handleCodeRun = async (code: string) => {
     if (onExecuteCommand) {
-      return await onExecuteCommand(code);
+      return await onExecuteCommand(code, { manualId: manualId || undefined, stepOrder: currentStep });
     }
     return { output: `$ ${code}\n执行成功`, exitCode: 0 };
   };
@@ -638,18 +792,9 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                   <button 
                     key={s.id}
                     onClick={() => {
-                      // 保存当前步骤的聊天历史
-                      setStepChatHistory(prev => ({
-                        ...prev,
-                        [currentStep]: chatLog,
-                      }));
-                      // 切换到新步骤
                       setCurrentStep(s.id);
                       setShowToC(false);
                       setVerifyError(null);
-                      // 恢复目标步骤的聊天历史
-                      const targetChat = stepChatHistory[s.id] || [];
-                      setChatLog(targetChat);
                     }}
                     className={`text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${
                       s.id === currentStep 
@@ -726,8 +871,9 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                         {msg.role === 'agent' ? <img src={EnergyRobotGif} alt="Agent" className="w-8 h-8 object-contain" /> : <span className="text-xs font-bold">你</span>}
                       </div>
                       <div className={`rounded-2xl p-4 shadow-sm max-w-[85%] ${
-                        msg.role === 'agent' ? 'bg-white text-slate-700 rounded-tl-none' : 'bg-primary text-white rounded-tr-none'
+                        msg.role === 'agent' ? agentBubbleClass(msg.hintLevel) : 'bg-primary text-white rounded-tr-none'
                       }`}>
+                        {msg.role === 'agent' && <HintBadge level={msg.hintLevel} />}
                         {typeof msg.content === 'string' ? (
                           msg.role === 'agent' ? (
                             <MarkdownRenderer content={msg.content} />
@@ -747,7 +893,8 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                       <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
                         <img src={EnergyRobotGif} alt="Agent" className="w-8 h-8 object-contain" />
                       </div>
-                      <div className="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm max-w-[85%]">
+                      <div className={`rounded-2xl p-4 shadow-sm max-w-[85%] ${agentBubbleClass(streamingHintLevel)}`}>
+                        <HintBadge level={streamingHintLevel} />
                         {streamingContent ? (
                           <MarkdownRenderer content={streamingContent} />
                         ) : (
@@ -861,6 +1008,32 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                     </>
                   )}
 
+                  {/* 教师干预提醒 */}
+                  {pendingInterventions.length > 0 && (
+                    <div className="space-y-2">
+                      {pendingInterventions.map(item => (
+                        <div key={item.id} className="rounded-xl bg-warning-50 px-3 py-2 text-sm text-warning-800 shadow-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-semibold truncate">{item.title}</div>
+                              <div className="mt-1 whitespace-pre-wrap text-warning-700">{item.content}</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await AgentAPI.markInterventionRead(item.id);
+                                setPendingInterventions(prev => prev.filter(record => record.id !== item.id));
+                              }}
+                              className="shrink-0 rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold text-warning-700 hover:bg-white"
+                            >
+                              已读
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* 步骤内容 */}
                   <div key={`step-${currentStep}`} className="flex gap-3 items-start animate-slide-in-left">
                     <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
@@ -876,6 +1049,29 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                           onCodeRun={handleCodeRun}
                           onCodeExplain={handleCodeExplain}
                         />
+
+                        {faqItems.length > 0 && (
+                          <div className="mt-4 rounded-xl bg-primary-50/70 p-3">
+                            <button
+                              type="button"
+                              onClick={() => setFaqOpen(value => !value)}
+                              className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-primary-700"
+                            >
+                              <span>本班常见问题</span>
+                              <ChevronDown className={`h-4 w-4 transition ${faqOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {faqOpen && (
+                              <div className="mt-3 space-y-3">
+                                {faqItems.map(item => (
+                                  <div key={item.id} className="rounded-lg bg-white/80 p-3 text-sm">
+                                    <div className="font-semibold text-default-800">{item.question}</div>
+                                    <div className="mt-1 text-default-600 whitespace-pre-wrap">{item.answer}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         
                         {/* 继续按钮 - 只在没有聊天记录且没有验证结果时显示在步骤内容中 */}
                         {chatLog.length === 0 && !verificationResult && !isValidating && (
@@ -910,8 +1106,9 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                           {msg.role === 'agent' ? <img src={EnergyRobotGif} alt="Agent" className="w-8 h-8 object-contain" /> : <span className="text-xs font-bold">你</span>}
                         </div>
                         <div className={`rounded-2xl p-4 shadow-sm max-w-[85%] ${
-                          msg.role === 'agent' ? 'bg-white text-slate-700 rounded-tl-none' : 'bg-primary text-white rounded-tr-none'
+                          msg.role === 'agent' ? agentBubbleClass(msg.hintLevel) : 'bg-primary text-white rounded-tr-none'
                         }`}>
+                          {msg.role === 'agent' && <HintBadge level={msg.hintLevel} />}
                           {typeof msg.content === 'string' ? (
                             msg.role === 'agent' ? (
                               <MarkdownRenderer content={msg.content} />
@@ -944,7 +1141,8 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                       <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
                         <img src={EnergyRobotGif} alt="Agent" className="w-8 h-8 object-contain" />
                       </div>
-                      <div className="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm max-w-[85%]">
+                      <div className={`rounded-2xl p-4 shadow-sm max-w-[85%] ${agentBubbleClass(streamingHintLevel)}`}>
+                        <HintBadge level={streamingHintLevel} />
                         {streamingContent ? (
                           <MarkdownRenderer content={streamingContent} />
                         ) : (
@@ -1029,11 +1227,21 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                           {/* 操作按钮 - 验证失败时显示 */}
                           {!verificationResult.success && (
                             <div className="flex flex-wrap justify-end gap-3 pt-3 border-t border-default-100">
-                              <button 
-                                onClick={handleSkip}
-                                className="px-5 py-2 text-sm font-medium text-default-600 border border-default-300 rounded-lg hover:bg-default-100 transition-colors"
+                              <button
+                                onClick={handleTroubleshoot}
+                                disabled={isAsking}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-700 border border-primary-200 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors disabled:opacity-50"
                               >
-                                跳过
+                                <Wrench size={14} />
+                                帮我排查
+                              </button>
+                              <button
+                                onClick={handleEscalateHint}
+                                disabled={!canEscalateHint || isAsking}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-warning-700 border border-warning-200 bg-warning-50 rounded-lg hover:bg-warning-100 transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                <BookOpen size={14} />
+                                给我完整提示
                               </button>
                               <button 
                                 onClick={handleRetry}
@@ -1113,13 +1321,13 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                         <HelpCircle size={14} />
                         提问
                       </button>
-                      <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-default-600 bg-default-100 rounded-full hover:bg-default-200 transition-colors">
-                        <MessageCircle size={14} />
-                        反馈
-                      </button>
-                      <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-default-600 bg-default-100 rounded-full hover:bg-default-200 transition-colors">
-                        <Settings size={14} />
-                        设置
+                      <button
+                        onClick={handleEscalateHint}
+                        disabled={!canEscalateHint || isAsking}
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-warning-700 bg-warning-50 rounded-full hover:bg-warning-100 transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        <BookOpen size={14} />
+                        完整提示
                       </button>
                       
                       {/* 关闭输入框按钮 - 只在输入框展开时显示 */}
@@ -1182,6 +1390,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
         onClose={() => setShowCompleteDialog(false)}
         lessonName={manualTitle || '实验'}
         earnedXP={100}
+        manualId={manualId}
         duration={(() => {
           const elapsed = Math.round((Date.now() - widgetStartRef.current) / 1000);
           const mins = Math.floor(elapsed / 60);

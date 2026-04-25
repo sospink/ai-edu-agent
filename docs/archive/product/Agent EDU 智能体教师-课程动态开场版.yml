@@ -1,0 +1,1037 @@
+app:
+  description: Agent EDU 平台的 AI 智能体教师，基于 5 门理论课程授课（提示词工程、MCPServer开发、ADE配置与智能体开发、智能体框架与开发、安全与合规），支持学习路径规划与文件解析。
+  icon: 🤖
+  icon_background: '#E0F2FE'
+  mode: advanced-chat
+  name: Agent EDU 智能体教师
+  use_icon_as_answer_icon: true
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.19@12ddda76bb473f9beb52d2ea2a67412d54924f93a29465fffb8635ba62b409c3
+    version: null
+kind: app
+version: 0.5.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      - .PDF
+      - .MD
+      - .TXT
+      - .PY
+      - .JS
+      - .TS
+      - .JSON
+      allowed_file_types:
+      - document
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: true
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: '👋 你好！我是 Agent EDU 的 AI 智能体教师。
+
+
+      你当前正在学习：
+      课程：{{course_title}}
+      技能：{{skill_name}}
+      课时：{{lesson_name}}
+
+
+      我会结合这门课的课程介绍给你做开场引导和学习建议。
+
+      📎 支持文件上传：你可以上传代码或文档让我分析。'
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions:
+    - 请先基于课程介绍，概览一下《{{course_title}}》和“{{lesson_name}}”的学习目标
+    - 基于“{{skill_name}}”，给我一个从入门到实操的学习顺序
+    - 结合课程简介，告诉我这一课的常见误区和练习建议
+    suggested_questions_after_answer:
+      enabled: true
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: document-extractor
+      id: start-to-doc-extractor
+      source: start_node
+      sourceHandle: source
+      target: doc_extractor
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: document-extractor
+        targetType: question-classifier
+      id: doc-extractor-to-classifier
+      source: doc_extractor
+      sourceHandle: source
+      target: question_classifier
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: question-classifier
+        targetType: knowledge-retrieval
+      id: classifier-to-agent-kb
+      source: question_classifier
+      sourceHandle: class_ade
+      target: kb_agent_dev
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: question-classifier
+        targetType: knowledge-retrieval
+      id: classifier-to-tech-kb
+      source: question_classifier
+      sourceHandle: class_prompt
+      target: kb_tech_stack
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: question-classifier
+        targetType: knowledge-retrieval
+      id: classifier-to-mcp-kb
+      source: question_classifier
+      sourceHandle: class_mcp
+      target: kb_tech_stack
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: question-classifier
+        targetType: knowledge-retrieval
+      id: classifier-to-framework-kb
+      source: question_classifier
+      sourceHandle: class_framework
+      target: kb_agent_dev
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: question-classifier
+        targetType: knowledge-retrieval
+      id: classifier-to-security-kb
+      source: question_classifier
+      sourceHandle: class_security
+      target: kb_agent_dev
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: question-classifier
+        targetType: knowledge-retrieval
+      id: classifier-to-learning-kb
+      source: question_classifier
+      sourceHandle: class_learning_path
+      target: kb_learning_path
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: question-classifier
+        targetType: llm
+      id: classifier-to-general-llm
+      source: question_classifier
+      sourceHandle: class_general
+      target: llm_general
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: knowledge-retrieval
+        targetType: llm
+      id: agent-kb-to-llm
+      source: kb_agent_dev
+      sourceHandle: source
+      target: llm_agent_dev
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: knowledge-retrieval
+        targetType: llm
+      id: tech-kb-to-llm
+      source: kb_tech_stack
+      sourceHandle: source
+      target: llm_tech_stack
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: knowledge-retrieval
+        targetType: llm
+      id: learning-kb-to-llm
+      source: kb_learning_path
+      sourceHandle: source
+      target: llm_learning_path
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: answer
+      id: llm-agent-to-answer
+      source: llm_agent_dev
+      sourceHandle: source
+      target: answer_agent_dev
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: answer
+      id: llm-tech-to-answer
+      source: llm_tech_stack
+      sourceHandle: source
+      target: answer_tech_stack
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: answer
+      id: llm-learning-to-answer
+      source: llm_learning_path
+      sourceHandle: source
+      target: answer_learning_path
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: answer
+      id: llm-general-to-answer
+      source: llm_general
+      sourceHandle: source
+      target: answer_general
+      targetHandle: target
+      type: custom
+    nodes:
+    - data:
+        desc: 接收学员的问题和上传的文件
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 课程ID
+          max_length: 64
+          options: []
+          required: false
+          type: text-input
+          variable: course_id
+          hide: true
+        - label: 课程名称
+          max_length: 200
+          options: []
+          required: false
+          type: text-input
+          variable: course_title
+          hide: true
+        - label: 课程简介
+          max_length: 1200
+          options: []
+          required: false
+          type: paragraph
+          variable: course_desc
+          hide: true
+        - label: 技能名称
+          max_length: 200
+          options: []
+          required: false
+          type: text-input
+          variable: skill_name
+          hide: true
+        - label: 课时名称
+          max_length: 200
+          options: []
+          required: false
+          type: text-input
+          variable: lesson_name
+          hide: true
+      height: 100
+      id: start_node
+      position:
+        x: 80
+        y: 400
+      positionAbsolute:
+        x: 80
+        y: 400
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 从上传的文件中提取文本内容
+        is_array_file: true
+        selected: false
+        title: 文档提取器
+        type: document-extractor
+        variable_selector:
+        - start_node
+        - sys.files
+      height: 132
+      id: doc_extractor
+      position:
+        x: 380
+        y: 400
+      positionAbsolute:
+        x: 380
+        y: 400
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        classes:
+        - id: class_prompt
+          name: 提示词工程
+        - id: class_mcp
+          name: MCPServer开发
+        - id: class_ade
+          name: ADE配置与智能体开发
+        - id: class_framework
+          name: 智能体框架与开发
+        - id: class_security
+          name: 安全与合规
+        - id: class_learning_path
+          name: 五门课学习路径
+        - id: class_general
+          name: 通用问题
+        desc: 根据学员问题类型分流到对应知识库，优先匹配五门理论课程
+        instructions: "分类规则：\n1) class_learning_path：学习顺序、阶段规划、选课建议、复习路径、周计划。\n2) class_prompt：提示词工程五大支柱相关问题。\n3) class_mcp：MCP三大能力 Tools Resources Prompts 相关问题。\n4) class_ade：OpenCode、Skills.md、DAE、渐进式披露相关问题。\n5) class_framework：PRA Loop、ReAct、工具调用、记忆系统、LangChain、LangGraph、单多智能体相关问题。\n6) class_security：六大风险、Guardrails、Colang、防护策略相关问题。\n7) class_general：其余问题。\n注意：凡是课程推荐或学习计划，一律分到 class_learning_path。"
+        model:
+          completion_params:
+            frequency_penalty: 0
+            max_tokens: 512
+            presence_penalty: 0
+            temperature: 0.3
+            top_p: 0.9
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        query_variable_selector:
+        - start_node
+        - sys.query
+        selected: false
+        title: 问题分类器
+        topics: []
+        type: question-classifier
+        vision:
+          enabled: false
+      height: 289
+      id: question_classifier
+      position:
+        x: 680
+        y: 300
+      positionAbsolute:
+        x: 680
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        dataset_ids:
+        - 0jvyB5wU60IBdydh/7JOZWPTU2RcfYSGhhZhvJtyppJOz8PlsDRm7iItdWG3ICqK
+        desc: 检索 ADE配置与智能体开发、智能体框架与开发、安全与合规相关知识
+        multiple_retrieval_config:
+          reranking_enable: true
+          reranking_mode: reranking_model
+          reranking_model:
+            model: gte-rerank
+            provider: langgenius/tongyi/tongyi
+          score_threshold: null
+          top_k: 4
+        query_attachment_selector: []
+        query_variable_selector:
+        - start_node
+        - sys.query
+        retrieval_mode: multiple
+        selected: true
+        single_retrieval_config:
+          model:
+            completion_params: {}
+            mode: chat
+            name: qwen3-max
+            provider: langgenius/tongyi/tongyi
+        title: Agent开发知识库
+        type: knowledge-retrieval
+      height: 133
+      id: kb_agent_dev
+      position:
+        x: 1000
+        y: 150
+      positionAbsolute:
+        x: 1000
+        y: 150
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        dataset_ids:
+        - pnPRi77hg9twNkLezHU+TdYLfreQXrmkRFt//NBLx4PZrvq2dgN9fstRGJmY3F0C
+        desc: 检索 提示词工程 与 MCPServer开发 相关知识
+        multiple_retrieval_config:
+          reranking_enable: true
+          reranking_mode: reranking_model
+          reranking_model:
+            model: gte-rerank
+            provider: langgenius/tongyi/tongyi
+          score_threshold: null
+          top_k: 4
+        query_attachment_selector: []
+        query_variable_selector:
+        - start_node
+        - sys.query
+        retrieval_mode: multiple
+        selected: false
+        single_retrieval_config:
+          model:
+            completion_params: {}
+            mode: chat
+            name: qwen3-max
+            provider: langgenius/tongyi/tongyi
+        title: 技术栈知识库
+        type: knowledge-retrieval
+      height: 133
+      id: kb_tech_stack
+      position:
+        x: 1000
+        y: 320
+      positionAbsolute:
+        x: 1000
+        y: 320
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        dataset_ids:
+        - Q56Wdk+2PU5EHHrwn0CSOxOhMmJ04gUsZtX8vWu/TfjOPZoc/UHMFg2GoJ3sswue
+        desc: 检索五门理论课学习路径与课程推荐相关知识
+        multiple_retrieval_config:
+          reranking_enable: true
+          reranking_mode: reranking_model
+          reranking_model:
+            model: gte-rerank
+            provider: langgenius/tongyi/tongyi
+          score_threshold: null
+          top_k: 4
+        query_attachment_selector: []
+        query_variable_selector:
+        - start_node
+        - sys.query
+        retrieval_mode: multiple
+        selected: false
+        single_retrieval_config:
+          model:
+            completion_params: {}
+            mode: chat
+            name: qwen3-max
+            provider: langgenius/tongyi/tongyi
+        title: 学习路径知识库
+        type: knowledge-retrieval
+      height: 117
+      id: kb_learning_path
+      position:
+        x: 1000
+        y: 490
+      positionAbsolute:
+        x: 1000
+        y: 490
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - kb_agent_dev
+          - result
+        desc: 基于 Agent 开发知识库回答问题，支持分析上传的文件
+        memory:
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 10
+        model:
+          completion_params:
+            max_tokens: 2048
+            temperature: 0.7
+            top_p: 0.9
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: agent-dev-prompt
+          role: system
+          text: '你是 Agent EDU 的智能体教师小智老师，负责讲授智能体开发相关理论与实践映射。
+
+
+            ## 当前课程上下文（来自页面传参，为空可忽略）
+
+            - course_id: {{#start_node.course_id#}}
+
+            - course_title: {{#start_node.course_title#}}
+
+            - course_desc: {{#start_node.course_desc#}}
+
+            - skill_name: {{#start_node.skill_name#}}
+
+            - lesson_name: {{#start_node.lesson_name#}}
+
+
+            ## 动态开场要求（优先执行）
+
+            当 course_title 或 skill_name 有值时，先用 1 到 2 句话做课程定制开场：
+
+            1. 明确用户当前正在学习的课程或技能
+
+            2. 开场内容优先参考 course_desc
+
+            3. 再进入用户问题本体回答
+
+
+            ## 课程锚点（必须优先对齐）
+
+            1. ADE配置与智能体开发：OpenCode + GLM-4.7、Skills.md、DAE流程、渐进式披露
+
+            2. 智能体框架与开发：Agent概述、PRA Loop、ReAct、工具调用、记忆系统、LangChain/LangGraph、单/多Agent
+
+            3. 安全与合规：六大风险、Guardrails五类、Colang基础
+
+
+            ## 回答硬性约束
+
+            1. 严禁出现让用户去平台搜索课程的表达，如 去平台搜 自行搜索 你可以在平台找
+
+            2. 用户问课程相关内容时，直接给出 课程名 + 对应理论节 + 关键知识点 + 下一步学习建议
+
+            3. 若知识库信息不足，仍要先基于上述课程锚点给出可执行解释，再明确补充条件
+
+            4. 回答要可教学、可落地，尽量给简短示例或步骤
+
+
+            ## 文件分析能力
+
+            如果用户上传了文件，文件内容如下：
+
+            <uploaded_file>
+
+            {{#doc_extractor.text#}}
+
+            </uploaded_file>
+
+
+            请先分析文件，再结合课程锚点作答。
+
+
+            使用以下知识库内容作为参考：
+
+            <context>
+
+            {{#context#}}
+
+            </context>
+            '
+        selected: false
+        title: Agent开发教学LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 131
+      id: llm_agent_dev
+      position:
+        x: 1300
+        y: 150
+      positionAbsolute:
+        x: 1300
+        y: 150
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - kb_tech_stack
+          - result
+        desc: 基于技术栈知识库回答问题，支持分析上传的代码文件
+        memory:
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 10
+        model:
+          completion_params:
+            max_tokens: 2048
+            temperature: 0.7
+            top_p: 0.9
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: tech-stack-prompt
+          role: system
+          text: '你是 Agent EDU 的技术导师小智老师，负责提示词工程与MCPServer开发方向教学。
+
+
+            ## 当前课程上下文（来自页面传参，为空可忽略）
+
+            - course_id: {{#start_node.course_id#}}
+
+            - course_title: {{#start_node.course_title#}}
+
+            - course_desc: {{#start_node.course_desc#}}
+
+            - skill_name: {{#start_node.skill_name#}}
+
+            - lesson_name: {{#start_node.lesson_name#}}
+
+
+            ## 动态开场要求（优先执行）
+
+            当 course_title 或 skill_name 有值时，先用 1 到 2 句话做课程定制开场：
+
+            1. 明确用户当前正在学习的课程或技能
+
+            2. 开场内容优先参考 course_desc
+
+            3. 再进入用户问题本体回答
+
+
+            ## 课程锚点（必须优先对齐）
+
+            1. 提示词工程 第一节理论课：五大支柱 模块化 参数化 版本化 可测试 可观测
+
+            2. MCPServer开发 第一节理论课：三大能力 Tools Resources Prompts 及选型策略
+
+
+            ## 回答硬性约束
+
+            1. 严禁出现 让用户去平台搜索课程 这类引导
+
+            2. 课程类问题必须直接落到具体课程和理论知识点
+
+            3. 代码或配置分析时，先指出问题，再给最小可执行修复方案
+
+            4. 如果知识库缺少细节，先给基于课程锚点的标准答案，再说明可补充信息
+
+
+            ## 文件分析能力
+
+            如果用户上传了文件（代码、配置等），文件内容如下：
+
+            <uploaded_file>
+
+            {{#doc_extractor.text#}}
+
+            </uploaded_file>
+
+
+            请结合课程锚点输出：问题定位、原因、修复步骤、验证方法。
+
+
+            使用以下知识库内容作为参考：
+
+            <context>
+
+            {{#context#}}
+
+            </context>
+            '
+        selected: false
+        title: 技术栈教学LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 131
+      id: llm_tech_stack
+      position:
+        x: 1300
+        y: 320
+      positionAbsolute:
+        x: 1300
+        y: 320
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - kb_learning_path
+          - result
+        desc: 基于学习路径知识库回答问题
+        memory:
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 10
+        model:
+          completion_params:
+            max_tokens: 2048
+            temperature: 0.7
+            top_p: 0.9
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: learning-path-prompt
+          role: system
+          text: '你是 Agent EDU 的学习规划顾问小智老师，专门负责五门理论课的路径规划。
+
+
+            ## 当前课程上下文（来自页面传参，为空可忽略）
+
+            - course_id: {{#start_node.course_id#}}
+
+            - course_title: {{#start_node.course_title#}}
+
+            - course_desc: {{#start_node.course_desc#}}
+
+            - skill_name: {{#start_node.skill_name#}}
+
+            - lesson_name: {{#start_node.lesson_name#}}
+
+
+            ## 动态开场要求（优先执行）
+
+            当 course_title 或 skill_name 有值时，先用 1 到 2 句话做课程定制开场：
+
+            1. 明确用户当前正在学习的课程或技能
+
+            2. 开场内容优先参考 course_desc
+
+            3. 再进入用户问题本体回答
+
+
+            ## 固定课程体系（只用这五门做规划）
+
+            1. 提示词工程（第一节理论）：五大支柱
+
+            2. MCPServer开发（第一节理论）：Tools Resources Prompts
+
+            3. ADE配置与智能体开发（第一节理论）：Skills.md DAE 渐进式披露
+
+            4. 智能体框架与开发（第一节理论）：PRA ReAct Tools Memory LangChain LangGraph 单多智能体
+
+            5. 安全与合规（第一节理论）：六大风险 Guardrails五类 Colang
+
+
+            ## 输出要求
+
+            1. 严禁让用户去平台搜索课程，必须直接给学习路线
+
+            2. 默认输出结构：
+
+               - 当前水平判断
+
+               - 推荐顺序（课程名 + 理论节 + 核心知识点）
+
+               - 每门课学习目标与建议时长
+
+               - 阶段验收标准
+
+            3. 用户未提供背景时，先给通用路线，再给 2 到 3 个澄清问题
+
+            4. 所有建议尽量可执行，避免空泛
+
+
+            ## 文件分析能力
+
+            如果用户上传了文件（简历、学习计划等），文件内容如下：
+
+            <uploaded_file>
+
+            {{#doc_extractor.text#}}
+
+            </uploaded_file>
+
+
+            请根据文件内容给个性化路径，但仍然限定在五门理论课内。
+
+
+            使用以下知识库内容作为参考：
+
+            <context>
+
+            {{#context#}}
+
+            </context>
+            '
+        selected: false
+        title: 学习路径规划LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 115
+      id: llm_learning_path
+      position:
+        x: 1300
+        y: 490
+      positionAbsolute:
+        x: 1300
+        y: 490
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+        desc: 回答通用问题，不依赖知识库，支持文件分析
+        memory:
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 10
+        model:
+          completion_params:
+            max_tokens: 2048
+            temperature: 0.7
+            top_p: 0.9
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: general-prompt
+          role: system
+          text: '你是 Agent EDU 的 AI 教育助手小智老师。
+
+
+            ## 当前课程上下文（来自页面传参，为空可忽略）
+
+            - course_id: {{#start_node.course_id#}}
+
+            - course_title: {{#start_node.course_title#}}
+
+            - course_desc: {{#start_node.course_desc#}}
+
+            - skill_name: {{#start_node.skill_name#}}
+
+            - lesson_name: {{#start_node.lesson_name#}}
+
+
+            ## 动态开场要求（优先执行）
+
+            当 course_title 或 skill_name 有值时，先用 1 到 2 句话做课程定制开场：
+
+            1. 明确用户当前正在学习的课程或技能
+
+            2. 开场内容优先参考 course_desc
+
+            3. 再进入用户问题本体回答
+
+
+            ## 回答原则
+
+            1. 保持专业、清晰、教学导向
+
+            2. 对课程相关问题，优先映射到五门理论课并直接给答案
+
+            3. 严禁出现 去平台搜索课程 之类的引导语
+
+            4. 超出课程边界时，先说明边界，再给最接近的学习建议
+
+
+            ## 五门理论课名称（用于映射）
+
+            - 提示词工程
+
+            - MCPServer开发
+
+            - ADE配置与智能体开发
+
+            - 智能体框架与开发
+
+            - 安全与合规
+
+
+            ## 文件分析能力
+
+            如果用户上传了文件，文件内容如下：
+
+            <uploaded_file>
+
+            {{#doc_extractor.text#}}
+
+            </uploaded_file>
+
+
+            请根据文件内容和用户问题给出可执行建议。
+
+
+            ## 注意事项
+
+            - 不回答与 AI 教育无关的敏感话题
+
+            - 不确定时明确不确定点，并给可验证路径
+            '
+        selected: false
+        title: 通用问答LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 131
+      id: llm_general
+      position:
+        x: 1300
+        y: 660
+      positionAbsolute:
+        x: 1300
+        y: 660
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        answer: '{{#llm_agent_dev.text#}}'
+        desc: Agent 开发问题回复
+        selected: false
+        title: Agent开发回复
+        type: answer
+        variables:
+        - value_selector:
+          - llm_agent_dev
+          - text
+          variable: text
+      height: 130
+      id: answer_agent_dev
+      position:
+        x: 1600
+        y: 150
+      positionAbsolute:
+        x: 1600
+        y: 150
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        answer: '{{#llm_tech_stack.text#}}'
+        desc: 技术栈问题回复
+        selected: false
+        title: 技术栈回复
+        type: answer
+        variables:
+        - value_selector:
+          - llm_tech_stack
+          - text
+          variable: text
+      height: 130
+      id: answer_tech_stack
+      position:
+        x: 1600
+        y: 320
+      positionAbsolute:
+        x: 1600
+        y: 320
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        answer: '{{#llm_learning_path.text#}}'
+        desc: 学习路径问题回复
+        selected: false
+        title: 学习路径回复
+        type: answer
+        variables:
+        - value_selector:
+          - llm_learning_path
+          - text
+          variable: text
+      height: 130
+      id: answer_learning_path
+      position:
+        x: 1600
+        y: 490
+      positionAbsolute:
+        x: 1600
+        y: 490
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        answer: '{{#llm_general.text#}}'
+        desc: 通用问题回复
+        selected: false
+        title: 通用回复
+        type: answer
+        variables:
+        - value_selector:
+          - llm_general
+          - text
+          variable: text
+      height: 130
+      id: answer_general
+      position:
+        x: 1600
+        y: 660
+      positionAbsolute:
+        x: 1600
+        y: 660
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -987.142534064785
+      y: -178.47143558545065
+      zoom: 1.0000000000000013
+  rag_pipeline_variables: []

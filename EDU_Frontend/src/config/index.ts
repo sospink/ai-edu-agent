@@ -92,11 +92,8 @@ export const APP_CONFIG = {
 };
 
 // Dify configuration
-const DIFY_DEFAULT_BASE_URL = 'http://117.50.80.138';
-const DIFY_DEFAULT_CHATBOT_TOKEN = 'EH3HxvW3csV1dr7k';
-
-export const DIFY_BASE_URL = import.meta.env.VITE_DIFY_BASE_URL || DIFY_DEFAULT_BASE_URL;
-export const DIFY_CHATBOT_TOKEN = import.meta.env.VITE_DIFY_CHATBOT_TOKEN || DIFY_DEFAULT_CHATBOT_TOKEN;
+export const DIFY_BASE_URL = import.meta.env.VITE_DIFY_BASE_URL || '';
+export const DIFY_CHATBOT_TOKEN = import.meta.env.VITE_DIFY_CHATBOT_TOKEN || '';
 
 export const getDifyChatbotUrl = (query: Record<string, string | number | undefined> = {}): string => {
   const normalizedBase = DIFY_BASE_URL.replace(/\/$/, '');

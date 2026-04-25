@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Terminal, Globe, Code2, Layout, Server, Container, 
-  Shield, Play, CheckCircle2, Flame, Award, Zap, ChevronRight,
-  Loader2, AlertCircle, BookOpen, Clock, LucideIcon, LogIn
+  Shield, CheckCircle2, Flame, Award, Zap,
+  Loader2, AlertCircle, BookOpen, Clock, LucideIcon
 } from 'lucide-react';
-import { courseApi, type Course } from '@/services/course';
+import { courseApi, studentCourseApi, type Course } from '@/services/course';
+import { userService, type StudentLeaderboardItem } from '@/services/user';
+import { emptyLearningOverview, learningOverviewApi, type LearningOverview } from '@/services/learningOverview';
+import StudyAssignmentsSection from './StudyAssignmentsSection';
 import type { Skill, SkillStage } from '@/types/skill';
-import type { User } from '@/types';
+import { RoleType, type User } from '@/types';
+import { studentClassApi } from '@/services/studentClass';
+import { ClassStatus, type ClassItem } from '@/services/classroom';
 import { 
   CourseDifficulty, CourseStatus, LessonType,
   lessonTypeToString, formatDuration, levelLabelToLevel, getDifficultyName
@@ -55,6 +61,20 @@ const getColorClass = (coverColor: string): string => {
   return colorClassMap[coverColor] || 'bg-blue-500 text-white';
 };
 
+const avatarColors = [
+  'bg-primary-500',
+  'bg-emerald-500',
+  'bg-sky-500',
+  'bg-amber-500',
+  'bg-rose-500',
+  'bg-slate-700',
+];
+
+const getInitial = (name: string): string => {
+  const trimmed = name.trim();
+  return trimmed ? trimmed.slice(0, 1).toUpperCase() : '学';
+};
+
 // 将API课程数据转换为前端Skill类型
 const convertCourseToSkill = (course: Course): Skill => {
   const IconComponent = getIconComponent(course.iconUrl);
@@ -93,27 +113,181 @@ const convertCourseToSkill = (course: Course): Skill => {
       lessons: course.totalLessons,
       hours: course.estimatedHours,
     },
+    progress: typeof course.userProgress === 'number' ? course.userProgress : undefined,
     isAdded: true,
     stages,
   };
 };
 
-const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, onLoginRequired }) => {
+interface ClassContextTabsProps {
+  classes: ClassItem[];
+  selectedClassId: number | null;
+  onSelectClass: (classId: number) => void;
+  onSelectExplore: () => void;
+}
+
+const ClassContextTabs: React.FC<ClassContextTabsProps> = ({ classes, selectedClassId, onSelectClass, onSelectExplore }) => (
+  <section className="relative mb-8">
+    <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-background to-transparent" />
+    <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-background to-transparent" />
+    <div className="flex gap-3 overflow-x-auto px-1 pb-2">
+      {classes.map((item) => {
+        const active = selectedClassId === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onSelectClass(item.id)}
+            className={`relative min-w-[120px] shrink-0 rounded-2xl px-4 py-3 text-left transition-all ${
+              active
+                ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
+                : 'card-surface text-slate-700 hover:-translate-y-0.5 hover:shadow-lg'
+            }`}
+          >
+            {item.pendingTaskCount > 0 && !active && (
+              <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/40" />
+            )}
+            <div className="max-w-[180px] truncate text-sm font-black">{item.name}</div>
+            <div className={`mt-1 max-w-[180px] truncate text-xs ${active ? 'text-slate-300' : 'text-slate-400'}`}>
+              {item.termCode} · {item.ownerTeacherName || '未设置教师'}
+            </div>
+          </button>
+        );
+      })}
+      <button
+        onClick={onSelectExplore}
+        className={`min-w-[120px] shrink-0 rounded-2xl px-4 py-3 text-left transition-all ${
+          selectedClassId === null
+            ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
+            : 'card-surface text-slate-700 hover:-translate-y-0.5 hover:shadow-lg'
+        }`}
+      >
+        <div className="text-sm font-black">自主探索</div>
+        <div className={`mt-1 text-xs ${selectedClassId === null ? 'text-primary-100' : 'text-slate-400'}`}>浏览公共课程</div>
+      </button>
+    </div>
+  </section>
+);
+
+interface ClassCoursesSectionProps {
+  skills: Skill[];
+  loading: boolean;
+  error: string | null;
+  onSkillSelect: (skill: Skill) => void;
+}
+
+interface SkillGridProps {
+  skills: Skill[];
+  onSkillSelect: (skill: Skill) => void;
+}
+
+const SkillGrid: React.FC<SkillGridProps> = ({ skills, onSkillSelect }) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+    {skills.map((skill, i) => (
+      <motion.div
+        key={skill.id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: i * 0.05 }}
+        onClick={() => onSkillSelect(skill)}
+        className="card-surface rounded-2xl p-5 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 cursor-pointer flex items-center gap-5 group"
+      >
+        <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-md ${skill.color} group-hover:scale-110 transition-transform`}>
+          <skill.icon className="w-7 h-7" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start">
+            <h3 className="text-base font-bold text-slate-900 truncate mb-1">{skill.title}</h3>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              skill.difficulty === CourseDifficulty.BEGINNER ? 'bg-emerald-50 text-emerald-600' :
+              skill.difficulty === CourseDifficulty.INTERMEDIATE ? 'bg-blue-50 text-blue-600' :
+              'bg-purple-50 text-purple-600'
+            }`}>
+              {getDifficultyName(skill.difficulty)}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
+            <span className="flex items-center gap-1">
+              <Zap className="w-3 h-3" /> {skill.stats.skills} 技能
+            </span>
+            <span className="flex items-center gap-1">
+              <BookOpen className="w-3 h-3" /> {skill.stats.lessons} 课时
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" /> {skill.stats.hours}h
+            </span>
+          </div>
+          {skill.progress !== undefined && (
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-primary-500 transition-all"
+                style={{ width: `${Math.min(100, Math.max(0, skill.progress))}%` }}
+              />
+            </div>
+          )}
+        </div>
+      </motion.div>
+    ))}
+  </div>
+);
+
+const ClassCoursesSection: React.FC<ClassCoursesSectionProps> = ({ skills, loading, error, onSkillSelect }) => (
+  <section className="mb-12">
+    <div className="mb-8 flex justify-between items-end">
+      <div>
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+          <BookOpen className="h-3.5 w-3.5" />
+          班级课程
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900">当前班级分配课程</h2>
+      </div>
+    </div>
+    {loading ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div key={index} className="card-surface rounded-2xl p-5">
+            <div className="flex items-center gap-5">
+              <div className="h-14 w-14 shrink-0 animate-pulse rounded-xl bg-slate-200" />
+              <div className="min-w-0 flex-1">
+                <div className="h-4 w-2/5 animate-pulse rounded bg-slate-200" />
+                <div className="mt-3 h-3 w-4/5 animate-pulse rounded bg-slate-200" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : error ? (
+      <div className="rounded-2xl bg-rose-50 p-4 text-sm font-medium text-rose-700">{error}</div>
+    ) : skills.length === 0 ? (
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+        当前班级暂未分配课程，请等待教师发布作业。
+      </div>
+    ) : (
+      <SkillGrid skills={skills} onSkillSelect={onSkillSelect} />
+    )}
+  </section>
+);
+
+const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [classError, setClassError] = useState<string | null>(null);
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const [assignedSkills, setAssignedSkills] = useState<Skill[]>([]);
+  const [assignedLoading, setAssignedLoading] = useState(false);
+  const [assignedError, setAssignedError] = useState<string | null>(null);
+  const [leaderboard, setLeaderboard] = useState<StudentLeaderboardItem[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+  const [overview, setOverview] = useState<LearningOverview>(emptyLearningOverview);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const isLoggedIn = !!currentUser;
-
-  // 处理需要登录的操作
-  const handleActionClick = (e: React.MouseEvent, action: () => void) => {
-    e.stopPropagation();
-    if (!isLoggedIn) {
-      onLoginRequired();
-    } else {
-      action();
-    }
-  };
+  const canUseClassContext = currentUser?.roleType === RoleType.STUDENT;
+  const selectedClass = selectedClassId ? classes.find((item) => item.id === selectedClassId) : null;
 
   // 加载课程数据
   useEffect(() => {
@@ -143,6 +317,125 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, onLog
 
     fetchCourses();
   }, []);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        setLeaderboardLoading(true);
+        const response = await userService.getStudentLeaderboard(4);
+        if (response.success && response.data) {
+          setLeaderboard(response.data);
+        } else {
+          setLeaderboard([]);
+        }
+      } catch (err) {
+        console.error('获取学习者排行失败:', err);
+        setLeaderboard([]);
+      } finally {
+        setLeaderboardLoading(false);
+      }
+    };
+
+    fetchLeaderboard();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser?.roleType !== RoleType.STUDENT) {
+      setOverview(emptyLearningOverview);
+      setOverviewError(null);
+      setOverviewLoading(false);
+      return;
+    }
+
+    const fetchOverview = async () => {
+      setOverviewLoading(true);
+      setOverviewError(null);
+      const response = await learningOverviewApi.getOverview();
+      if (response.success && response.data) {
+        setOverview(response.data);
+      } else {
+        setOverview(emptyLearningOverview);
+        setOverviewError(response.error || '学习概览暂时不可用');
+      }
+      setOverviewLoading(false);
+    };
+
+    void fetchOverview();
+  }, [currentUser?.id, currentUser?.roleType]);
+
+  useEffect(() => {
+    if (!canUseClassContext || !currentUser) {
+      setClasses([]);
+      setSelectedClassId(null);
+      setClassError(null);
+      setClassesLoading(false);
+      return;
+    }
+
+    const loadClasses = async () => {
+      setClassesLoading(true);
+      setClassError(null);
+      const response = await studentClassApi.getMyClasses();
+      if (response.success && response.data) {
+        const activeClasses = response.data.filter((item) => item.status === ClassStatus.ACTIVE);
+        setClasses(activeClasses);
+        const urlClassId = Number(searchParams.get('classId'));
+        const storageKey = `study_last_selected_class_${currentUser.id}`;
+        const storedClassId = Number(localStorage.getItem(storageKey));
+        const pick =
+          activeClasses.find((item) => item.id === urlClassId) ||
+          activeClasses.find((item) => item.id === storedClassId) ||
+          activeClasses[0];
+        setSelectedClassId(pick?.id || null);
+      } else {
+        setClasses([]);
+        setSelectedClassId(null);
+        setClassError(response.error || '获取我的班级失败');
+      }
+      setClassesLoading(false);
+    };
+
+    void loadClasses();
+  }, [canUseClassContext, currentUser?.id]);
+
+  useEffect(() => {
+    if (!canUseClassContext || !currentUser) {
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    if (selectedClassId) {
+      next.set('classId', String(selectedClassId));
+      localStorage.setItem(`study_last_selected_class_${currentUser.id}`, String(selectedClassId));
+    } else {
+      next.delete('classId');
+      localStorage.removeItem(`study_last_selected_class_${currentUser.id}`);
+    }
+    setSearchParams(next, { replace: true });
+  }, [selectedClassId]);
+
+  useEffect(() => {
+    if (!selectedClassId || !canUseClassContext) {
+      setAssignedSkills([]);
+      setAssignedError(null);
+      setAssignedLoading(false);
+      return;
+    }
+
+    const loadAssignedCourses = async () => {
+      setAssignedLoading(true);
+      setAssignedError(null);
+      const response = await studentCourseApi.getAssigned(selectedClassId);
+      if (response.success && response.data) {
+        setAssignedSkills(response.data.map(convertCourseToSkill));
+      } else {
+        setAssignedSkills([]);
+        setAssignedError(response.error || '获取班级课程失败');
+      }
+      setAssignedLoading(false);
+    };
+
+    void loadAssignedCourses();
+  }, [selectedClassId, canUseClassContext]);
 
   // 加载状态
   if (loading) {
@@ -174,8 +467,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, onLog
     );
   }
 
-  // 获取第一个有进度的课程作为继续学习
-  const continueSkill = skills.length > 0 ? skills[0] : null;
+  const progressOffset = 226 - (226 * Math.min(100, Math.max(0, overview.overallProgressPercent))) / 100;
 
   return (
     <div className="w-full min-h-screen pt-24 pb-20 px-6 md:px-12 max-w-7xl mx-auto">
@@ -193,36 +485,41 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, onLog
         {/* Stats Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Progress Orb */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center justify-between">
+            <div className="card-surface rounded-3xl p-6 flex items-center justify-between">
                 <div className="flex items-center gap-6">
                     <div className="relative w-20 h-20 flex items-center justify-center">
                         <svg className="w-full h-full transform -rotate-90">
                             <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-slate-100" />
-                            <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray="226" strokeDashoffset="180" className="text-primary-500" />
+                            <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray="226" strokeDashoffset={progressOffset} className="text-primary-500 transition-all" />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-700">
-                             <span className="text-xl font-bold">1</span>
+                             <span className="text-xl font-bold">{overviewLoading ? '...' : overview.level}</span>
                              <span className="text-[10px] text-slate-400">Level</span>
                         </div>
                     </div>
                     <div>
                         <h3 className="font-bold text-slate-800 text-lg">下一个里程碑</h3>
-                        <div className="flex items-center gap-2 mt-2">
-                             <Award className="w-5 h-5 text-amber-500" />
-                             <span className="text-sm text-slate-600">完成 5 个课程</span>
-                             <span className="text-xs text-slate-400 ml-auto">0/5</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                             <Flame className="w-5 h-5 text-rose-500" />
-                             <span className="text-sm text-slate-600">连续学习 7 天</span>
-                             <span className="text-xs text-slate-400 ml-auto">0/7</span>
-                        </div>
+                        <p className="mt-1 text-xs font-semibold text-primary-500">{overview.levelName}</p>
+                        {(overview.milestones || emptyLearningOverview.milestones).map((milestone) => {
+                          const Icon = milestone.type === 'streak' ? Flame : Award;
+                          const iconClass = milestone.type === 'streak' ? 'text-rose-500' : 'text-amber-500';
+                          return (
+                            <div key={milestone.type} className="flex items-center gap-2 mt-2">
+                                 <Icon className={`w-5 h-5 ${iconClass}`} />
+                                 <span className="text-sm text-slate-600">{milestone.label}</span>
+                                 <span className="text-xs text-slate-400 ml-auto">{milestone.current}/{milestone.target}</span>
+                            </div>
+                          );
+                        })}
+                        {overviewError && (
+                          <p className="mt-2 text-xs text-amber-600">{overviewError}</p>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Stats + Daily Streak */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-center">
+            <div className="card-surface rounded-3xl p-5 flex flex-col justify-center">
                 {/* 学习统计 */}
                 <div className="grid grid-cols-3 gap-4 mb-4 pb-4 border-b border-slate-100">
                     <div className="text-center">
@@ -230,11 +527,11 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, onLog
                         <div className="text-xs text-slate-500">可学课程</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-2xl font-bold text-emerald-600">0</div>
+                        <div className="text-2xl font-bold text-emerald-600">{overviewLoading ? '...' : overview.completedCourses}</div>
                         <div className="text-xs text-slate-500">已完成</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-2xl font-bold text-amber-600">0</div>
+                        <div className="text-2xl font-bold text-amber-600">{overviewLoading ? '...' : overview.inProgressCourses}</div>
                         <div className="text-xs text-slate-500">进行中</div>
                     </div>
                 </div>
@@ -260,96 +557,88 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, onLog
             </div>
 
             {/* Leaderboard */}
-            <div className="bg-gradient-to-br from-amber-50 to-white rounded-3xl p-6 border border-amber-100/50 shadow-sm overflow-hidden">
+            <div className="rounded-3xl bg-gradient-to-br from-amber-50 to-white p-6 shadow-[0_16px_42px_-30px_rgba(180,83,9,0.45)] overflow-hidden">
                 <div className="space-y-3">
-                    {[
-                        { name: "Babu M.", xp: "13 技能", rank: 68605, color: "bg-green-500" },
-                        { name: "mzartler", xp: "13 技能", rank: 68606, color: "bg-purple-500" },
-                        { name: "学习者", xp: "13 技能", rank: 68607, active: true },
-                        { name: "Patrick W.", xp: "12 技能", rank: 68608, color: "bg-slate-700" }
-                    ].map((u, i) => (
-                        <div key={i} className={`flex items-center justify-between p-2 rounded-xl ${u.active ? 'bg-amber-100/50 ring-1 ring-amber-200' : ''}`}>
-                            <div className="flex items-center gap-3">
-                                <span className="text-xs font-mono text-slate-400 w-10">{u.rank}</span>
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${u.active ? 'bg-amber-500' : u.color}`}>
-                                    {u.name[0]}
+                    {leaderboardLoading ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                            <div key={i} className="flex items-center justify-between p-2 rounded-xl">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className="w-10 h-3 rounded bg-slate-200 animate-pulse" />
+                                    <span className="w-6 h-6 rounded-full bg-slate-200 animate-pulse" />
+                                    <span className="w-20 h-3 rounded bg-slate-200 animate-pulse" />
                                 </div>
-                                <span className={`text-sm font-bold ${u.active ? 'text-amber-900' : 'text-slate-600'}`}>{u.name}</span>
+                                <span className="w-12 h-3 rounded bg-slate-200 animate-pulse" />
                             </div>
-                            <span className="text-xs font-medium text-slate-400">{u.xp}</span>
+                        ))
+                    ) : leaderboard.length > 0 ? (
+                        leaderboard.map((u, i) => (
+                        <div key={u.id} className={`flex items-center justify-between gap-3 p-2 rounded-xl ${u.isCurrentUser ? 'bg-amber-100/50 ring-1 ring-amber-200' : ''}`}>
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs font-mono text-slate-400 w-10 shrink-0">#{u.rank}</span>
+                                {u.avatarUrl ? (
+                                    <img src={u.avatarUrl} alt={u.displayName} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                ) : (
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${u.isCurrentUser ? 'bg-amber-500' : avatarColors[i % avatarColors.length]}`}>
+                                        {getInitial(u.displayName || u.username)}
+                                    </div>
+                                )}
+                                <span className={`text-sm font-bold truncate max-w-[120px] ${u.isCurrentUser ? 'text-amber-900' : 'text-slate-600'}`}>
+                                    {u.displayName || u.username}
+                                </span>
+                            </div>
+                            <span className="text-xs font-medium text-slate-400 whitespace-nowrap">{u.skillsCount} 技能</span>
                         </div>
-                    ))}
+                    ))
+                    ) : (
+                        <div className="h-[132px] rounded-2xl border border-dashed border-amber-200 bg-white/50 flex items-center justify-center text-sm text-slate-500">
+                            暂无学习者数据
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
       </motion.div>
 
-      {/* 2. Continue Learning Section */}
-      {continueSkill && (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-12"
-        >
-          <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-              <Play className="w-5 h-5 text-primary-600 fill-current" />
-              推荐学习
-          </h2>
-          <div 
-            className="bg-white rounded-3xl p-1 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] group hover:border-primary-100 hover:shadow-lg transition-all cursor-pointer" 
-            onClick={() => onSkillSelect(continueSkill)}
-          >
-              <div className="flex flex-col md:flex-row p-6 gap-6 items-center">
-                  <div className={`w-20 h-20 rounded-2xl ${continueSkill.color} flex items-center justify-center shadow-lg shrink-0`}>
-                      <continueSkill.icon className="w-10 h-10" />
-                  </div>
-                  <div className="flex-1 text-center md:text-left">
-                      <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                          <h3 className="text-xl font-bold text-slate-900">{continueSkill.title}</h3>
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                            continueSkill.difficulty === CourseDifficulty.BEGINNER ? 'bg-emerald-100 text-emerald-600' :
-                            continueSkill.difficulty === CourseDifficulty.INTERMEDIATE ? 'bg-blue-100 text-blue-600' :
-                            'bg-purple-100 text-purple-600'
-                          }`}>
-                            {getDifficultyName(continueSkill.difficulty)}
-                          </span>
-                      </div>
-                      <p className="text-sm text-slate-500 mb-4 line-clamp-2">{continueSkill.description}</p>
-                      <div className="flex items-center justify-center md:justify-start gap-4 text-xs text-slate-400">
-                          <span className="flex items-center gap-1">
-                              <Zap className="w-3 h-3" /> {continueSkill.stats.skills} 技能
-                          </span>
-                          <span className="flex items-center gap-1">
-                              <BookOpen className="w-3 h-3" /> {continueSkill.stats.lessons} 课时
-                          </span>
-                          <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" /> {continueSkill.stats.hours}h
-                          </span>
-                      </div>
-                  </div>
-                  <button 
-                    onClick={(e) => handleActionClick(e, () => onSkillSelect(continueSkill))}
-                    className="flex items-center gap-2 px-8 py-3 bg-primary-600 text-white rounded-xl font-bold shadow-lg shadow-primary-500/20 group-hover:bg-primary-700 transition-all hover:scale-105 active:scale-95 shrink-0"
-                  >
-                      {isLoggedIn ? (
-                        <>
-                          开始学习
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                      ) : (
-                        <>
-                          <LogIn className="w-4 h-4" />
-                          登录后学习
-                        </>
-                      )}
-                  </button>
-              </div>
-          </div>
-        </motion.div>
+      {canUseClassContext && (
+        <>
+          {classesLoading ? (
+            <section className="mb-8 flex gap-3 overflow-hidden">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="h-16 min-w-[150px] animate-pulse rounded-2xl bg-slate-100" />
+              ))}
+            </section>
+          ) : classError ? (
+            <div className="mb-8 rounded-2xl bg-rose-50 p-4 text-sm font-medium text-rose-700">{classError}</div>
+          ) : (
+            <ClassContextTabs
+              classes={classes}
+              selectedClassId={selectedClassId}
+              onSelectClass={setSelectedClassId}
+              onSelectExplore={() => setSelectedClassId(null)}
+            />
+          )}
+
+          {!classesLoading && classes.length === 0 && (
+            <div className="card-surface mb-8 rounded-3xl p-6 text-center text-sm text-slate-500">
+              当前还没有加入任何班级，可以先在自主探索中浏览课程。
+            </div>
+          )}
+
+          {selectedClass && (
+            <>
+              <StudyAssignmentsSection classId={selectedClassId} />
+              <ClassCoursesSection
+                skills={assignedSkills}
+                loading={assignedLoading}
+                error={assignedError}
+                onSkillSelect={onSkillSelect}
+              />
+            </>
+          )}
+        </>
       )}
 
-      {/* 3. All Skill Trees Grid */}
+      {(!canUseClassContext || selectedClassId === null) && (
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -357,8 +646,8 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, onLog
       >
         <div className="flex justify-between items-end mb-8">
             <div>
-                <h2 className="text-2xl font-bold text-slate-900">所有技能树</h2>
-                <p className="text-slate-500 text-sm mt-1">通过 Agent EDU 技能树开始您的学习之旅</p>
+                <h2 className="text-2xl font-bold text-slate-900">自主探索</h2>
+                <p className="text-slate-500 text-sm mt-1">浏览平台已发布课程；班级 Tab 中的课程才代表老师分配内容。</p>
             </div>
         </div>
 
@@ -368,55 +657,10 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, onLog
             <p className="text-slate-500">暂无可用课程</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-              {skills.map((skill, i) => (
-                  <motion.div
-                      key={skill.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      onClick={() => onSkillSelect(skill)}
-                      className="bg-white rounded-2xl p-5 border border-slate-100 hover:border-primary-100 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 cursor-pointer flex items-center gap-5 group relative overflow-hidden"
-                  >
-                      {/* Progress Bar Bottom if active */}
-                      {skill.progress !== undefined && skill.progress > 0 && (
-                          <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-50">
-                              <div className="h-full bg-primary-500" style={{ width: `${skill.progress}%` }}></div>
-                          </div>
-                      )}
-
-                      <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-md ${skill.color} group-hover:scale-110 transition-transform`}>
-                          <skill.icon className="w-7 h-7" />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start">
-                              <h3 className="text-base font-bold text-slate-900 truncate mb-1">{skill.title}</h3>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                skill.difficulty === CourseDifficulty.BEGINNER ? 'bg-emerald-50 text-emerald-600' :
-                                skill.difficulty === CourseDifficulty.INTERMEDIATE ? 'bg-blue-50 text-blue-600' :
-                                'bg-purple-50 text-purple-600'
-                              }`}>
-                                  {getDifficultyName(skill.difficulty)}
-                              </span>
-                          </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
-                              <span className="flex items-center gap-1">
-                                  <Zap className="w-3 h-3" /> {skill.stats.skills} 技能
-                              </span>
-                              <span className="flex items-center gap-1">
-                                  <BookOpen className="w-3 h-3" /> {skill.stats.lessons} 课时
-                              </span>
-                              <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" /> {skill.stats.hours}h
-                              </span>
-                          </div>
-                      </div>
-                  </motion.div>
-              ))}
-          </div>
+          <SkillGrid skills={skills} onSkillSelect={onSkillSelect} />
         )}
       </motion.div>
+      )}
 
     </div>
   );

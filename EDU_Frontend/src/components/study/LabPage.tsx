@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -36,7 +36,7 @@ const WebTerminal = lazy(() => import('./WebTerminal'));
 // 懒加载 AgentWidget 组件
 const AgentWidget = lazy(() => import('../agent/AgentWidget'));
 
-type LabTab = 'desktop' | 'terminal' | 'ide' | 'opencode' | 'openclaw' | 'gateway';
+type LabTab = 'desktop' | 'terminal' | 'ide' | 'opencode' | 'openclaw' | 'gateway' | 'ports';
 
 // --- 启动序列组件 ---
 interface BootStep {
@@ -48,11 +48,24 @@ interface BootStep {
 interface BootSequenceProps {
   onComplete: () => void;
   onError: (error: string) => void;
-  onConflict: (existingSessionId: number) => void;
+  onConflict: (error?: string) => void;
   sourceType: LabSourceType;
   sourceId: number;
   onSessionCreated: (session: LabSession, urls: LabUrls) => void;
 }
+
+const isSessionConflictError = (message: string): boolean => {
+  const normalized = message.toLowerCase();
+  return (
+    message.includes('并发上限') ||
+    message.includes('已有实验环境') ||
+    message.includes('已有一个运行中') ||
+    message.includes('先停止已有环境') ||
+    message.includes('请先关闭') ||
+    normalized.includes('concurrent') ||
+    normalized.includes('quota')
+  );
+};
 
 const BootSequence: React.FC<BootSequenceProps> = ({
   onComplete,
@@ -67,7 +80,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
     { id: 1, text: '正在分配云端计算资源 (Allocating Resources)...', status: 'pending' },
     { id: 2, text: '正在拉取环境镜像 (Docker Image)...', status: 'waiting' },
     { id: 3, text: '正在启动容器实例 (Container)...', status: 'waiting' },
-    { id: 4, text: '正在配置网络端口 (VNC/IDE/SSH)...', status: 'waiting' },
+    { id: 4, text: '正在配置网络端口 (VNC/IDE/App Ports)...', status: 'waiting' },
     { id: 5, text: '正在建立安全连接 (Secure Tunnel)...', status: 'waiting' },
   ]);
 
@@ -114,8 +127,8 @@ const BootSequence: React.FC<BootSequenceProps> = ({
           const errorMsg = response.error || '创建实验环境失败';
           
           // 检查是否是会话冲突错误
-          if (errorMsg.includes('已有一个运行中的实验环境') || errorMsg.includes('请先关闭')) {
-            onConflict(0); // 触发冲突处理
+          if (isSessionConflictError(errorMsg)) {
+            onConflict(errorMsg);
           } else {
             onError(errorMsg);
           }
@@ -127,8 +140,8 @@ const BootSequence: React.FC<BootSequenceProps> = ({
         const errorMsg = err?.response?.data?.error || err?.message || '网络错误，请稍后重试';
         
         // 检查是否是会话冲突错误
-        if (errorMsg.includes('已有一个运行中的实验环境') || errorMsg.includes('请先关闭')) {
-          onConflict(0); // 触发冲突处理
+        if (isSessionConflictError(errorMsg)) {
+          onConflict(errorMsg);
         } else {
           onError(errorMsg);
         }
@@ -261,6 +274,34 @@ interface IframeContentProps {
   description: string;
 }
 
+const appendRetryParam = (rawUrl: string, key: string, value: number): string => {
+  if (!rawUrl || value <= 0) return rawUrl;
+  try {
+    const parsed = new URL(rawUrl, window.location.origin);
+    parsed.searchParams.set(key, String(value));
+    const isRelative = rawUrl.startsWith('/');
+    return isRelative ? `${parsed.pathname}${parsed.search}${parsed.hash}` : parsed.toString();
+  } catch {
+    return rawUrl;
+  }
+};
+
+const buildIframeRetryUrl = (rawUrl: string, retryCount: number): string => {
+  if (!rawUrl || retryCount <= 0) return rawUrl;
+  try {
+    const parsed = new URL(rawUrl, window.location.origin);
+    const nestedPath = parsed.searchParams.get('path');
+    if (nestedPath) {
+      parsed.searchParams.set('path', appendRetryParam(nestedPath, '_labWsRetry', retryCount));
+    }
+    parsed.searchParams.set('_labFrameRetry', String(retryCount));
+    const isRelative = rawUrl.startsWith('/');
+    return isRelative ? `${parsed.pathname}${parsed.search}${parsed.hash}` : parsed.toString();
+  } catch {
+    return appendRetryParam(rawUrl, '_labFrameRetry', retryCount);
+  }
+};
+
 const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, description }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -268,8 +309,21 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
   const [loadingText, setLoadingText] = useState('正在连接...');
   const initStartedAtRef = useRef<number>(Date.now());
   const retryTimerRef = useRef<number | null>(null);
+  const noVNCWatchdogRef = useRef<number | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const MAX_INIT_WAIT_MS = 30000;
   const RETRY_INTERVAL_MS = 3000;
+  const NOVNC_WATCHDOG_MS = 12000;
+  const MAX_FRAME_RETRIES = 2;
+  const frameUrl = useMemo(() => buildIframeRetryUrl(url, retryCount), [retryCount, url]);
+  const isNoVNCFrame = url.includes('/novnc/vnc.html');
+
+  const clearNoVNCWatchdog = useCallback(() => {
+    if (noVNCWatchdogRef.current) {
+      window.clearTimeout(noVNCWatchdogRef.current);
+      noVNCWatchdogRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -277,14 +331,16 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
     setRetryCount(0);
     setLoadingText('正在连接...');
     initStartedAtRef.current = Date.now();
+    clearNoVNCWatchdog();
 
     return () => {
       if (retryTimerRef.current) {
         window.clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
       }
+      clearNoVNCWatchdog();
     };
-  }, [url]);
+  }, [clearNoVNCWatchdog, url]);
 
   const handleFrameError = () => {
     const elapsed = Date.now() - initStartedAtRef.current;
@@ -304,6 +360,42 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
 
     setLoading(false);
     setError(true);
+  };
+
+  const handleFrameLoad = () => {
+    setLoading(false);
+    setError(false);
+    if (retryTimerRef.current) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+
+    clearNoVNCWatchdog();
+    if (!isNoVNCFrame) return;
+
+    noVNCWatchdogRef.current = window.setTimeout(() => {
+      try {
+        const frameDocument = iframeRef.current?.contentDocument;
+        const htmlClass = frameDocument?.documentElement?.className || '';
+        const statusText = frameDocument?.querySelector('#noVNC_status')?.textContent || '';
+        const connected = htmlClass.includes('noVNC_connected') || statusText.includes('已连接');
+        const stillConnecting = htmlClass.includes('noVNC_connecting') || statusText.includes('连接中');
+
+        if (connected || !stillConnecting) return;
+        if (retryCount >= MAX_FRAME_RETRIES) {
+          setLoading(false);
+          setError(true);
+          return;
+        }
+
+        setError(false);
+        setLoading(true);
+        setLoadingText('noVNC 连接仍未完成，正在重新建立代理连接...');
+        setRetryCount((prev) => prev + 1);
+      } catch {
+        // iframe 为同源代理时可读；若浏览器限制读取，则保持当前连接状态，不额外打断用户。
+      }
+    }, NOVNC_WATCHDOG_MS);
   };
 
   return (
@@ -328,7 +420,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
           <h2 className="text-xl font-bold text-slate-200 mb-2">连接失败</h2>
           <p className="text-slate-500 text-sm mb-4">无法连接到 {title}</p>
           <a
-            href={url}
+            href={frameUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
@@ -339,21 +431,15 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
         </div>
       )}
       <iframe
+        ref={iframeRef}
         key={`${url}-${retryCount}`}
-        src={url}
+        src={frameUrl}
         className="w-full h-full border-0 overflow-hidden"
         title={title}
         allow="cross-origin-isolated"
         sandbox="allow-same-origin allow-scripts allow-forms allow-modals allow-popups"
         style={{ display: 'block' }}
-        onLoad={() => {
-          setLoading(false);
-          setError(false);
-          if (retryTimerRef.current) {
-            window.clearTimeout(retryTimerRef.current);
-            retryTimerRef.current = null;
-          }
-        }}
+        onLoad={handleFrameLoad}
         onError={handleFrameError}
       />
     </div>
@@ -393,10 +479,13 @@ interface LabHeaderProps {
   setActiveTab: (tab: LabTab) => void;
   timeLeft: number;
   onBack: () => void;
+  onOpenWorkbench?: () => void;
   onHelp: () => void;
   isProjectMode: boolean;
+  hasDesktop: boolean;
   hasIde: boolean;
   hasGateway: boolean;
+  hasAppPorts: boolean;
   onComplete: () => void;
   completing: boolean;
 }
@@ -406,17 +495,21 @@ const LabHeader: React.FC<LabHeaderProps> = ({
   setActiveTab,
   timeLeft,
   onBack,
+  onOpenWorkbench,
   onHelp,
   isProjectMode,
+  hasDesktop,
   hasIde,
   hasGateway,
+  hasAppPorts,
   onComplete,
   completing,
 }) => {
-  const tabs: Array<{ id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-    { id: 'desktop', label: 'Desktop', icon: Monitor },
-    { id: 'terminal', label: 'Terminal', icon: TerminalIcon },
-  ];
+  const tabs: Array<{ id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [];
+  if (hasDesktop) {
+    tabs.push({ id: 'desktop', label: 'Desktop', icon: Monitor });
+  }
+  tabs.push({ id: 'terminal', label: 'Terminal', icon: TerminalIcon });
 
   if (isProjectMode) {
     tabs.push({ id: 'openclaw', label: 'OpenClaw', icon: Bot });
@@ -424,6 +517,9 @@ const LabHeader: React.FC<LabHeaderProps> = ({
       tabs.push({ id: 'gateway', label: 'Gateway', icon: Globe });
     }
   } else {
+    if (hasAppPorts) {
+      tabs.push({ id: 'ports', label: 'Ports', icon: Globe });
+    }
     tabs.push({ id: 'opencode', label: 'CLI', icon: Bot });
     if (hasIde) {
       tabs.push({ id: 'ide', label: 'WebIDE', icon: Code2 });
@@ -501,6 +597,17 @@ const LabHeader: React.FC<LabHeaderProps> = ({
         >
           <RefreshCw className="w-4 h-4" />
         </button>
+
+        {isProjectMode && onOpenWorkbench && (
+          <button
+            onClick={onOpenWorkbench}
+            className="flex items-center gap-2 rounded bg-[#1f3a2a] px-3 py-1 text-xs font-bold text-emerald-300 transition-colors hover:bg-[#254633] hover:text-emerald-200"
+            title="打开 OpenClaw 工作台"
+          >
+            <ExternalLink className="w-3 h-3" />
+            工作台
+          </button>
+        )}
         
         {/* 完成实验按钮 */}
         <button
@@ -558,7 +665,7 @@ const SessionConflictModal: React.FC<SessionConflictModalProps> = ({ onClose, on
         </div>
         
         <p className="text-slate-300 text-sm mb-6">
-          您已有一个运行中的实验环境。是否关闭现有环境并创建新的实验环境？
+          当前账号已有正在创建或运行中的实验环境。是否关闭现有环境并创建新的实验环境？
         </p>
         
         <div className="flex gap-3 justify-end">
@@ -595,11 +702,14 @@ interface ErrorPageProps {
   onRetry: () => void;
   onBack: () => void;
   onLogin?: () => void;
+  onResolveConflict?: () => void;
+  resolvingConflict?: boolean;
 }
 
-const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin }) => {
+const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin, onResolveConflict, resolvingConflict }) => {
   // 检查是否是认证相关错误
   const isAuthError = error.includes('认证') || error.includes('登录') || error.includes('令牌') || error.includes('token');
+  const isConflictError = isSessionConflictError(error);
   
   return (
     <div className="flex flex-col h-screen bg-[#1e1e1e] text-white items-center justify-center">
@@ -609,6 +719,11 @@ const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin }
         </div>
         <h1 className="text-2xl font-bold mb-2">{isAuthError ? '请先登录' : '启动失败'}</h1>
         <p className="text-slate-400 mb-6">{isAuthError ? '访问实验环境需要登录账号' : error}</p>
+        {isConflictError && (
+          <p className="text-xs leading-relaxed text-slate-500 mb-6">
+            可以直接关闭当前账号名下正在创建或运行的旧环境，然后重新启动本实验。
+          </p>
+        )}
         <div className="flex gap-3 justify-center">
           <button
             onClick={onBack}
@@ -622,6 +737,15 @@ const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin }
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors"
             >
               去登录
+            </button>
+          ) : isConflictError && onResolveConflict ? (
+            <button
+              onClick={onResolveConflict}
+              disabled={resolvingConflict}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2"
+            >
+              {resolvingConflict && <Loader2 className="w-4 h-4 animate-spin" />}
+              关闭旧环境并重试
             </button>
           ) : (
             <button
@@ -637,8 +761,12 @@ const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin }
   );
 };
 
+interface LabPageProps {
+  onLoginRequired?: () => void;
+}
+
 // --- 主组件 ---
-const LabPage: React.FC = () => {
+const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -648,11 +776,14 @@ const LabPage: React.FC = () => {
   const lessonIdParam = searchParams.get('lessonId');  // 课时 ID（用于课程加载 Agent 手册）
   const unitIdParam = searchParams.get('unitId');      // 单元 ID（用于项目加载 Agent 手册）
   const unitNameParam = searchParams.get('unitName');  // 单元名称
+  const initialTabParam = searchParams.get('initialTab');
+  const classIdParam = searchParams.get('classId');
 
   const sourceType = sourceTypeParam === 'project' ? LabSourceType.PROJECT : LabSourceType.COURSE;
   const sourceId = parseInt(sourceIdParam || '0');
   const lessonId = parseInt(lessonIdParam || '0');  // 课时 ID
   const unitId = parseInt(unitIdParam || '0');      // 单元 ID
+  const classId = parseInt(classIdParam || '0');
   const isProjectLab = sourceType === LabSourceType.PROJECT;
 
   // 计算 AgentWidget 的 sourceType 和 sourceId
@@ -664,6 +795,7 @@ const LabPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<LabTab>('desktop');
   const [copiedGatewayToken, setCopiedGatewayToken] = useState(false);
   const [opencodeRefreshToken, setOpencodeRefreshToken] = useState(0);
+  const [selectedAppPortName, setSelectedAppPortName] = useState('');
 
   // 包装 setActiveTab，在切换标签页时触发 resize 事件刷新终端
   const handleSetActiveTab = useCallback((tab: LabTab) => {
@@ -693,6 +825,12 @@ const LabPage: React.FC = () => {
   const isProjectOpenClawMode =
     isProjectLab &&
     (!!urls?.gatewayUrl || urls?.runtimeMode === 'openclaw' || session?.runtimeMode === 2);
+  const appUrls = urls?.appUrls || [];
+  const explicitDefaultAppUrl = appUrls.find((item) => item.isDefault) || null;
+  const defaultAppUrl = explicitDefaultAppUrl || appUrls[0] || null;
+  const selectedAppUrl = appUrls.find((item) => item.name === selectedAppPortName) || defaultAppUrl;
+  const hasDesktop = Boolean(urls?.vncUrl);
+  const hasAppPorts = appUrls.length > 0;
   const openClawExecCommand = "printf '🦞 OpenClaw\\n'; openclaw tui";
   const gatewayFrameUrl = urls?.gatewayUrl
     ? (() => {
@@ -702,6 +840,67 @@ const LabPage: React.FC = () => {
         return `${urls.gatewayUrl}${sep}authToken=${encodeURIComponent(authToken)}`;
       })()
     : '';
+  const openClawWorkbenchUrl = useMemo(() => {
+    if (!isProjectOpenClawMode || !session?.id) return '';
+    const params = new URLSearchParams({
+      sessionId: String(session.id),
+      sourceType: sourceTypeParam || 'project',
+      sourceId: String(sourceId),
+      scope: 'all',
+      returnTo: `${window.location.pathname}${window.location.search}`,
+    });
+    if (unitId > 0) params.set('unitId', String(unitId));
+    if (lessonId > 0) params.set('lessonId', String(lessonId));
+    if (unitNameParam) params.set('unitName', unitNameParam);
+    return `/openclaw/idle?${params.toString()}`;
+  }, [
+    isProjectOpenClawMode,
+    session?.id,
+    sourceTypeParam,
+    sourceId,
+    unitId,
+    lessonId,
+    unitNameParam,
+  ]);
+
+  useEffect(() => {
+    if (!isProjectOpenClawMode) return;
+
+    if (initialTabParam === 'openclaw') {
+      setActiveTab('openclaw');
+      return;
+    }
+    if (initialTabParam === 'gateway' && urls?.gatewayUrl) {
+      setActiveTab('gateway');
+      return;
+    }
+
+    if (urls?.gatewayUrl) {
+      setActiveTab('gateway');
+      return;
+    }
+    setActiveTab('openclaw');
+  }, [initialTabParam, isProjectOpenClawMode, urls?.gatewayUrl]);
+
+  useEffect(() => {
+    if (isProjectOpenClawMode || !urls) return;
+    if (explicitDefaultAppUrl && (!initialTabParam || initialTabParam === 'ports') && activeTab === 'desktop') {
+      setActiveTab('ports');
+      return;
+    }
+    if (!hasDesktop && activeTab === 'desktop') {
+      setActiveTab(defaultAppUrl ? 'ports' : 'terminal');
+    }
+  }, [activeTab, defaultAppUrl, explicitDefaultAppUrl, hasDesktop, initialTabParam, isProjectOpenClawMode, urls]);
+
+  useEffect(() => {
+    if (defaultAppUrl && !selectedAppPortName) {
+      setSelectedAppPortName(defaultAppUrl.name);
+    }
+    if (selectedAppPortName && !appUrls.some((item) => item.name === selectedAppPortName)) {
+      setSelectedAppPortName(defaultAppUrl?.name || '');
+    }
+  }, [appUrls, defaultAppUrl, selectedAppPortName]);
 
   const maskToken = (token: string): string => {
     if (!token) return '';
@@ -723,6 +922,11 @@ const LabPage: React.FC = () => {
   const handleRefreshOpencode = useCallback(() => {
     setOpencodeRefreshToken((prev) => prev + 1);
   }, []);
+
+  const handleOpenWorkbench = useCallback(() => {
+    if (!openClawWorkbenchUrl) return;
+    window.open(openClawWorkbenchUrl, '_blank', 'noopener,noreferrer');
+  }, [openClawWorkbenchUrl]);
 
   const exitLabPage = useCallback(() => {
     const fallbackPath = '/study';
@@ -800,7 +1004,6 @@ const LabPage: React.FC = () => {
           setIsBooting(false);
         }
         // 如果没有活跃会话，isBooting 保持 true，BootSequence 会创建新会话
-        console.log('[LabPage] No active session, will create new one');
       } catch (err) {
         console.error('检查活跃会话失败:', err);
         // 出错时也保持 isBooting 为 true，让 BootSequence 尝试创建新会话
@@ -865,14 +1068,10 @@ const LabPage: React.FC = () => {
 
   // 完成实验
   const handleCompleteLesson = async () => {
-    console.log('[LabPage] 完成实验被调用');
-    console.log('[LabPage] lessonId:', lessonId, 'unitId:', unitId, 'sourceType:', sourceType);
-    console.log('[LabPage] completing:', completing);
-    
     // 对于课程，使用 lessonId；对于项目，使用 unitId
     const targetId = sourceType === LabSourceType.PROJECT ? unitId : lessonId;
     
-      if (!targetId || targetId === 0) {
+    if (!targetId || targetId === 0) {
       // 项目单元暂时不需要调用完成 API，直接停止环境并返回
       if (sourceType === LabSourceType.PROJECT) {
         // 停止环境
@@ -888,13 +1087,11 @@ const LabPage: React.FC = () => {
     }
     
     if (completing) {
-      console.log('[LabPage] 正在提交中，跳过重复请求');
       return;
     }
 
     // 检查登录状态
     const token = localStorage.getItem('authToken');
-    console.log('[LabPage] 完成实验 - token存在:', !!token);
     
     if (!token) {
       alert('请先登录后再完成实验');
@@ -908,16 +1105,12 @@ const LabPage: React.FC = () => {
       // 项目单元暂时不调用完成 API
       if (sourceType === LabSourceType.PROJECT) {
         success = true;
-        console.log('[LabPage] 项目单元完成');
       } else {
         // 课程课时调用完成 API
-        console.log('[LabPage] 开始调用API - lessonId:', lessonId);
         const response = await courseApi.completeLesson(lessonId);
-        console.log('[LabPage] 完成实验响应:', response);
         
         if (response.success && response.data) {
           success = true;
-          console.log('[LabPage] 完成实验成功');
         } else {
           console.error('[LabPage] 完成实验失败:', response.error);
           alert(response.error || '完成实验失败');
@@ -928,9 +1121,7 @@ const LabPage: React.FC = () => {
       if (success) {
         // 先停止环境
         if (session) {
-          console.log('[LabPage] 停止实验环境...');
           await labApi.stopSession(session.id);
-          console.log('[LabPage] 实验环境已停止');
         }
         exitLabPage();
       }
@@ -939,7 +1130,6 @@ const LabPage: React.FC = () => {
       alert('网络错误，请稍后重试');
     } finally {
       setCompleting(false);
-      console.log('[LabPage] 完成实验流程结束');
     }
   };
   // 处理会话创建成功（新创建的会话）
@@ -981,7 +1171,10 @@ const LabPage: React.FC = () => {
   };
 
   // 会话冲突处理
-  const handleConflict = () => {
+  const handleConflict = (conflictMessage?: string) => {
+    if (conflictMessage) {
+      setError(null);
+    }
     setIsBooting(false);
     setShowConflictModal(true);
   };
@@ -990,17 +1183,39 @@ const LabPage: React.FC = () => {
   const handleCloseAndRecreate = async () => {
     setConflictLoading(true);
     try {
-      // 先获取当前活跃会话
+      let sessionToStop: LabSession | null = null;
+
+      // 优先获取当前运行中的活跃会话
       const activeResponse = await labApi.getActiveSession();
       if (activeResponse.success && activeResponse.data?.session) {
-        // 停止现有会话
-        const stopResponse = await labApi.stopSession(activeResponse.data.session.id);
-        if (!stopResponse.success) {
-          setError(stopResponse.error || '关闭现有环境失败');
-          setShowConflictModal(false);
-          setConflictLoading(false);
-          return;
-        }
+        sessionToStop = activeResponse.data.session;
+      }
+
+      // 并发上限也可能被 creating 状态占用，活跃接口只返回 running，因此补查会话列表。
+      if (!sessionToStop) {
+        const sessionsResponse = await labApi.getUserSessions();
+        const sessions = sessionsResponse.success && Array.isArray(sessionsResponse.data) ? sessionsResponse.data : [];
+        sessionToStop = sessions.find((item) =>
+          item.runtimeMode === 1 &&
+          (item.status === LabSessionStatus.RUNNING || item.status === LabSessionStatus.CREATING)
+        ) || null;
+      }
+
+      if (!sessionToStop) {
+        setShowConflictModal(false);
+        setConflictLoading(false);
+        setError(null);
+        setIsBooting(true);
+        setRetryKey((k) => k + 1);
+        return;
+      }
+
+      const stopResponse = await labApi.stopSession(sessionToStop.id);
+      if (!stopResponse.success) {
+        setError(stopResponse.error || '关闭现有环境失败');
+        setShowConflictModal(false);
+        setConflictLoading(false);
+        return;
       }
       
       // 关闭弹窗，重新启动创建流程
@@ -1017,7 +1232,12 @@ const LabPage: React.FC = () => {
 
   // 登录跳转
   const handleLogin = () => {
-    // 保存当前 URL，登录后可以返回
+    if (onLoginRequired) {
+      onLoginRequired();
+      return;
+    }
+
+    // 兼容未接入全局登录弹窗的旧调用场景
     const currentUrl = window.location.pathname + window.location.search;
     navigate(`/login?redirect=${encodeURIComponent(currentUrl)}`);
   };
@@ -1035,7 +1255,16 @@ const LabPage: React.FC = () => {
 
   // 启动错误
   if (error) {
-    return <ErrorPage error={error} onRetry={handleRetry} onBack={handleBack} onLogin={handleLogin} />;
+    return (
+      <ErrorPage
+        error={error}
+        onRetry={handleRetry}
+        onBack={handleBack}
+        onLogin={handleLogin}
+        onResolveConflict={handleCloseAndRecreate}
+        resolvingConflict={conflictLoading}
+      />
+    );
   }
 
   return (
@@ -1075,27 +1304,32 @@ const LabPage: React.FC = () => {
             setActiveTab={handleSetActiveTab}
             timeLeft={timeLeft}
             onBack={handleBack}
+            onOpenWorkbench={openClawWorkbenchUrl ? handleOpenWorkbench : undefined}
             onHelp={handleHelp}
             isProjectMode={isProjectOpenClawMode}
+            hasDesktop={hasDesktop}
             hasIde={!!urls.ideUrl}
             hasGateway={!!urls.gatewayUrl}
+            hasAppPorts={hasAppPorts}
             onComplete={handleCompleteLesson}
             completing={completing}
           />
 
           <div className="flex-1 relative overflow-hidden bg-[#1e1e1e]">
             {/* Desktop Tab - 使用 CSS 控制显示隐藏，避免重新加载 */}
-            <div
-              className="absolute inset-0"
-              style={{ display: activeTab === 'desktop' ? 'block' : 'none' }}
-            >
-              <IframeContent
-                url={urls.vncUrl}
-                title="Ubuntu Desktop"
-                icon={Monitor}
-                description="通过 noVNC 连接到 Ubuntu 桌面环境"
-              />
-            </div>
+            {hasDesktop && (
+              <div
+                className="absolute inset-0"
+                style={{ display: activeTab === 'desktop' ? 'block' : 'none' }}
+              >
+                <IframeContent
+                  url={urls.vncUrl}
+                  title="Ubuntu Desktop"
+                  icon={Monitor}
+                  description="通过 noVNC 连接到 Ubuntu 桌面环境"
+                />
+              </div>
+            )}
             
             {/* Terminal Tab - 使用 CSS 控制显示隐藏，保持连接 */}
             <div
@@ -1177,6 +1411,43 @@ const LabPage: React.FC = () => {
               </div>
             )}
 
+            {!isProjectOpenClawMode && hasAppPorts && (
+              <div
+                className="absolute inset-0"
+                style={{ display: activeTab === 'ports' ? 'block' : 'none' }}
+              >
+                <div className="absolute left-0 top-0 z-20 flex max-w-full gap-2 overflow-x-auto bg-[#252526]/95 px-3 py-2">
+                  {appUrls.map((item) => (
+                    <button
+                      key={item.name}
+                      onClick={() => setSelectedAppPortName(item.name)}
+                      className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                        selectedAppUrl?.name === item.name
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white/10 text-slate-300 hover:bg-white/15'
+                      }`}
+                    >
+                      <Globe className="h-3.5 w-3.5" />
+                      {item.label || item.name}:{item.containerPort}
+                    </button>
+                  ))}
+                </div>
+                {selectedAppUrl ? (
+                  <IframeContent
+                    url={selectedAppUrl.url}
+                    title={selectedAppUrl.label || selectedAppUrl.name}
+                    icon={Globe}
+                    description={`容器端口 ${selectedAppUrl.containerPort} · Service ${selectedAppUrl.servicePort}`}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#1e1e1e] flex flex-col items-center justify-center gap-3 text-slate-300">
+                    <AlertCircle className="w-8 h-8 text-amber-400" />
+                    <p className="text-sm">当前模板没有可访问的应用端口。</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 课程模式: OpenCode Tab (Docker exec opencode) */}
             {!isProjectOpenClawMode && (
               <div
@@ -1240,6 +1511,7 @@ const LabPage: React.FC = () => {
               <span className="flex items-center gap-1.5 cursor-pointer hover:bg-white/10 px-1 rounded">
                 <Wifi className="w-3 h-3" /> noVNC:{session.vncPort} | SSH:{session.sshPort}
                 {isProjectOpenClawMode && session.gatewayPort > 0 ? ` | Gateway:${session.gatewayPort}` : ''}
+                {!isProjectOpenClawMode && appUrls.length > 0 ? ` | App:${appUrls.map((item) => item.containerPort).join(',')}` : ''}
               </span>
             </div>
             <div className="flex items-center gap-4">
@@ -1258,10 +1530,11 @@ const LabPage: React.FC = () => {
               sourceType={agentSourceType}
               sourceId={agentSourceId}
               containerId={session.containerId}
+              classId={classId || undefined}
               resetProgress={isNewSession}
               onComplete={handleCompleteLesson}
-              onExecuteCommand={async (command) => {
-                const result = await labApi.executeCommand(command);
+              onExecuteCommand={async (command, context) => {
+                const result = await labApi.executeCommand(command, context);
                 if (result.success && result.data) {
                   return {
                     output: result.data.output,

@@ -39,12 +39,28 @@ export interface LabSession {
   sshPort: number;
   gatewayPort: number;
   gatewayToken: string;
+  desktopEnabled: boolean;
+  appPorts: LabAppPort[];
+  defaultAppPortName: string;
   runtimeMode: number; // 1-classic, 2-openclaw
   status: LabSessionStatus;
   errorMessage: string;
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LabAppPort {
+  name: string;
+  label: string;
+  containerPort: number;
+  path: string;
+}
+
+export interface LabAppUrl extends LabAppPort {
+  servicePort: number;
+  url: string;
+  isDefault: boolean;
 }
 
 // 实验环境 URL
@@ -55,6 +71,7 @@ export interface LabUrls {
   gatewayUrl?: string;
   gatewayToken?: string;
   runtimeMode?: 'classic' | 'openclaw';
+  appUrls?: LabAppUrl[];
 }
 
 // 活跃会话响应
@@ -107,7 +124,7 @@ export const labApi = {
   },
 
   // 在容器中执行命令
-  async executeCommand(command: string): Promise<ApiResponse<ExecuteResult>> {
-    return api.post<ExecuteResult>('/lab/execute', { command });
+  async executeCommand(command: string, context?: { manualId?: number; stepOrder?: number }): Promise<ApiResponse<ExecuteResult>> {
+    return api.post<ExecuteResult>('/lab/execute', { command, ...context });
   },
 };

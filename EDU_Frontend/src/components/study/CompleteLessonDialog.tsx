@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ShieldCheck, Clock, Zap, X } from 'lucide-react';
+import { ShieldCheck, Clock, Zap, X, Loader2, RotateCcw } from 'lucide-react';
+import { useBodyScrollLock } from '@/components/common/bodyScrollLock';
+import * as AgentAPI from '@/services/agent';
 
 interface CompleteLessonDialogProps {
   isOpen: boolean;
@@ -12,6 +14,7 @@ interface CompleteLessonDialogProps {
   duration?: string;
   /** 准确率/评分（可选，0-100） */
   accuracy?: number;
+  manualId?: number | null;
 }
 
 const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
@@ -22,9 +25,14 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
   actionText = '返回项目',
   duration = '—',
   accuracy = 100,
+  manualId,
 }) => {
   const [animateContent, setAnimateContent] = useState(false);
+  const [reflection, setReflection] = useState<AgentAPI.AgentReflectionCard | null>(null);
+  const [reflectionLoading, setReflectionLoading] = useState(false);
+  const [reflectionError, setReflectionError] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -35,19 +43,40 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
     }
   }, [isOpen]);
 
+  const loadReflection = useCallback(async () => {
+    if (!manualId) return;
+    setReflectionLoading(true);
+    setReflectionError('');
+    try {
+      const card = await AgentAPI.reflect(manualId);
+      setReflection(card);
+      if (card?.status === 'draft') {
+        void AgentAPI.markReflectionViewed(card.id);
+      }
+    } catch (error) {
+      setReflectionError(error instanceof Error ? error.message : '学习复盘生成失败');
+    } finally {
+      setReflectionLoading(false);
+    }
+  }, [manualId]);
+
+  useEffect(() => {
+    if (isOpen && manualId) {
+      void loadReflection();
+    }
+  }, [isOpen, manualId, loadReflection]);
+
   // ESC 关闭
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
   }, [onClose]);
 
   useEffect(() => {
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-    }
+    if (!isOpen) return undefined;
+
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
     };
   }, [isOpen, handleKeyDown]);
 
@@ -123,9 +152,42 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                 {/* 底部分隔线 */}
                 <div className={`flex items-center justify-center gap-2 transition-all duration-700 delay-300 ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                   <div className="h-px flex-1 bg-slate-100" />
-                  <span className="text-[11px] font-medium text-slate-400 px-2 italic">恭喜完成实验 🎉</span>
+                  <span className="text-[11px] font-medium text-slate-400 px-2 italic">恭喜完成实验</span>
                   <div className="h-px flex-1 bg-slate-100" />
                 </div>
+
+                {manualId && (
+                  <div className={`rounded-xl bg-slate-50 p-4 text-left transition-all duration-700 delay-300 ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                    <div className="mb-2 text-sm font-bold text-slate-800">学习复盘</div>
+                    {reflectionLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Loader2 className="h-4 w-4 animate-spin text-[#1677FF]" />
+                        正在生成复盘...
+                      </div>
+                    ) : reflectionError ? (
+                      <div className="space-y-2">
+                        <div className="text-sm text-danger-600">{reflectionError}</div>
+                        <button type="button" onClick={() => void loadReflection()} className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-xs font-semibold text-[#1677FF]">
+                          <RotateCcw className="h-3 w-3" />
+                          重试
+                        </button>
+                      </div>
+                    ) : reflection ? (
+                      <div className="space-y-2 text-sm text-slate-600">
+                        <p className="leading-relaxed">{reflection.summary}</p>
+                        {(reflection.reviewSuggestions?.items || []).length > 0 && (
+                          <ul className="list-disc space-y-1 pl-5">
+                            {(reflection.reviewSuggestions?.items || []).map((item, index) => (
+                              <li key={index}>{item}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-500">复盘将在完成后生成。</div>
+                    )}
+                  </div>
+                )}
 
                 {/* 按钮动作组 */}
                 <div className={`flex flex-col gap-3 transition-all duration-700 delay-[400ms] ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>

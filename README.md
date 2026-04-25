@@ -1,204 +1,92 @@
 # Agent EDU Lab
 
-> AI 智能体教育实训平台 — 让 AI 教育从「讲知识」升级为「练能力」
+Agent EDU Lab 是面向编程与 AI 智能体课程的实训教学平台。当前项目已经从早期 `TS 后端 + Docker 实验环境` 演进为 **Go 主后端 + K8S Classic Lab + OpenClaw 独立项目链路 + 三端教学闭环** 的完整平台。
 
----
+新会话不要从旧 Docker 管理面或旧 TS 路由开始判断当前事实。当前事实入口见 [docs/START-HERE.md](docs/START-HERE.md)，架构总览见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
-## 📌 项目简介
+## 当前平台形态
 
-Agent EDU Lab 是面向 AI 智能体开发方向的教育实训平台，将课程学习、云端实验环境、AI 教师辅助和项目实战整合为统一闭环，帮助学生从「看懂理论」到「独立完成工程任务」。
-
-## ✨ 核心能力
-
-- **云端实训环境**：Desktop / Terminal / CLI Agent / WebIDE 四环境一键拉起，零配置
-- **AI 教师引导**：课时感知、步骤引导、结果验证、进度推进
-- **OpenClaw Agent 实训**：四阶段全流程 Agent 工作流可视化（Markdown 富文本渲染 + 企业级监控面板）
-- **课程 + 项目双引擎**：体系化知识 + 工程级实战
-- **多格式内容支持**：Markdown / PDF / Word 统一渲染
-- **提示词增强引擎**：内置多种 Prompt 优化策略
-
----
-
-## 📦 功能模块与开发进度
-
-| 模块 | 状态 | 说明 |
-|:-----|:----:|:-----|
-| 首页 Landing | ✅ 完成 | 产品展示、价值传达、CTA 入口 |
-| 用户系统 | ✅ 完成 | 注册 / 登录 / 角色权限 |
-| 学习中心 | ✅ 完成 | 技能列表 → 课程详情 → 阶段/课时浏览 |
-| 理论课 | ✅ 完成 | 多格式资料阅读 + Dify AI 助教（课时上下文驱动） |
-| 实训环境 | ✅ 完成 | 云端 Docker 四环境（Desktop/Terminal/CLI/WebIDE）+ AI 步骤引导验证 |
-| 项目实战 | ✅ 完成 | 标签筛选 → 项目详情 → 单元实训直达 |
-| AI 广场 | ✅ 完成 | 主流 AI 模型/工具生态展示 |
-| 个人中心 | ✅ 完成 | 学习档案、进度记录 |
-| 管理后台 | ✅ 完成 | 课程管理、用户管理、学情数据 |
-| 向导系统 | ✅ 完成 | 首页向导 + OpenClaw 四步向导 |
-| OpenClaw 实训 | ✅ 完成 | 场景选择 → 思考中 → 执行中 → 完成态 |
-| 文档站 | ✅ 完成 | 核心概念 + 学习中心/OpenClaw 使用教程 |
-
----
-
-## 🛠 技术栈
-
-**前端**
-- React 18 + TypeScript + Vite
-- TailwindCSS + Framer Motion
-- react-markdown + remark-gfm（Markdown 富文本渲染）
-- Three.js（粒子波纹背景）
-- Lucide Icons
-
-**后端**
-- Express + TypeScript + TypeORM
-- MySQL 8
-- Docker API（容器管理）
-- WebSocket（终端会话）
-
-**AI 集成**
-- Dify 工作流引擎（课时感知 AI 教师）
-- 通义千问 Qwen（全局 AI 对话 + 提示词引擎）
-- 飞书 Bot SDK（OpenClaw Agent 通信）
-
----
-
-## 📂 项目结构
-
-```
-ai-edu-agent/
-├── EDU_Frontend/                # 前端 (React + Vite)
-│   ├── src/components/         # 14 个组件目录
-│   │   ├── openclaw/           #   OpenClaw 实训（核心模块）
-│   │   ├── study/              #   学习中心 + 实训环境
-│   │   ├── project/            #   项目实战
-│   │   ├── agent/              #   AI 助手组件
-│   │   ├── ai-square/          #   AI 广场
-│   │   ├── docs/               #   文档站渲染
-│   │   ├── guide/              #   向导系统
-│   │   ├── home/               #   首页
-│   │   ├── auth/               #   认证
-│   │   ├── admin/              #   管理后台
-│   │   ├── profile/            #   个人中心
-│   │   ├── layout/             #   布局组件
-│   │   ├── common/             #   通用组件
-│   │   └── ui/                 #   UI 基础组件
-│   ├── src/services/           # API 服务层
-│   └── src/styles/             # CSS + 动画
-├── EDU_Backend/                 # 后端 (Express + TypeORM)
-│   ├── src/routes/             # 14 个路由模块
-│   ├── src/controllers/        # 10 个控制器
-│   ├── src/services/           # 11 个服务（含 LabService 容器管理）
-│   └── src/models/             # 19 个数据模型
-├── Agent/                       # 五门课程理论教材与实训材料
-│   ├── ADE配置与智能体开发/
-│   ├── MCPServer开发/
-│   ├── 提示词工程/
-│   ├── 智能体框架与开发/
-│   └── 安全与合规/
-├── deploy/                      # 部署配置（Nginx + 构建脚本）
-├── scripts/                     # 脚本工具（一键构建部署包等）
-├── knowledge-base-docs/         # AI 知识库文档（Dify 助教知识源）
-├── 课程手册/                    # 课程内容模板与规范
-├── 项目手册/                    # 项目实训手册
-├── 项目课程的环境开发/           # OpenClaw 实训 Docker 环境开发
-└── 环境开发/                    # 云端实训环境（Dockerfile + 脚本）
+```mermaid
+flowchart LR
+  Student["学生端 /study /projects /lab /openclaw"] --> API["Go API /api/*"]
+  Teacher["教师端 /teacher/*"] --> API
+  Admin["管理端 /admin/*"] --> API
+  API --> Domain["业务域: course project agent lab classroom assignment publishing operations"]
+  Domain --> DB["MySQL / GORM"]
+  Domain --> K8S["K8S Runtime: Pod Service noVNC exec janitor"]
+  Domain --> OpenClaw["OpenClaw Gateway"]
+  Domain --> AI["Qwen / DashScope"]
+  Domain --> Feishu["Feishu"]
 ```
 
----
+## 主能力闭环
 
-## 🚀 本地开发
+- 学生端：课程学习、项目实战、Agent 步骤引导、Classic Lab、OpenClaw、作业提交、成绩反馈、学习成果概览。
+- 教师端：班级管理、课程 / 项目 / 手册内容生产、发布检查、作业发布、提交批改、成绩簿、教学过程工作台、Agent 观察台、AI 辅助草稿。
+- 管理端：用户与班级观测、内容治理、作业质量观测、K8S 会话治理、资源配额、集成健康、审计日志、AI 能力开关。
+- 实训运行时：Classic Lab 走 K8S Pod / Service / noVNC / WebSocket terminal / exec / stop；OpenClaw 项目按 `OpenClaw` 标签分流到独立 `/openclaw/*` 链路。
 
-### 环境要求
-- Node.js >= 18
-- MySQL 8.x
-- Docker（实训环境）
+## 技术栈
 
-### 启动前端
+| 层 | 当前主线 |
+| --- | --- |
+| 前端 | React 18 + TypeScript + Vite + HeroUI + Tailwind + Framer Motion |
+| 后端 | Go + Gin + GORM + Casbin + Redis token blacklist + MySQL |
+| 实训运行时 | K8S client-go、Pod / Service、noVNC 代理、K8S exec terminal bridge |
+| AI / 集成 | Qwen / DashScope、OpenClaw Gateway、Feishu |
+| 旧实现 | `EDU_Backend/` TS 后端仅作历史契约与配置迁移参考 |
+
+## 目录入口
+
+- [AGENTS.md](AGENTS.md)：项目约束、编码边界、分层闭环完成标准。
+- [docs/README.md](docs/README.md)：文档索引。
+- [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md)：当前已落地主链路与仍需收口项。
+- [docs/REPO-MAP.md](docs/REPO-MAP.md)：仓库目录、主入口、历史目录边界。
+- [EDU_Backend_Go/README.md](EDU_Backend_Go/README.md)：Go 后端启动、配置与模块说明。
+- [EDU_Frontend/DESIGN.md](EDU_Frontend/DESIGN.md)：前端视觉与组件规范。
+
+## 本地开发
+
+### 前端
+
 ```bash
 cd EDU_Frontend
-npm install
-npm run dev
+npm run dev -- --host 0.0.0.0
 ```
 
-### 启动后端
+- 默认地址：http://localhost:3000
+
+### Go 后端
+
 ```bash
-cd EDU_Backend
-npm install
-npm run dev
+cd EDU_Backend_Go
+go run ./cmd/server
 ```
 
-### 环境变量
+- 本地 `.env` 默认覆盖到：http://localhost:4000
+- 健康检查：http://localhost:4000/api/health
+- 若未加载本地 `.env`，`configs/app.yaml` 中的样板端口仍保留为 `4002`。
 
-后端 `.env`：
-```
-DB_HOST=localhost
-DB_PORT=3306
-DB_USERNAME=root
-DB_PASSWORD=***
-DB_DATABASE=edu_lab
+## 验证命令
 
-FEISHU_APP_ID=***
-FEISHU_APP_SECRET=***
-FEISHU_CHAT_ID=***
-FEISHU_BOT_OPEN_ID=***
-
-OPENCLAW_BASE_URL=***
-QWEN_API_KEY=***
-```
-
-前端 `.env`：
-```
-VITE_API_BASE_URL=http://localhost:3001
-VITE_DIFY_BASE_URL=***
-VITE_DIFY_CHATBOT_TOKEN=***
-VITE_OPENCLAW_SESSION_ID=***
-```
-
----
-
-## 🚢 部署
-
-### 一键构建部署包
 ```bash
-node scripts/build-deploy.js
+cd EDU_Backend_Go
+go test ./...
 ```
 
-### 部署步骤
-1. 编辑 `dist-deploy/backend/.env.example` → `.env`
-2. 放入 Docker 证书到 `dist-deploy/backend/conf/`
-3. 上传 `dist-deploy` 到服务器
-4. 运行: `sudo ./deploy.sh`
+```bash
+cd EDU_Frontend
+npm exec tsc --noEmit
+```
 
-> 更新部署时，只需替换前后端打包文件并重启服务，无需安装额外依赖。
+## 开发边界
 
----
+- 新能力优先进入 `EDU_Backend_Go/`，不要继续在 TS 旧后端堆新主链路。
+- Classic Lab 当前以 K8S 为准，`/api/docker/*` 是遗留旧管理面语义。
+- OpenClaw 项目必须依赖 `OpenClaw` 标签分流，不通过普通 `/lab` 创建 K8S 会话。
+- 页面、工作台、管理页、业务模块都要先按 [feature-delivery-checklist.md](docs/feature-delivery-checklist.md) 列最小闭环，未覆盖闭环时只能称“首版主链路”或“展示层”。
+- 不要把 `.env`、OpenClaw device identity、Feishu / Qwen / DashScope 凭证或前端 `VITE_*TOKEN` 提交到 GitHub。
 
-## 📋 更新日志
+## 当前完成度表述
 
-### v2.2（2026-03-17）
-
-**🐛 Bug 修复**
-- **修复 WebIDE 不显示**：学习中心实训页面 WebIDE Tab 缺失，根因是 IDE 独立容器（`gitpod/openvscode-server`）创建失败后 `idePort` 被静默置 0，导致前端无法渲染 WebIDE Tab
-- **修复 Docker 端口冲突**：端口分配仅查询 RUNNING 状态会话，遗漏 CREATING 状态导致端口重复分配（`port already allocated`）。改为统一端口池 + Docker API 双重校验
-- **修复 iframe 加载逻辑**：优化 IframeContent 组件的 `onLoad`/`onError` 处理，移除误判正常页面为错误页面的快速加载检测逻辑
-
-**🔧 架构优化**
-- 实训环境端口分配重构：统一 Set 查重 + Docker 层面实际占用检测，彻底避免端口冲突
-- 停止会话时同步清理独立 IDE 容器，防止容器泄漏
-- 清理冗余目录和文件，精简项目结构
-
-### v2.1（2026-03-17）
-
-- ✅ OpenClaw 执行日志企业产品化重构（去除边框线，白色卡片 + 微阴影）
-- ✅ 实时决策分析卡片重构
-- ✅ 文档站集成使用教程（学习中心 + OpenClaw）
-- ✅ 提示词引擎增强（Markdown 预览/编辑切换 + 复制反馈）
-
-### v2.0（2026-03-16）
-
-- ✅ OpenClaw 实训案例全栈开发完成（后端飞书对接 + Agent 通信 + 前端四态页面）
-- ✅ 思考中对话界面 Premium 级 UI（AnimatedOrb + 流式文字 + 语音 + Markdown 渲染）
-- ✅ 执行日志 Agent 回复折叠式展开
-- ✅ 产品文档体系建设
-
----
-
-*Agent EDU Lab — 让教学从「讲内容」升级为「可执行、可验证、可复盘」的实训闭环。*
+项目已经具备完整实训平台的主流程骨架与 M0-M7 首版主链路，但仍保留浏览器级全量回归、OpenClaw 外部链路细节、生产级成本账单、AI 运维与 prompt 治理等后续收口项。除非对应验收项全部覆盖，文档和提交说明都应使用“已完成首版主链路”，不要直接写“模块已完成”。

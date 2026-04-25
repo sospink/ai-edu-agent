@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edu-backend-go-config
+  namespace: edu-backend-go-dev
+data:
+  APP_ENV: development
+  APP_VERSION: "0.1.0"
+  SERVER_HOST: 0.0.0.0
+  SERVER_PORT: "4002"
+  DATABASE_HOST: mysql
+  DATABASE_PORT: "3306"
+  DATABASE_USER: root
+  DATABASE_NAME: edu_db
+  REDIS_ENABLED: "false"
+  K8S_ENABLED: "true"
+  K8S_IN_CLUSTER: "true"
+  K8S_NAMESPACE: edu-backend-go-dev
+  K8S_RUNTIME_NAMESPACE: edu-runtime-dev

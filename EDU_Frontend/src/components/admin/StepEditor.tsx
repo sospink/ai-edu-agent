@@ -99,7 +99,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
   // 渲染内容块编辑器
   const renderContentBlockEditor = (block: ContentBlock, blockIndex: number) => {
     return (
-      <Card key={blockIndex} className="mb-2">
+      <Card key={blockIndex} className="mb-2 border-none shadow-sm">
         <CardBody className="p-3">
           <div className="flex items-center gap-2 mb-2">
             <GripVertical size={16} className="text-default-400 cursor-move" />
@@ -291,7 +291,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
   };
 
   return (
-    <Card className="mb-4">
+    <Card className="mb-4 border-none shadow-sm">
       <CardBody>
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg font-bold text-primary">步骤 {index + 1}</span>
@@ -379,6 +379,17 @@ export const StepEditor: React.FC<StepEditorProps> = ({
               </Button>
             </div>
 
+            <div className="mb-4">
+              <div className="text-sm font-medium mb-2">Skill Tags</div>
+              <Input
+                size="sm"
+                value={(step.skillTags || []).join(', ')}
+                onChange={(e) => updateField('skillTags', e.target.value.split(',').map(item => item.trim()).filter(Boolean))}
+                placeholder="Kubernetes, kubectl, namespace"
+                description="用于教师观察台薄弱点统计，多个标签用英文逗号分隔"
+              />
+            </div>
+
             <div>
               <div className="text-sm font-medium mb-2">验证规则</div>
               {renderVerificationEditor()}
@@ -387,13 +398,14 @@ export const StepEditor: React.FC<StepEditorProps> = ({
         ) : (
           <Textarea
             label="JSON 数据"
-            value={JSON.stringify({ content: step.content, quickQuestions: step.quickQuestions, verification: step.verification }, null, 2)}
+            value={JSON.stringify({ content: step.content, quickQuestions: step.quickQuestions, verification: step.verification, skillTags: step.skillTags || [] }, null, 2)}
             onChange={(e) => {
               try {
                 const data = JSON.parse(e.target.value);
                 if (data.content) updateField('content', data.content);
                 if (data.quickQuestions) updateField('quickQuestions', data.quickQuestions);
                 if (data.verification !== undefined) updateField('verification', data.verification);
+                if (data.skillTags) updateField('skillTags', data.skillTags);
               } catch {
                 // 忽略 JSON 解析错误
               }

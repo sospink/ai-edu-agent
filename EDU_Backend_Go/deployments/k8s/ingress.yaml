@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: edu-backend-go
+  namespace: edu-backend-go-dev
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: edu-backend-go.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: edu-backend-go
+                port:
+                  number: 80

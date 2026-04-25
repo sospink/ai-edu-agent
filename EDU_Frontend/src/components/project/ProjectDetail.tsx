@@ -51,16 +51,29 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
   const level = getDifficultyLevel(project.difficulty);
   const { color } = getDifficultyColor(project.difficulty);
   const coverCandidates = getImageUrlCandidates(project.coverUrl);
-  const isOpenClawProject = ((project.slug || '').toLowerCase().includes('openclaw')) ||
-    ((project.title || '').toLowerCase().includes('openclaw'));
+  const isOpenClawProject = project.labRuntimeMode === 'openclaw' ||
+    (project.tags || []).some((tag) => tag.name.trim().toLowerCase().replace(/[\s_-]/g, '') === 'openclaw');
 
   const openTrainingEntry = (unit?: ProjectUnit) => {
+    const targetUnit = unit || units[0];
+
     if (isOpenClawProject) {
-      window.open('/openclaw', '_blank');
+      const openClawParams = new URLSearchParams({
+        sessionId: targetUnit ? `project:${project.id}:unit:${targetUnit.id}` : `project:${project.id}`,
+        sourceType: 'project',
+        sourceId: project.id.toString(),
+        scope: 'all',
+        returnTo: '/projects',
+      });
+      if (targetUnit) {
+        openClawParams.set('unitId', targetUnit.id.toString());
+        openClawParams.set('unitName', targetUnit.title);
+      }
+      window.open(`/openclaw/idle?${openClawParams.toString()}`, '_blank');
       return;
     }
 
-    if (!unit) {
+    if (!targetUnit) {
       alert('该项目暂无可学习的单元');
       return;
     }
@@ -68,8 +81,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
     const labParams = new URLSearchParams({
       sourceType: 'project',
       sourceId: project.id.toString(),
-      unitId: unit.id.toString(),
-      unitName: unit.title,
+      unitId: targetUnit.id.toString(),
+      unitName: targetUnit.title,
     });
     window.open(`/lab?${labParams.toString()}`, '_blank');
   };
@@ -285,7 +298,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
                               openTrainingEntry(unit);
                             }
                           }}
-                          className="group flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl hover:border-primary-200 hover:shadow-md transition-all cursor-pointer"
+                          className="group card-surface flex items-center justify-between p-5 rounded-2xl hover:shadow-md transition-all cursor-pointer"
                         >
                           <div className="flex items-center gap-4">
                             <div
@@ -324,7 +337,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
           <div className="lg:col-span-1">
             <div className="sticky top-28 space-y-6">
               {/* Start Card */}
-              <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col group hover:shadow-[0_15px_40px_rgb(0,0,0,0.08)] transition-all duration-300">
+              <div className="card-surface rounded-3xl overflow-hidden flex flex-col group hover:shadow-[0_15px_40px_rgb(0,0,0,0.08)] transition-all duration-300">
                 <div className="relative h-40 w-full">
                   <img
                     src={coverCandidates[0]}

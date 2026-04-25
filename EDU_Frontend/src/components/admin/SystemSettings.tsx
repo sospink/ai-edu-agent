@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Bell, Shield, Database, Globe, Palette, Save, RotateCcw, CheckCircle } from 'lucide-react';
+import { AlertCircle, Bot, Cloud, Database, Loader2, RefreshCw, Settings, Shield, Upload } from 'lucide-react';
+import { ToastContainer, useToast } from '@/components/common/Toast';
+import { adminSettingsService, type AdminAISetting, type AdminSettingsPayload } from '@/services/adminSettings';
 
 interface SettingCardProps {
   title: string;
@@ -10,7 +12,7 @@ interface SettingCardProps {
 }
 
 const SettingCard: React.FC<SettingCardProps> = ({ title, description, icon: Icon, children }) => (
-  <div className="bg-white rounded-2xl border border-default-200 shadow-sm p-6">
+  <div className="card-surface rounded-2xl p-6">
     <div className="flex items-start gap-4 mb-6">
       <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center">
         <Icon className="w-5 h-5 text-primary-600" />
@@ -24,63 +26,68 @@ const SettingCard: React.FC<SettingCardProps> = ({ title, description, icon: Ico
   </div>
 );
 
-interface ToggleSwitchProps {
-  enabled: boolean;
-  onChange: (enabled: boolean) => void;
+interface SettingItemProps {
   label: string;
+  value: React.ReactNode;
   description?: string;
 }
 
-const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ enabled, onChange, label, description }) => (
-  <div className="flex items-center justify-between py-3">
-    <div>
-      <div className="text-sm font-medium text-foreground">{label}</div>
-      {description && <div className="text-xs text-default-400 mt-0.5">{description}</div>}
-    </div>
-    <button
-      onClick={() => onChange(!enabled)}
-      className={`relative w-11 h-6 rounded-full transition-colors ${enabled ? 'bg-primary-500' : 'bg-default-200'}`}
-    >
-      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
-    </button>
+const SettingItem: React.FC<SettingItemProps> = ({ label, value, description }) => (
+  <div className="card-surface-muted rounded-xl px-4 py-3">
+    <div className="text-xs font-medium text-default-500">{label}</div>
+    <div className="mt-1 text-sm font-medium text-foreground break-all">{value}</div>
+    {description && <div className="mt-1 text-xs text-default-400">{description}</div>}
   </div>
 );
 
+const formatEnabled = (value: boolean) => (
+  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${value ? 'bg-success-50 text-success-600' : 'bg-default-100 text-default-500'}`}>
+    {value ? '已启用' : '未配置'}
+  </span>
+);
+
 const SystemSettings: React.FC = () => {
-  const [settings, setSettings] = useState({
-    emailNotifications: true,
-    pushNotifications: false,
-    twoFactorAuth: true,
-    sessionTimeout: '30',
-    autoBackup: true,
-    backupFrequency: 'daily',
-    language: 'zh-CN',
-    timezone: 'Asia/Shanghai',
-    theme: 'light',
-    compactMode: false,
-  });
+  const [settings, setSettings] = useState<AdminSettingsPayload | null>(null);
+  const [aiSetting, setAISetting] = useState<AdminAISetting | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingAI, setSavingAI] = useState(false);
+  const [error, setError] = useState('');
+  const { toast, hideToast, success, error: showError } = useToast();
 
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = () => {
-    // 模拟保存
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    const [settingsResponse, aiResponse] = await Promise.all([
+      adminSettingsService.getSettings(),
+      adminSettingsService.getAISettings(),
+    ]);
+    if (settingsResponse.success && settingsResponse.data) {
+      setSettings(settingsResponse.data);
+    } else {
+      setSettings(null);
+      setError(settingsResponse.error || '获取系统设置失败');
+    }
+    if (aiResponse.success && aiResponse.data) setAISetting(aiResponse.data);
+    setLoading(false);
   };
 
-  const handleReset = () => {
-    setSettings({
-      emailNotifications: true,
-      pushNotifications: false,
-      twoFactorAuth: true,
-      sessionTimeout: '30',
-      autoBackup: true,
-      backupFrequency: 'daily',
-      language: 'zh-CN',
-      timezone: 'Asia/Shanghai',
-      theme: 'light',
-      compactMode: false,
-    });
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const allowedOrigins = useMemo(() => settings?.security.allowedOrigins.join(', ') || '未配置', [settings]);
+
+  const toggleAI = async () => {
+    if (!aiSetting) return;
+    setSavingAI(true);
+    const response = await adminSettingsService.updateAISettings(!aiSetting.enabled);
+    setSavingAI(false);
+    if (response.success && response.data) {
+      setAISetting(response.data);
+      success(response.data.enabled ? 'AI 辅助能力已启用' : 'AI 辅助能力已关闭');
+    } else {
+      showError(response.error || '更新 AI 设置失败');
+    }
   };
 
   return (
@@ -90,165 +97,114 @@ const SystemSettings: React.FC = () => {
       transition={{ duration: 0.4 }} 
       className="space-y-6"
     >
+      <ToastContainer toast={toast} onClose={hideToast} />
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground tracking-tight">系统设置</h2>
-          <p className="text-default-500 text-sm mt-1">管理系统配置和偏好设置</p>
+          <p className="text-default-500 text-sm mt-1">第一版提供只读配置观测与刷新，不支持在线修改</p>
         </div>
         <div className="flex gap-3">
           <button 
-            onClick={handleReset}
+            onClick={() => void load()}
             className="flex items-center gap-2 px-4 py-2.5 border border-default-200 text-default-600 rounded-xl font-medium hover:bg-default-50 transition-colors"
           >
-            <RotateCcw className="w-4 h-4" />
-            重置
-          </button>
-          <button 
-            onClick={handleSave}
-            className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/20"
-          >
-            {saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-            {saved ? '已保存' : '保存设置'}
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            刷新配置
           </button>
         </div>
       </div>
 
+      {error && (
+        <div className="flex items-start gap-3 rounded-2xl border border-danger-100 bg-danger-50/80 px-5 py-4 text-sm text-danger-700">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>{error}</div>
+        </div>
+      )}
+
+      {loading && !settings && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="card-surface h-56 animate-pulse rounded-2xl" />
+          ))}
+        </div>
+      )}
+
+      {!loading && !settings && !error && (
+        <div className="card-surface rounded-2xl px-6 py-10 text-center text-default-500">
+          暂无系统配置数据
+        </div>
+      )}
+
+      {settings && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 通知设置 */}
-        <SettingCard title="通知设置" description="配置系统通知方式" icon={Bell}>
-          <div className="space-y-1 divide-y divide-default-100">
-            <ToggleSwitch
-              enabled={settings.emailNotifications}
-              onChange={(v) => setSettings({ ...settings, emailNotifications: v })}
-              label="邮件通知"
-              description="接收重要系统通知邮件"
-            />
-            <ToggleSwitch
-              enabled={settings.pushNotifications}
-              onChange={(v) => setSettings({ ...settings, pushNotifications: v })}
-              label="推送通知"
-              description="浏览器推送通知"
-            />
+        <SettingCard title="应用信息" description="当前后端实例的基础信息" icon={Settings}>
+          <div className="grid gap-3">
+            <SettingItem label="应用名称" value={settings.app.name || '未设置'} />
+            <SettingItem label="运行环境" value={settings.app.env || '未设置'} />
+            <SettingItem label="版本号" value={settings.app.version || '未设置'} />
           </div>
         </SettingCard>
 
-        {/* 安全设置 */}
-        <SettingCard title="安全设置" description="账户安全和访问控制" icon={Shield}>
-          <div className="space-y-4">
-            <ToggleSwitch
-              enabled={settings.twoFactorAuth}
-              onChange={(v) => setSettings({ ...settings, twoFactorAuth: v })}
-              label="双因素认证"
-              description="登录时需要额外验证"
-            />
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">会话超时时间</label>
-              <select
-                value={settings.sessionTimeout}
-                onChange={(e) => setSettings({ ...settings, sessionTimeout: e.target.value })}
-                className="w-full px-4 py-2.5 bg-default-50 border border-default-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-              >
-                <option value="15">15 分钟</option>
-                <option value="30">30 分钟</option>
-                <option value="60">1 小时</option>
-                <option value="120">2 小时</option>
-              </select>
-            </div>
+        <SettingCard title="安全基线" description="鉴权、默认管理员和 Origin 白名单" icon={Shield}>
+          <div className="grid gap-3">
+            <SettingItem label="JWT Issuer" value={settings.security.jwtIssuer || '未设置'} />
+            <SettingItem label="JWT 过期时间" value={`${settings.security.jwtExpiresIn} 秒`} />
+            <SettingItem label="默认管理员密码" value={formatEnabled(settings.security.defaultAdminConfigured)} />
+            <SettingItem label="允许的 Origin" value={allowedOrigins} />
           </div>
         </SettingCard>
 
-        {/* 数据备份 */}
-        <SettingCard title="数据备份" description="自动备份和恢复设置" icon={Database}>
-          <div className="space-y-4">
-            <ToggleSwitch
-              enabled={settings.autoBackup}
-              onChange={(v) => setSettings({ ...settings, autoBackup: v })}
-              label="自动备份"
-              description="定期自动备份系统数据"
-            />
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">备份频率</label>
-              <select
-                value={settings.backupFrequency}
-                onChange={(e) => setSettings({ ...settings, backupFrequency: e.target.value })}
-                className="w-full px-4 py-2.5 bg-default-50 border border-default-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                disabled={!settings.autoBackup}
-              >
-                <option value="hourly">每小时</option>
-                <option value="daily">每天</option>
-                <option value="weekly">每周</option>
-                <option value="monthly">每月</option>
-              </select>
-            </div>
+        <SettingCard title="运行时与集成" description="K8S、OpenClaw 与飞书集成状态" icon={Cloud}>
+          <div className="grid gap-3">
+            <SettingItem label="K8S Runtime" value={formatEnabled(settings.runtime.k8sEnabled)} />
+            <SettingItem label="K8S Namespace" value={settings.runtime.k8sNamespace || '未设置'} />
+            <SettingItem label="Runtime Namespace" value={settings.runtime.runtimeNamespace || '未设置'} />
+            <SettingItem label="OpenClaw 网关" value={settings.runtime.openclawGateway || '未设置'} />
+            <SettingItem label="OpenClaw 集成" value={formatEnabled(settings.runtime.openclawConfigured)} />
+            <SettingItem label="飞书集成" value={formatEnabled(settings.runtime.feishuConfigured)} />
           </div>
         </SettingCard>
 
-        {/* 区域设置 */}
-        <SettingCard title="区域设置" description="语言和时区配置" icon={Globe}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">系统语言</label>
-              <select
-                value={settings.language}
-                onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-                className="w-full px-4 py-2.5 bg-default-50 border border-default-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-              >
-                <option value="zh-CN">简体中文</option>
-                <option value="zh-TW">繁体中文</option>
-                <option value="en-US">English (US)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">时区</label>
-              <select
-                value={settings.timezone}
-                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
-                className="w-full px-4 py-2.5 bg-default-50 border border-default-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-              >
-                <option value="Asia/Shanghai">中国标准时间 (UTC+8)</option>
-                <option value="Asia/Tokyo">日本标准时间 (UTC+9)</option>
-                <option value="America/New_York">美国东部时间 (UTC-5)</option>
-                <option value="Europe/London">格林威治时间 (UTC+0)</option>
-              </select>
-            </div>
-          </div>
-        </SettingCard>
-
-        {/* 外观设置 */}
-        <SettingCard title="外观设置" description="界面主题和显示偏好" icon={Palette}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">主题模式</label>
-              <div className="flex gap-3">
-                {[
-                  { value: 'light', label: '浅色' },
-                  { value: 'dark', label: '深色' },
-                  { value: 'system', label: '跟随系统' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setSettings({ ...settings, theme: option.value })}
-                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                      settings.theme === option.value
-                        ? 'bg-primary-50 border-primary-200 text-primary-600'
-                        : 'bg-default-50 border-default-200 text-default-600 hover:bg-default-100'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+        <SettingCard title="AI 辅助能力" description="教师 AI 草稿、摘要和诊断的全局开关" icon={Bot}>
+          <div className="card-surface-muted rounded-xl px-4 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-bold text-foreground">{aiSetting?.enabled ? '已启用' : '已关闭'}</div>
+                <div className="mt-1 text-xs text-default-500">关闭后教师端 AI 生成接口会返回不可用提示。</div>
               </div>
+              <button
+                onClick={() => void toggleAI()}
+                disabled={!aiSetting || savingAI}
+                className={`relative h-7 w-12 rounded-full transition-colors ${aiSetting?.enabled ? 'bg-success-500' : 'bg-default-300'} disabled:opacity-60`}
+                aria-label="切换 AI 辅助能力"
+              >
+                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${aiSetting?.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                {savingAI && <Loader2 className="absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 animate-spin text-default-600" />}
+              </button>
             </div>
-            <ToggleSwitch
-              enabled={settings.compactMode}
-              onChange={(v) => setSettings({ ...settings, compactMode: v })}
-              label="紧凑模式"
-              description="减少界面间距，显示更多内容"
-            />
+            {aiSetting?.updatedAt && <div className="mt-3 text-xs text-default-400">更新时间：{new Date(aiSetting.updatedAt).toLocaleString('zh-CN')}</div>}
+          </div>
+        </SettingCard>
+
+        <SettingCard title="服务与上传" description="服务监听和上传限制配置" icon={Database}>
+          <div className="grid gap-3">
+            <SettingItem label="服务地址" value={`${settings.server.host}:${settings.server.port}`} />
+            <SettingItem label="读取超时" value={`${settings.server.readTimeout} 秒`} />
+            <SettingItem label="写入超时" value={`${settings.server.writeTimeout} 秒`} />
+            <SettingItem label="上传根目录" value={settings.uploads.root || '未设置'} />
+          </div>
+        </SettingCard>
+
+        <SettingCard title="上传限制" description="图片与文件的容量阈值" icon={Upload}>
+          <div className="grid gap-3">
+            <SettingItem label="公开访问前缀" value={settings.uploads.publicBase || '未设置'} />
+            <SettingItem label="最大图片大小" value={`${settings.uploads.maxImageMB} MB`} />
+            <SettingItem label="最大文件大小" value={`${settings.uploads.maxFileMB} MB`} />
           </div>
         </SettingCard>
       </div>
+      )}
     </motion.div>
   );
 };

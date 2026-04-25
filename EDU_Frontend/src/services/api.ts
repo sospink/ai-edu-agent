@@ -35,9 +35,6 @@ class ApiService {
     const token = this.getToken();
     if (token) {
       (defaultHeaders as Record<string, string>)['Authorization'] = `Bearer ${token}`;
-      console.log('[API] 请求携带token:', endpoint, token.substring(0, 20) + '...');
-    } else {
-      console.warn('[API] 请求未携带token:', endpoint);
     }
 
     const config: RequestInit = {
@@ -71,12 +68,6 @@ class ApiService {
           error: `Empty response body (HTTP ${response.status})`,
         };
       }
-      
-      console.log('[API] 响应:', endpoint, {
-        status: response.status,
-        success: (data as ApiResponse<T>).success,
-        error: (data as ApiResponse<T>).error,
-      });
       
       // 如果返回 401 且错误信息表明 token 无效或过期，才清除 token
       // 不要因为"未提供认证令牌"就清除（可能是页面刷新导致的临时问题）
@@ -113,6 +104,13 @@ class ApiService {
   async put<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async patch<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
       body: JSON.stringify(body),
     });
   }
@@ -159,3 +157,29 @@ class ApiService {
 }
 
 export const api = new ApiService(API_BASE_URL);
+
+export const createScopedApi = (scopePrefix: string) => {
+  const prefix = scopePrefix.startsWith('/') ? scopePrefix : `/${scopePrefix}`;
+  const join = (endpoint: string) => `${prefix}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
+  return {
+    get<T>(endpoint: string) {
+      return api.get<T>(join(endpoint));
+    },
+    post<T>(endpoint: string, body?: unknown) {
+      return api.post<T>(join(endpoint), body);
+    },
+    put<T>(endpoint: string, body: unknown) {
+      return api.put<T>(join(endpoint), body);
+    },
+    patch<T>(endpoint: string, body: unknown) {
+      return api.patch<T>(join(endpoint), body);
+    },
+    delete<T>(endpoint: string) {
+      return api.delete<T>(join(endpoint));
+    },
+    upload<T>(endpoint: string, formData: FormData) {
+      return api.upload<T>(join(endpoint), formData);
+    },
+  };
+};

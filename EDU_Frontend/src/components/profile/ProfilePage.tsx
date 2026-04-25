@@ -40,6 +40,7 @@ const GitHubIcon: React.FC<{ size?: number; className?: string }> = ({
 import type { User } from '@/types';
 import { RoleType, UserStatus } from '@/types';
 import { userService } from '@/services/user';
+import { emptyLearningOverview, learningOverviewApi, type LearningOverview } from '@/services/learningOverview';
 
 // GitHub 贡献数据类型
 interface GitHubContribution {
@@ -375,7 +376,7 @@ const StatusBadge: React.FC<{ status: UserStatus }> = ({ status }) => {
 
 // 卡片组件
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`bg-white/85 backdrop-blur-xl border border-white/60 rounded-2xl shadow-sm ${className}`}>
+  <div className={`card-surface rounded-2xl backdrop-blur-xl ${className}`}>
     {children}
   </div>
 );
@@ -414,6 +415,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'settings'>('overview');
   const [isLoading, setIsLoading] = useState(false);
+  const [overview, setOverview] = useState<LearningOverview>(emptyLearningOverview);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editForm, setEditForm] = useState({
     fullName: currentUser.fullName || '',
@@ -431,6 +435,30 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
       githubLink: currentUser.githubLink || '',
     });
   }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser.roleType !== RoleType.STUDENT) {
+      setOverview(emptyLearningOverview);
+      setOverviewError(null);
+      setOverviewLoading(false);
+      return;
+    }
+
+    const fetchOverview = async () => {
+      setOverviewLoading(true);
+      setOverviewError(null);
+      const response = await learningOverviewApi.getOverview();
+      if (response.success && response.data) {
+        setOverview(response.data);
+      } else {
+        setOverview(emptyLearningOverview);
+        setOverviewError(response.error || '学习概览暂时不可用');
+      }
+      setOverviewLoading(false);
+    };
+
+    void fetchOverview();
+  }, [currentUser.id, currentUser.roleType]);
 
   // 自动隐藏消息
   useEffect(() => {
@@ -629,7 +657,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
 
               {/* Agent Stats Card (Gamification) - 玻璃拟态浅蓝渐变效果 */}
               <div 
-                className="rounded-2xl text-white border border-white/30 shadow-xl overflow-hidden"
+                className="rounded-2xl text-white shadow-xl overflow-hidden"
                 style={{
                   background: 'linear-gradient(135deg, rgba(96, 165, 250, 0.9) 0%, rgba(147, 197, 253, 0.85) 50%, rgba(191, 219, 254, 0.8) 100%)',
                   backdropFilter: 'blur(12px)',
@@ -642,20 +670,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                     <Cpu size={20} className="text-white/80" />
                   </div>
                   <div className="flex items-end gap-2">
-                    <span className="text-4xl font-bold text-white drop-shadow-sm">Lv. 4</span>
-                    <span className="mb-1.5 text-sm font-medium text-white/90">Senior Builder</span>
+                    <span className="text-4xl font-bold text-white drop-shadow-sm">Lv. {overviewLoading ? '...' : overview.level}</span>
+                    <span className="mb-1.5 text-sm font-medium text-white/90">{overview.levelName}</span>
                   </div>
                   
                   {/* Progress Bar */}
                   <div className="mt-4 relative h-2 w-full overflow-hidden rounded-full bg-white/30">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: '70%' }}
+                      animate={{ width: `${Math.min(100, Math.max(0, overview.overallProgressPercent))}%` }}
                       transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
                       className="absolute h-full bg-white rounded-full shadow-sm"
                     />
                   </div>
-                  <p className="mt-2 text-xs text-white/80 font-medium">1,240 / 1,500 XP to next level</p>
+                  <p className="mt-2 text-xs text-white/80 font-medium">
+                    {overview.completedLessons} / {overview.totalLessons} 课时完成 · {overview.overallProgressPercent}%
+                  </p>
+                  {overviewError && (
+                    <p className="mt-2 text-xs text-white/80">{overviewError}</p>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -724,13 +757,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                       </div>
                     </Card>
 
-                    {/* 统计数据 */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {[
-                        { label: "Completed Labs", value: "42", icon: CheckCircle2, color: "text-success-600", bg: "bg-success-50" },
-                        { label: "Agent Models", value: "7", icon: Cpu, color: "text-primary-600", bg: "bg-primary-50" },
-                        { label: "Total Hours", value: "128h", icon: Calendar, color: "text-secondary-600", bg: "bg-secondary-50" },
-                      ].map((stat, idx) => (
+	                    {/* 统计数据 */}
+	                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+	                      {[
+	                        { label: "完成课时", value: overviewLoading ? "..." : String(overview.completedLessons), icon: CheckCircle2, color: "text-success-600", bg: "bg-success-50" },
+	                        { label: "提交成果", value: overviewLoading ? "..." : String(overview.outcomeSummary.submittedAssignments), icon: Terminal, color: "text-primary-600", bg: "bg-primary-50" },
+	                        { label: "Agent 步骤", value: overviewLoading ? "..." : String(overview.outcomeSummary.agentCompletedSteps), icon: Cpu, color: "text-secondary-600", bg: "bg-secondary-50" },
+	                      ].map((stat, idx) => (
                         <Card key={idx} className="hover:-translate-y-1 transition-transform duration-300">
                           <div className="flex items-center gap-4 p-5">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>

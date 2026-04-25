@@ -1,7 +1,18 @@
 import { LucideIcon } from 'lucide-react';
 
 // View state types
-export type ViewState = 'home' | 'login' | 'study' | 'projects' | 'ai-square' | 'admin-login' | 'admin-panel' | 'profile' | 'docs';
+export type ViewState =
+  | 'home'
+  | 'login'
+  | 'study'
+  | 'projects'
+  | 'ai-square'
+  | 'admin-login'
+  | 'admin-panel'
+  | 'teacher'
+  | 'admin'
+  | 'profile'
+  | 'docs';
 
 // Feature types
 export interface FeatureItem {
@@ -39,6 +50,7 @@ export interface User {
   bio?: string;
   githubLink?: string;
   roleType: RoleType;
+  portal?: 'student' | 'teacher' | 'admin';
   status: UserStatus;
   createdAt: string;
   updatedAt: string;

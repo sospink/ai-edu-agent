@@ -10,7 +10,7 @@ interface ViewQueryOptions {
 export interface ThinkingViewMessage {
   id: string;
   ts: number;
-  source: 'feishu';
+  source: 'openclaw' | 'feishu';
   role: 'assistant';
   content: string;
   messageId?: string;
@@ -150,6 +150,9 @@ export const openclawViewService = {
       `/openclaw-view/${encodeURIComponent(sessionId)}/phase${buildQueryString({}, options)}`,
     ),
 
-  sendChatMessage: (text: string) =>
-    api.post<{ messageId: string }>('/openclaw-view/chat/send', { text }),
+  sendChatMessage: (text: string, sessionId?: string) =>
+    api.post<{ messageId: string }>('/openclaw-view/chat/send', {
+      text,
+      sessionId,
+    }),
 };

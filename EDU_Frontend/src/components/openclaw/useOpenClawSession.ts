@@ -85,8 +85,6 @@ const PHASE_ORDER: Record<SessionState, number> = {
 
 // ====== sessionStorage 持久化 ======
 
-const STORAGE_KEY = 'openclaw_session';
-
 interface PersistedState {
   selectedSceneIndex: number | null;
   sessionPhase: SessionState;
@@ -98,9 +96,14 @@ interface PersistedState {
   completedView: CompletedView | null;
 }
 
-function loadPersistedState(): Partial<PersistedState> {
+function storageKeyForSession(activeSessionId: string): string {
+  const normalized = (activeSessionId || 'default').trim() || 'default';
+  return `openclaw_session:${normalized}`;
+}
+
+function loadPersistedState(storageKey: string): Partial<PersistedState> {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(storageKey);
     if (!raw) return {};
     return JSON.parse(raw) as Partial<PersistedState>;
   } catch {
@@ -108,17 +111,17 @@ function loadPersistedState(): Partial<PersistedState> {
   }
 }
 
-function persistState(state: PersistedState) {
+function persistState(storageKey: string, state: PersistedState) {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    sessionStorage.setItem(storageKey, JSON.stringify(state));
   } catch {
     // 静默忽略 —— 超出 quota 等
   }
 }
 
-function clearPersistedState() {
+function clearPersistedState(storageKey: string) {
   try {
-    sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(storageKey);
   } catch {
     // noop
   }
@@ -148,11 +151,12 @@ function inferPhaseFromUrl(): SessionState {
 // ====== Provider Hook（返回 context value，由 Provider 组件包裹） ======
 
 export function useOpenClawSessionProvider(activeSessionId: string, scope: OpenclawViewScope = 'latest_turn'): OpenClawSessionContextValue {
+  const storageKey = useMemo(() => storageKeyForSession(activeSessionId), [activeSessionId]);
   // --- 从 URL 路径推导初始 phase（解决直接访问 /openclaw/executing 等场景） ---
   const urlPhase = useRef<SessionState>(inferPhaseFromUrl());
 
   // --- 从 sessionStorage 恢复 ---
-  const persisted = useRef(loadPersistedState());
+  const persisted = useRef(loadPersistedState(storageKey));
 
   // --- 场景与阶段 ---
   const [selectedSceneIndex, setSelectedSceneIndex] = useState<number | null>(
@@ -206,7 +210,7 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
   useEffect(() => {
     if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
     persistTimerRef.current = window.setTimeout(() => {
-      persistState({
+      persistState(storageKey, {
         selectedSceneIndex,
         sessionPhase,
         pendingPrompt,
@@ -220,7 +224,7 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
     return () => {
       if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
     };
-  }, [selectedSceneIndex, sessionPhase, pendingPrompt, hasSentMessage, localUserMessages, thinkingView, executingView, completedView]);
+  }, [storageKey, selectedSceneIndex, sessionPhase, pendingPrompt, hasSentMessage, localUserMessages, thinkingView, executingView, completedView]);
 
   // ====== 阶段推进（只进不退） ======
 
@@ -248,8 +252,8 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
     setHasSentMessage(true);
     // 消息发送后清除 pendingPrompt，避免切换 Tab 回来时重复填充输入框
     setPendingPrompt('');
-    await openclawViewService.sendChatMessage(text);
-  }, []);
+    await openclawViewService.sendChatMessage(text, activeSessionId);
+  }, [activeSessionId]);
 
   // ====== 全量重置 ======
 
@@ -269,8 +273,8 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
     setHasSentMessage(false);
     setLocalUserMessages([]);
     setIsWaitingReply(false);
-    clearPersistedState();
-  }, []);
+    clearPersistedState(storageKey);
+  }, [storageKey]);
 
   // ====== 全阶段并行轮询 ======
   // 一旦进入 thinking 以上阶段（或 URL 不在 idle），就同时轮询所有 API

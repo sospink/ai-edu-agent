@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { HeroUIProvider } from '@heroui/react';
+import { HeroUIProvider, ToastProvider } from '@heroui/react';
 import App from './App';
 import './styles/index.css';
 
@@ -26,6 +26,19 @@ root.render(
   <React.StrictMode>
     <HeroUIProvider>
       <App />
+      <ToastProvider
+        placement="top-right"
+        toastOffset={16}
+        regionProps={{ className: 'z-[10050]' }}
+        toastProps={{
+          classNames: {
+            base: 'w-auto min-w-[240px] max-w-[360px]',
+            title: 'truncate',
+            description: 'line-clamp-2',
+            content: 'min-w-0',
+          },
+        }}
+      />
     </HeroUIProvider>
   </React.StrictMode>
 );

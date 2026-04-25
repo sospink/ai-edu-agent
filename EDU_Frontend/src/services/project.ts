@@ -43,9 +43,11 @@ export interface Project {
   studentsCount: number;
   envImage: string;
   ideImage: string;
+  labTemplateId: number;
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+  labRuntimeMode?: 'classic' | 'openclaw';
   tags?: Tag[];
   units?: ProjectUnit[];
 }
@@ -79,6 +81,7 @@ export interface CreateProjectDTO {
   tagIds?: number[];
   envImage?: string;
   ideImage?: string;
+  labTemplateId?: number;
 }
 
 export interface UpdateProjectDTO extends Partial<CreateProjectDTO> {}

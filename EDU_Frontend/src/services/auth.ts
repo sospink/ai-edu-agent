@@ -14,19 +14,13 @@ export interface LoginResponse {
 export const authService = {
   // 登录
   async login(params: LoginParams): Promise<ApiResponse<LoginResponse>> {
-    const response = await api.post<LoginResponse>('/auth/login', params);
-    
-    // 登录成功后保存 token
-    if (response.success && response.data?.token) {
-      console.log('[Auth] 登录成功，保存 token:', response.data.token.substring(0, 20) + '...');
-      api.setToken(response.data.token);
-      localStorage.setItem('currentUser', JSON.stringify(response.data.user));
-      console.log('[Auth] Token 已保存，验证:', localStorage.getItem('authToken')?.substring(0, 20) + '...');
-    } else {
-      console.log('[Auth] 登录响应:', response);
-    }
-    
-    return response;
+    return api.post<LoginResponse>('/auth/login', params);
+  },
+
+  // 保存已通过前端入口校验的登录态
+  saveSession(session: LoginResponse): void {
+    api.setToken(session.token);
+    localStorage.setItem('currentUser', JSON.stringify(session.user));
   },
 
   // 退出登录

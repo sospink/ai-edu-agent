@@ -380,7 +380,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                         transition={{ delay: stageIndex * 0.1 }}
                     >
                         {/* Stage Header Card */}
-                        <div className={`relative rounded-3xl p-8 mb-6 overflow-hidden shadow-lg group hover:shadow-xl transition-all border ${getLevelBgClass(stage.level)}`}>
+                        <div className={`relative rounded-3xl p-8 mb-6 overflow-hidden shadow-lg group hover:shadow-xl transition-all ${getLevelBgClass(stage.level)}`}>
                             {/* Decorative Background Icon */}
                             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                                 <skill.icon className={`w-32 h-32 transform rotate-12 translate-x-10 -translate-y-10 ${getLevelIconClass(stage.level)}`} />
@@ -402,7 +402,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                         </div>
 
                         {/* Lessons List */}
-                        <div className="bg-white border border-slate-100 rounded-3xl p-2 shadow-sm relative">
+                        <div className="card-surface rounded-3xl p-2 relative">
                              {/* Connector Line to next stage */}
                              {stageIndex < (skill.stages?.length || 0) - 1 && (
                                  <div className="absolute left-1/2 bottom-[-48px] w-px h-12 bg-slate-200 -z-10 hidden lg:block"></div>
@@ -487,7 +487,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                         {skill.title} 实战项目
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div className="bg-white border border-slate-100 rounded-3xl p-6 hover:shadow-lg transition-all group cursor-pointer">
+                         <div className="card-surface rounded-3xl p-6 hover:shadow-lg transition-all group cursor-pointer">
                              <div className="h-32 bg-gradient-to-r from-violet-100 to-fuchsia-100 rounded-2xl mb-6 relative overflow-hidden">
                                  <div className="absolute right-4 bottom-4 w-16 h-16 bg-white/50 backdrop-blur rounded-xl flex items-center justify-center shadow-sm">
                                      <Layout className="w-8 h-8 text-violet-500" />
@@ -503,7 +503,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                              </div>
                          </div>
 
-                         <div className="bg-white border border-slate-100 rounded-3xl p-6 hover:shadow-lg transition-all group cursor-pointer">
+                         <div className="card-surface rounded-3xl p-6 hover:shadow-lg transition-all group cursor-pointer">
                              <div className="h-32 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-2xl mb-6 relative overflow-hidden">
                                  <div className="absolute right-4 bottom-4 w-16 h-16 bg-white/50 backdrop-blur rounded-xl flex items-center justify-center shadow-sm">
                                      <Terminal className="w-8 h-8 text-emerald-500" />
@@ -526,7 +526,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
             <div className="lg:col-span-1 space-y-8">
                 
                 {/* Course Info Widget */}
-                <div className="bg-white rounded-3xl border border-slate-100 p-6">
+                <div className="card-surface rounded-3xl p-6">
                     <h4 className="font-bold text-slate-900 mb-4">课程信息</h4>
                     <div className="space-y-3">
                         <div className="flex items-center justify-between py-2 border-b border-slate-50">
@@ -555,7 +555,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                 </div>
 
                 {/* Certificate Widget */}
-                <div className="bg-slate-50 rounded-3xl border border-slate-100 p-8 text-center relative overflow-hidden">
+                <div className="card-surface-muted rounded-3xl p-8 text-center relative overflow-hidden">
                     <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px]"></div>
                     <div className="relative z-10">
                         <div className="w-16 h-16 mx-auto bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 text-slate-300">
@@ -570,7 +570,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                 </div>
 
                 {/* Progress Widget - 根据真实数据显示 */}
-                <div className="bg-white rounded-3xl border border-slate-100 p-6">
+                <div className="card-surface rounded-3xl p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h4 className="font-bold text-slate-900 text-sm">总体进度</h4>
                         <Award className="w-4 h-4 text-amber-500" />

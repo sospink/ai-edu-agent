@@ -49,6 +49,8 @@ export interface Course {
   status: number; // 0-草稿, 1-已发布, 2-下架
   envImage: string;
   ideImage: string;
+  labTemplateId: number;
+  userProgress?: number;
   createdAt: string;
   updatedAt: string;
   stages?: CourseStage[];
@@ -80,6 +82,7 @@ export interface CreateCourseDTO {
   estimatedHours?: number;
   envImage?: string;
   ideImage?: string;
+  labTemplateId?: number;
 }
 
 export interface UpdateCourseDTO extends Partial<CreateCourseDTO> {}
@@ -200,6 +203,12 @@ export const courseApi = {
   // 获取用户在该课程的学习记录
   async getUserLessonRecords(courseId: number): Promise<ApiResponse<LessonRecord[]>> {
     return getUserLessonRecordsApi(courseId);
+  },
+};
+
+export const studentCourseApi = {
+  async getAssigned(classId: number): Promise<ApiResponse<Course[]>> {
+    return api.get<Course[]>(`/student/courses/assigned?classId=${classId}`);
   },
 };
 
@@ -344,7 +353,14 @@ export const getUserLessonRecordsApi = async (courseId: number): Promise<ApiResp
 export const materialApi = {
   // 获取课时学习资料列表
   async getList(lessonId: number): Promise<ApiResponse<LessonMaterial[]>> {
-    return api.get<LessonMaterial[]>(`/courses/lessons/${lessonId}/materials`);
+    const response = await api.get<LessonMaterial[]>(`/courses/lessons/${lessonId}/materials`);
+    if (response.success) {
+      return {
+        ...response,
+        data: response.data ?? [],
+      };
+    }
+    return response;
   },
 
   // 上传学习资料

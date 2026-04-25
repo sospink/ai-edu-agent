@@ -1,6 +1,22 @@
 import { API_BASE_URL } from '@/config';
 import { api } from './api';
 
+const directOrData = <T,>(res: unknown): T | undefined => {
+  const anyRes = res as { data?: T; error?: string };
+  return anyRes?.data ?? (res as T);
+};
+
+const readErrorMessage = async (response: Response, fallback: string): Promise<string> => {
+  const rawText = await response.text().catch(() => '');
+  if (!rawText.trim()) return `${fallback}（HTTP ${response.status}）`;
+  try {
+    const data = JSON.parse(rawText) as { error?: string; message?: string; details?: string };
+    return data.error || data.message || data.details || fallback;
+  } catch {
+    return rawText.slice(0, 200) || fallback;
+  }
+};
+
 // 类型定义
 export interface AgentManual {
   id: number;
@@ -55,6 +71,72 @@ export interface ChatMessage {
   content: string;
   timestamp?: string;
 }
+
+export interface CoachMeta {
+  hintLevel: 1 | 2 | 3;
+  failureCount: number;
+}
+
+export interface CoachStreamRequest {
+  manualId: number;
+  stepOrder: number;
+  question: string;
+  labSessionId?: number;
+  chatHistory?: ChatMessage[];
+  escalate?: boolean;
+  troubleshootMode?: boolean;
+}
+
+export interface AgentFAQItem {
+  id: number;
+  manualId: number;
+  classId: number;
+  stepId: number;
+  stepOrder: number;
+  question: string;
+  answer: string;
+  status: string;
+  publishedAt?: string | null;
+}
+
+export interface AgentInterventionRecord {
+  id: number;
+  manualId: number;
+  classId: number;
+  stepId: number;
+  studentId: number;
+  teacherId: number;
+  actionType: 'student_reminder' | 'class_broadcast' | 'material_note';
+  title: string;
+  content: string;
+  status: 'pending' | 'read' | 'archived';
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface AgentReflectionCard {
+  id: number;
+  userId: number;
+  manualId: number;
+  summary: string;
+  strengths?: { items?: string[] };
+  stuckPoints?: { items?: string[] };
+  reviewSuggestions?: { items?: string[] };
+  evidence?: Record<string, unknown>;
+  status: 'draft' | 'viewed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AgentEventType =
+  | 'widget_open'
+  | 'chat_sent'
+  | 'hint_requested'
+  | 'verify_triggered'
+  | 'verify_failed'
+  | 'verify_passed'
+  | 'step_completed'
+  | 'troubleshoot_click';
 
 // 获取手册
 export async function getManual(sourceType: number, sourceId: number): Promise<AgentManual | null> {
@@ -114,8 +196,7 @@ export async function chatStream(
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      onError?.(error.error || 'AI 服务暂时不可用');
+      onError?.(await readErrorMessage(response, 'AI 服务暂时不可用'));
       return;
     }
 
@@ -163,6 +244,127 @@ export async function chatStream(
   } catch (error: any) {
     onError?.(error.message || 'AI 服务暂时不可用');
   }
+}
+
+export async function coachStream(
+  data: CoachStreamRequest,
+  onMeta?: (meta: CoachMeta) => void,
+  onChunk?: (content: string) => void,
+  onDone?: () => void,
+  onError?: (error: string) => void
+): Promise<void> {
+  const token = localStorage.getItem('authToken');
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/agent/coach/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      onError?.(await readErrorMessage(response, 'AI 教学助手暂时不可用'));
+      return;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      onError?.('无法读取响应流');
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') {
+          onDone?.();
+          return;
+        }
+        if (payload.startsWith('[META]')) {
+          try {
+            onMeta?.(JSON.parse(payload.slice(6)) as CoachMeta);
+          } catch {
+            // 忽略无效 metadata
+          }
+          continue;
+        }
+        try {
+          const parsed = JSON.parse(payload);
+          if (parsed.content) onChunk?.(parsed.content);
+          if (parsed.error) {
+            onError?.(parsed.error);
+            return;
+          }
+        } catch {
+          // 忽略解析错误
+        }
+      }
+    }
+
+    onDone?.();
+  } catch (error: any) {
+    onError?.(error.message || 'AI 教学助手暂时不可用');
+  }
+}
+
+export async function recordEvent(data: {
+  manualId: number;
+  stepOrder: number;
+  eventType: AgentEventType;
+  meta?: Record<string, unknown>;
+}): Promise<void> {
+  await api.post('/agent/events', data);
+}
+
+export async function getCoachHistory(manualId: number, stepOrder: number): Promise<ChatMessage[]> {
+  const res = await api.get<{ items: ChatMessage[] }>(`/agent/coach/history?manualId=${manualId}&stepOrder=${stepOrder}`);
+  if (res.error) return [];
+  return directOrData<{ items: ChatMessage[] }>(res)?.items || [];
+}
+
+export async function getFAQ(manualId: number, stepOrder: number, classId: number): Promise<AgentFAQItem[]> {
+  const params = new URLSearchParams({ manualId: String(manualId), stepOrder: String(stepOrder), classId: String(classId) });
+  const res = await api.get<{ items: AgentFAQItem[] }>(`/agent/faq?${params.toString()}`);
+  if (res.error) return [];
+  return directOrData<{ items: AgentFAQItem[] }>(res)?.items || [];
+}
+
+export async function getPendingInterventions(manualId: number): Promise<AgentInterventionRecord[]> {
+  const res = await api.get<{ items: AgentInterventionRecord[] }>(`/agent/pending-interventions?manualId=${manualId}`);
+  if (res.error) return [];
+  return directOrData<{ items: AgentInterventionRecord[] }>(res)?.items || [];
+}
+
+export async function markInterventionRead(id: number): Promise<AgentInterventionRecord | null> {
+  const res = await api.post<AgentInterventionRecord>(`/agent/interventions/${id}/read`, {});
+  if (res.error) return null;
+  return directOrData<AgentInterventionRecord>(res) || null;
+}
+
+export async function reflect(manualId: number): Promise<AgentReflectionCard | null> {
+  const res = await api.post<AgentReflectionCard>('/agent/reflect', { manualId });
+  if (res.error) throw new Error(res.error);
+  return directOrData<AgentReflectionCard>(res) || null;
+}
+
+export async function markReflectionViewed(id: number): Promise<AgentReflectionCard | null> {
+  const res = await api.post<AgentReflectionCard>(`/agent/reflections/${id}/viewed`, {});
+  if (res.error) return null;
+  return directOrData<AgentReflectionCard>(res) || null;
 }
 
 // 代码解释
