@@ -13,6 +13,7 @@ import { AgentManualEditor } from './AgentManualEditor';
 import { getStaticUrl } from '@/config';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import type { Locale } from '@/i18n/types';
 
 interface LessonMaterialsModalProps {
   isOpen: boolean;
@@ -58,10 +59,13 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
   const [materials, setMaterials] = useState<LessonMaterial[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [contentLocale, setContentLocale] = useState<Locale>('en-US');
+  const [selectedLocalizedMaterial, setSelectedLocalizedMaterial] = useState<LessonMaterial | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   // 实验和挑战课时默认显示 Agent 手册 Tab
   const [activeTab, setActiveTab] = useState<'materials' | 'agent'>(lessonType === 1 || lessonType === 2 ? 'agent' : 'materials');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const localizedFileInputRef = useRef<HTMLInputElement>(null);
   const confirmDialog = useConfirmDialog();
 
   // 当 lessonType 变化时重置 activeTab
@@ -78,7 +82,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
     if (!lessonId) return;
     setLoading(true);
     try {
-      const response = await materialApi.getList(lessonId);
+      const response = await materialApi.getListTranslation(lessonId, contentLocale);
       if (response.success) {
         setMaterials(response.data || []);
       } else {
@@ -90,7 +94,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [lessonId, showToast]);
+  }, [lessonId, contentLocale, showToast]);
 
   useEffect(() => {
     if (isOpen && lessonId) {
@@ -125,6 +129,34 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
     }
   };
 
+  const handleLocalizedFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedLocalizedMaterial) return;
+
+    setUploading(true);
+    try {
+      const response = await materialApi.saveTranslation(selectedLocalizedMaterial.id, contentLocale, {
+        title: selectedLocalizedMaterial.title,
+        file,
+      });
+      if (response.success) {
+        showToast(t('localizedFileSaved', { name: file.name }), 'success');
+        await loadMaterials();
+      } else {
+        showToast(response.error || t('uploadFailed', { name: file.name }), 'error');
+      }
+    } catch (error) {
+      console.error('保存本地化资料失败:', error);
+      showToast(t('uploadGenericFailed'), 'error');
+    } finally {
+      setUploading(false);
+      setSelectedLocalizedMaterial(null);
+      if (localizedFileInputRef.current) {
+        localizedFileInputRef.current.value = '';
+      }
+    }
+  };
+
   // 删除资料
   const handleDelete = (material: LessonMaterial) => {
     confirmDialog.showConfirm({
@@ -152,7 +184,9 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
   const handleUpdateTitle = async (material: LessonMaterial, newTitle: string) => {
     if (newTitle === material.title) return;
     try {
-      const response = await materialApi.update(material.id, { title: newTitle });
+      const response = contentLocale === 'en-US'
+        ? await materialApi.update(material.id, { title: newTitle })
+        : await materialApi.saveTranslation(material.id, contentLocale, { title: newTitle });
       if (response.success) {
         setMaterials(prev => prev.map(m => 
           m.id === material.id ? { ...m, title: newTitle } : m
@@ -204,12 +238,29 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                   <h2 className="text-lg font-bold text-slate-800">{t('title')}</h2>
                   <p className="text-sm text-slate-500 mt-0.5">{lessonTitle}</p>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex rounded-full bg-slate-100 p-1">
+                    {(['en-US', 'zh-CN'] as Locale[]).map((locale) => (
+                      <button
+                        key={locale}
+                        type="button"
+                        onClick={() => setContentLocale(locale)}
+                        disabled={uploading || loading}
+                        className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                          contentLocale === locale ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                        }`}
+                      >
+                        {locale === 'en-US' ? 'English' : '中文'}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Tabs - 文本课时显示两个 Tab，实验/挑战课时只显示 Agent 手册 */}
@@ -254,24 +305,37 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="w-full py-8 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50/50 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                        <span className="text-sm font-medium text-slate-600">{t('uploading')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-8 h-8 text-slate-400" />
-                        <span className="text-sm font-medium text-slate-600">{t('uploadPrompt')}</span>
-                        <span className="text-xs text-slate-400">{t('uploadSupport')}</span>
-                      </>
-                    )}
-                  </button>
+                  <input
+                    ref={localizedFileInputRef}
+                    type="file"
+                    accept=".md,.markdown,.pdf,.docx,.xmind,.mm"
+                    onChange={handleLocalizedFileSelect}
+                    className="hidden"
+                  />
+                  {contentLocale === 'en-US' ? (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full py-8 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50/50 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                          <span className="text-sm font-medium text-slate-600">{t('uploading')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-slate-400" />
+                          <span className="text-sm font-medium text-slate-600">{t('uploadPrompt')}</span>
+                          <span className="text-xs text-slate-400">{t('uploadSupport')}</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
+                      {t('localizedUploadHint')}
+                    </div>
+                  )}
                 </div>
 
                 {/* 资料列表 */}
@@ -306,11 +370,18 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                             <input
                               type="text"
                               defaultValue={material.title}
+                              key={`${material.id}-${contentLocale}-${material.title}`}
                               onBlur={(e) => handleUpdateTitle(material, e.target.value)}
                               className="w-full bg-transparent font-medium text-slate-700 focus:outline-none focus:bg-white focus:px-2 focus:py-1 focus:rounded focus:ring-2 focus:ring-blue-500/20 transition-all"
                             />
                             <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
                               <span>{typeInfo.label}</span>
+                              {material.translationMissing && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-amber-500">{t('translationMissing')}</span>
+                                </>
+                              )}
                               <span>•</span>
                               <span>{formatFileSize(material.fileSize)}</span>
                               <span>•</span>
@@ -319,6 +390,18 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                           </div>
 
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {contentLocale !== 'en-US' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedLocalizedMaterial(material);
+                                  localizedFileInputRef.current?.click();
+                                }}
+                                className="p-2 rounded-lg hover:bg-white text-slate-400 hover:text-blue-500 transition-colors"
+                                title={t('replaceLocalizedFile')}
+                              >
+                                <Upload className="w-4 h-4" />
+                              </button>
+                            )}
                             <a
                               href={getFileUrl(material.fileUrl)}
                               target="_blank"

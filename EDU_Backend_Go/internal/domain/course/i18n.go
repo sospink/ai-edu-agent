@@ -2,8 +2,10 @@ package course
 
 import (
 	"context"
+	"strings"
 
 	"edu-platform/pkg/i18n"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -25,6 +27,13 @@ type CourseContentTranslationInput struct {
 	Description string                          `json:"description"`
 	Stages      []StageContentTranslationInput  `json:"stages"`
 	Lessons     []LessonContentTranslationInput `json:"lessons"`
+}
+
+type MaterialContentTranslationInput struct {
+	Title    *string
+	FileURL  string
+	FileName string
+	FileSize int64
 }
 
 func (s *Service) ListLocalized(ctx context.Context, page, pageSize int, keyword string, status, difficulty *int) ([]Course, int64, error) {
@@ -95,6 +104,59 @@ func (s *Service) SaveCourseContentTranslation(ctx context.Context, courseID uin
 	}
 
 	return s.FindByIDLocalized(i18n.WithLocale(ctx, normalizedLocale), course.ID)
+}
+
+func (s *Service) SaveMaterialContentTranslation(ctx context.Context, materialID uint64, locale string, input MaterialContentTranslationInput) (*LessonMaterial, error) {
+	material, err := s.repo.FindMaterialByID(materialID)
+	if err != nil {
+		return nil, err
+	}
+
+	normalizedLocale := i18n.NormalizeLocale(locale)
+	translation := LessonMaterialTranslation{
+		EntityID: material.ID,
+		Locale:   normalizedLocale,
+		Title:    material.Title,
+		FileURL:  material.FileURL,
+		FileName: material.FileName,
+		FileSize: material.FileSize,
+		Status:   translationStatusPublished,
+		Version:  1,
+	}
+	var existing LessonMaterialTranslation
+	err = s.repo.db.WithContext(ctx).
+		Where("entity_id = ? AND locale = ?", material.ID, normalizedLocale).
+		First(&existing).Error
+	if err == nil {
+		translation = existing
+		translation.Status = translationStatusPublished
+		translation.Version++
+	} else if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	if input.Title != nil {
+		translation.Title = strings.TrimSpace(*input.Title)
+	}
+	if input.FileURL != "" {
+		translation.FileURL = strings.TrimSpace(input.FileURL)
+		translation.FileName = strings.TrimSpace(input.FileName)
+		translation.FileSize = input.FileSize
+	}
+	if strings.TrimSpace(translation.Title) == "" {
+		translation.Title = translation.FileName
+	}
+
+	if translation.ID > 0 {
+		if err := s.repo.db.WithContext(ctx).Save(&translation).Error; err != nil {
+			return nil, err
+		}
+	} else if err := s.repo.db.WithContext(ctx).Create(&translation).Error; err != nil {
+		return nil, err
+	}
+
+	items := s.localizeMaterials(i18n.WithLocale(ctx, normalizedLocale), []LessonMaterial{*material})
+	return &items[0], nil
 }
 
 func (s *Service) ListForTeacherLocalized(ctx context.Context, actorID uint64, roleType int, page, pageSize int, keyword string, status, difficulty *int) ([]Course, int64, error) {

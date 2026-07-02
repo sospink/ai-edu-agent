@@ -217,6 +217,20 @@ func (h *Handler) GetLessonMaterials(c *gin.Context) {
 	response.SuccessKey(c, materials, "course.materialsLoaded", nil)
 }
 
+func (h *Handler) GetLessonMaterialsTranslation(c *gin.Context) {
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
+	if !ok {
+		return
+	}
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	materials, err := h.service.GetLessonMaterialsLocalized(i18n.WithLocale(c.Request.Context(), locale), lessonID)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	response.SuccessKey(c, materials, "course.materialsLoaded", nil)
+}
+
 func (h *Handler) EnrollCourse(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
@@ -801,6 +815,43 @@ func (h *Handler) UpdateMaterial(c *gin.Context) {
 		Title:     req.Title,
 		SortOrder: req.SortOrder,
 	})
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	response.SuccessKey(c, material, "course.materialUpdated", nil)
+}
+
+func (h *Handler) SaveMaterialTranslation(c *gin.Context) {
+	materialID, ok := parseUintParam(c, "materialId", "course.invalidMaterialId")
+	if !ok {
+		return
+	}
+	if !h.ensureCourseAccessByMaterial(c, materialID) {
+		return
+	}
+
+	title := c.PostForm("title")
+	params := MaterialContentTranslationInput{Title: &title}
+	if file, err := c.FormFile("material"); err == nil {
+		if err := os.MkdirAll(filepath.Join(h.uploadRoot, "materials"), 0o755); err != nil {
+			response.InternalKey(c, "course.uploadDirectoryFailed", nil)
+			return
+		}
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+		destPath := filepath.Join(h.uploadRoot, "materials", filename)
+		if err := c.SaveUploadedFile(file, destPath); err != nil {
+			response.InternalKey(c, "course.uploadSaveFailed", nil)
+			return
+		}
+		params.FileURL = "/uploads/materials/" + filename
+		params.FileName = file.Filename
+		params.FileSize = file.Size
+	}
+
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	material, err := h.service.SaveMaterialContentTranslation(c.Request.Context(), materialID, locale, params)
 	if err != nil {
 		_ = c.Error(err)
 		return

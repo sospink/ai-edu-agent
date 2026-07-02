@@ -1,5 +1,6 @@
 import { api } from './api';
 import type { ApiResponse } from '@/types';
+import type { Locale } from '@/i18n/types';
 
 // ==================== 类型定义 ====================
 
@@ -121,6 +122,8 @@ export interface LessonMaterial {
   sortOrder: number;
   createdAt?: string;
   updatedAt?: string;
+  locale?: Locale;
+  translationMissing?: boolean;
 }
 
 export interface UpdateMaterialDTO {
@@ -363,6 +366,17 @@ export const materialApi = {
     return response;
   },
 
+  async getListTranslation(lessonId: number, locale: Locale): Promise<ApiResponse<LessonMaterial[]>> {
+    const response = await api.get<LessonMaterial[]>(`/courses/lessons/${lessonId}/materials/translations/${locale}`);
+    if (response.success) {
+      return {
+        ...response,
+        data: response.data ?? [],
+      };
+    }
+    return response;
+  },
+
   // 上传学习资料
   async upload(lessonId: number, file: File, title?: string): Promise<ApiResponse<LessonMaterial>> {
     const formData = new FormData();
@@ -371,6 +385,17 @@ export const materialApi = {
       formData.append('title', title);
     }
     return api.upload<LessonMaterial>(`/courses/lessons/${lessonId}/materials`, formData);
+  },
+
+  async saveTranslation(materialId: number, locale: Locale, data: { title?: string; file?: File }): Promise<ApiResponse<LessonMaterial>> {
+    const formData = new FormData();
+    if (data.title !== undefined) {
+      formData.append('title', data.title);
+    }
+    if (data.file) {
+      formData.append('material', data.file);
+    }
+    return api.upload<LessonMaterial>(`/courses/materials/${materialId}/translations/${locale}`, formData);
   },
 
   // 更新学习资料

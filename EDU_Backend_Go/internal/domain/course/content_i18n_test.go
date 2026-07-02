@@ -73,3 +73,45 @@ func TestCourseContentLocaleFallbackKeepsStableIDs(t *testing.T) {
 		t.Fatalf("expected material fallback with stable ID and en file, got %#v", materials[0])
 	}
 }
+
+func TestSaveMaterialContentTranslation(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&Course{}, &CourseStage{}, &CourseLesson{}, &LessonSkill{}, &LessonMaterial{}, &LessonMaterialTranslation{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	service := NewService(db, zap.NewNop(), "")
+
+	lesson := CourseLesson{Title: "Lesson", Type: 4}
+	if err := db.Create(&lesson).Error; err != nil {
+		t.Fatalf("create lesson: %v", err)
+	}
+	material := LessonMaterial{LessonID: lesson.ID, Title: "English Material", Type: 1, FileURL: "/uploads/materials/en.md", FileName: "en.md", FileSize: 12}
+	if err := db.Create(&material).Error; err != nil {
+		t.Fatalf("create material: %v", err)
+	}
+
+	title := "中文资料"
+	saved, err := service.SaveMaterialContentTranslation(context.Background(), material.ID, i18n.LocaleZhCN, MaterialContentTranslationInput{
+		Title:    &title,
+		FileURL:  "/uploads/materials/zh.md",
+		FileName: "zh.md",
+		FileSize: 34,
+	})
+	if err != nil {
+		t.Fatalf("save material translation: %v", err)
+	}
+	if saved.ID != material.ID || saved.Title != title || saved.FileURL != "/uploads/materials/zh.md" || saved.TranslationMissing {
+		t.Fatalf("unexpected saved material translation: %#v", saved)
+	}
+
+	materials, err := service.GetLessonMaterialsLocalized(i18n.WithLocale(context.Background(), i18n.LocaleZhCN), lesson.ID)
+	if err != nil {
+		t.Fatalf("get zh materials: %v", err)
+	}
+	if len(materials) != 1 || materials[0].FileName != "zh.md" || materials[0].FileSize != 34 {
+		t.Fatalf("expected zh material file, got %#v", materials)
+	}
+}

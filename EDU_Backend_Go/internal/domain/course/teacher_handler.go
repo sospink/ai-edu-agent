@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"edu-platform/internal/middleware"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/pagination"
 	"edu-platform/pkg/response"
 )
@@ -175,6 +176,28 @@ func (h *TeacherHandler) GetLessonMaterials(c *gin.Context) {
 	}
 
 	materials, err := h.service.GetLessonMaterialsForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, lessonID)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	response.SuccessKey(c, materials, "course.materialsLoaded", nil)
+}
+
+func (h *TeacherHandler) GetLessonMaterialsTranslation(c *gin.Context) {
+	claims, ok := middleware.CurrentClaims(c)
+	if !ok {
+		response.UnauthorizedKey(c, "auth.required", nil)
+		return
+	}
+
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
+	if !ok {
+		return
+	}
+
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	materials, err := h.service.GetLessonMaterialsForTeacherLocalized(i18n.WithLocale(c.Request.Context(), locale), claims.UserID, claims.RoleType, lessonID)
 	if err != nil {
 		_ = c.Error(err)
 		return
