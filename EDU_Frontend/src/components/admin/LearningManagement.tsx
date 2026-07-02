@@ -34,6 +34,7 @@ interface LocalLesson {
   points: number;
   sortOrder: number;
   isNew?: boolean;
+  translationMissing?: boolean;
 }
 
 interface LocalStage {
@@ -44,6 +45,7 @@ interface LocalStage {
   sortOrder: number;
   lessons: LocalLesson[];
   isNew?: boolean;
+  translationMissing?: boolean;
 }
 
 interface LocalCourse {
@@ -62,6 +64,7 @@ interface LocalCourse {
   ideImage: string;
   labTemplateId: number;
   stages: LocalStage[];
+  translationMissing?: boolean;
 }
 
 // 颜色映射
@@ -133,12 +136,14 @@ const courseToLocalCourse = (fullCourse: Course): LocalCourse => ({
   envImage: fullCourse.envImage || '',
   ideImage: fullCourse.ideImage || '',
   labTemplateId: fullCourse.labTemplateId || 0,
+  translationMissing: fullCourse.translationMissing,
   stages: (fullCourse.stages || []).map(stage => ({
     id: stage.id,
     title: stage.title,
     description: stage.description || '',
     levelLabel: stage.levelLabel || '',
     sortOrder: stage.sortOrder,
+    translationMissing: stage.translationMissing,
     lessons: (stage.lessons || []).map(lesson => ({
       id: lesson.id,
       title: lesson.title,
@@ -146,6 +151,7 @@ const courseToLocalCourse = (fullCourse: Course): LocalCourse => ({
       durationMinutes: lesson.durationMinutes,
       points: lesson.points,
       sortOrder: lesson.sortOrder,
+      translationMissing: lesson.translationMissing,
     })),
   })),
 });
@@ -341,6 +347,28 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, o
     }
   };
 
+  const handleCopyFromEnglish = async () => {
+    if (!formData.id) return;
+    setLoadingTranslation(true);
+    try {
+      const response = await courseApi.getContentTranslation(formData.id, 'en-US');
+      if (response.success && response.data) {
+        setFormData({
+          ...courseToLocalCourse(response.data),
+          translationMissing: false,
+        });
+        onToast(t('copiedFromEnglish'), 'success');
+      } else {
+        onToast(response.error || t('detailFailed'), 'error');
+      }
+    } catch (err) {
+      console.error('复制英文课程内容失败:', err);
+      onToast(t('detailFailed'), 'error');
+    } finally {
+      setLoadingTranslation(false);
+    }
+  };
+
   const getLessonTypeIcon = (type: LessonTypeValue) => {
     switch (type) {
       case 1: return <Terminal className="w-4 h-4" />;
@@ -387,6 +415,16 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, o
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {contentLocale !== 'en-US' && formData.id && (
+            <button
+              type="button"
+              onClick={() => void handleCopyFromEnglish()}
+              disabled={saving || loadingTranslation}
+              className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+            >
+              {t('copyFromEnglish')}
+            </button>
+          )}
           <div className="inline-flex rounded-full bg-slate-100 p-1">
             {(['en-US', 'zh-CN'] as Locale[]).map((locale) => (
               <button
@@ -417,6 +455,11 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, o
         </div>
       </div>
 
+      {contentLocale !== 'en-US' && formData.translationMissing && (
+        <div className="bg-amber-50 px-8 py-2 text-xs font-medium text-amber-700">
+          {t('translationMissingHint')}
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">

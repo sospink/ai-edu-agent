@@ -721,6 +721,7 @@ func (h *Handler) ImportMarkdown(c *gin.Context) {
 		SourceType int    `json:"sourceType"`
 		SourceID   uint64 `json:"sourceId"`
 		Markdown   string `json:"markdown"`
+		Locale     string `json:"locale"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.SourceType == 0 || req.SourceID == 0 || strings.TrimSpace(req.Markdown) == "" {
 		response.BadRequestKey(c, "agent.requiredParams", nil)
@@ -737,7 +738,12 @@ func (h *Handler) ImportMarkdown(c *gin.Context) {
 		return
 	}
 
-	manual, err := h.service.ImportFromMarkdown(c.Request.Context(), req.SourceType, req.SourceID, req.Markdown, claims.UserID)
+	locale := i18n.NormalizeLocale(req.Locale)
+	manual, err := h.service.ImportMarkdownForLocale(c.Request.Context(), req.SourceType, req.SourceID, req.Markdown, claims.UserID, locale)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NotFoundKey(c, "agent.manualNotFound", nil)
+		return
+	}
 	if err != nil {
 		response.InternalKey(c, "agent.internalError", nil)
 		return

@@ -25,6 +25,7 @@ export interface AgentManualAdmin {
   description?: string;
   isPublished?: number;
   steps?: AgentStepAdmin[];
+  translationMissing?: boolean;
 }
 
 export interface AgentStepAdmin {
@@ -35,6 +36,7 @@ export interface AgentStepAdmin {
   quickQuestions: string[];
   verification: Verification | null;
   skillTags?: string[];
+  translationMissing?: boolean;
 }
 
 export interface ContentBlock {
@@ -125,8 +127,8 @@ export const teacherManualApi = {
   parseMarkdownPreview(markdown: string) {
     return teacherApi.post<ParsedManualPreview>('/manuals/parse-preview', { markdown });
   },
-  importMarkdown(sourceType: number, sourceId: number, markdown: string) {
-    return teacherApi.post<ImportResult>('/manuals/import', { sourceType, sourceId, markdown });
+  importMarkdown(sourceType: number, sourceId: number, markdown: string, locale?: Locale) {
+    return teacherApi.post<ImportResult>('/manuals/import', { sourceType, sourceId, markdown, locale });
   },
 };
 

@@ -312,6 +312,7 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
   const [description, setDescription] = useState('');
   const [isPublished, setIsPublished] = useState(false);
   const [steps, setSteps] = useState<AgentStepAdmin[]>([]);
+  const [translationMissing, setTranslationMissing] = useState(false);
   const confirmDialog = useConfirmDialog();
   
   // Markdown 导入相关状态
@@ -330,6 +331,15 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
     loadManual();
   }, [sourceType, sourceId, contentLocale]);
 
+  const applyManualData = (data: AdminAgentAPI.AgentManualAdmin, baseManual?: AdminAgentAPI.AgentManualAdmin) => {
+    setManualId(data.id || baseManual?.id || null);
+    setTitle(data.title || '');
+    setDescription(data.description || '');
+    setIsPublished((data.isPublished ?? baseManual?.isPublished) === 1);
+    setSteps(data.steps || []);
+    setTranslationMissing(Boolean(data.translationMissing || data.steps?.some((step) => step.translationMissing)));
+  };
+
   const loadManual = async () => {
     setLoading(true);
     try {
@@ -338,17 +348,14 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
         ? await AdminAgentAPI.getManualTranslation(baseManual.id, contentLocale)
         : baseManual;
       if (data.exists && data.id) {
-        setManualId(data.id);
-        setTitle(data.title || '');
-        setDescription(data.description || '');
-        setIsPublished((data.isPublished ?? baseManual.isPublished) === 1);
-        setSteps(data.steps || []);
+        applyManualData(data, baseManual);
       } else {
         setManualId(null);
         setTitle(sourceName || t('newManual'));
         setDescription('');
         setIsPublished(false);
         setSteps([]);
+        setTranslationMissing(false);
       }
     } catch (err) {
       console.error('[AgentManualEditor] Load error:', err);
@@ -462,6 +469,25 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
 
   const handleSave = async () => {
     await persistManualContent(true);
+  };
+
+  const handleCopyFromEnglish = async () => {
+    if (!manualId) return;
+    setLoading(true);
+    try {
+      const data = await AdminAgentAPI.getManualTranslation(manualId, 'en-US');
+      if (data.exists && data.id) {
+        setTitle(data.title || '');
+        setDescription(data.description || '');
+        setSteps(data.steps || []);
+        setTranslationMissing(false);
+        showToast(t('copiedFromEnglish'), 'success');
+      }
+    } catch (err: any) {
+      showToast(err.message || t('loadFailed'), 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePublishCheck = async (): Promise<PublishCheckResult | null> => {
@@ -614,20 +640,23 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
 
   const handleImport = async () => {
     if (!markdownContent.trim()) return;
+    if (contentLocale !== 'en-US' && !manualId) {
+      showToast(t('importSourceRequired'), 'error');
+      return;
+    }
     setImporting(true);
     setImportError('');
     try {
-      const result = await AdminAgentAPI.importMarkdown(sourceType, sourceId, markdownContent);
+      const result = await AdminAgentAPI.importMarkdown(sourceType, sourceId, markdownContent, contentLocale);
       // 关闭弹窗
       closeImportModal();
       // 重新加载获取完整步骤数据（不显示loading）
-      const data = await AdminAgentAPI.getManual(sourceType, sourceId);
+      const baseManual = await AdminAgentAPI.getManual(sourceType, sourceId);
+      const data = baseManual.exists && baseManual.id
+        ? await AdminAgentAPI.getManualTranslation(baseManual.id, contentLocale)
+        : baseManual;
       if (data.exists && data.id) {
-        setManualId(data.id);
-        setTitle(data.title || '');
-        setDescription(data.description || '');
-        setIsPublished(data.isPublished === 1);
-        setSteps(data.steps || []);
+        applyManualData(data, baseManual);
       }
       showToast(t('importSuccess', { count: result.stepsCount }), 'success');
     } catch (err: any) {
@@ -660,22 +689,39 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
       {/* 基本信息 */}
       <div className="space-y-3">
         <div className="flex justify-end">
-          <div className="inline-flex rounded-full bg-slate-100 p-1">
-            {(['en-US', 'zh-CN'] as Locale[]).map((locale) => (
+          <div className="flex items-center gap-2">
+            {contentLocale !== 'en-US' && manualId && (
               <button
-                key={locale}
                 type="button"
-                onClick={() => setContentLocale(locale)}
+                onClick={() => void handleCopyFromEnglish()}
                 disabled={saving || loading}
-                className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
-                  contentLocale === locale ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
-                }`}
+                className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600 hover:bg-blue-100 disabled:opacity-50"
               >
-                {locale === 'en-US' ? 'English' : '中文'}
+                {t('copyFromEnglish')}
               </button>
-            ))}
+            )}
+            <div className="inline-flex rounded-full bg-slate-100 p-1">
+              {(['en-US', 'zh-CN'] as Locale[]).map((locale) => (
+                <button
+                  key={locale}
+                  type="button"
+                  onClick={() => setContentLocale(locale)}
+                  disabled={saving || loading}
+                  className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                    contentLocale === locale ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  {locale === 'en-US' ? 'English' : '中文'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+        {contentLocale !== 'en-US' && translationMissing && (
+          <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+            {t('translationMissingHint')}
+          </div>
+        )}
         <div>
           <label className="block text-xs font-bold text-slate-600 mb-1">{t('manualTitle')}</label>
           <input
@@ -812,7 +858,12 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
       <PageDialog isOpen={showImportModal} onClose={closeImportModal} panelClassName="max-w-2xl" zIndexClassName="z-[10020]">
         <div className="bg-white rounded-xl shadow-xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-bold text-slate-800">{t('importTitle')}</h3>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">{t('importTitle')}</h3>
+                <p className="mt-0.5 text-xs font-medium text-slate-500">
+                  {t('importLocale', { locale: contentLocale === 'en-US' ? 'English' : '中文' })}
+                </p>
+              </div>
               <button onClick={closeImportModal} className="p-1 text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>

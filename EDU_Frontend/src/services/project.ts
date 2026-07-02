@@ -26,6 +26,8 @@ export interface ProjectUnit {
   isHidden: number;
   createdAt?: string;
   updatedAt?: string;
+  locale?: string;
+  translationMissing?: boolean;
 }
 
 export interface Project {
@@ -51,6 +53,8 @@ export interface Project {
   labRuntimeMode?: 'classic' | 'openclaw';
   tags?: Tag[];
   units?: ProjectUnit[];
+  locale?: string;
+  translationMissing?: boolean;
 }
 
 export interface ProjectListResponse {

@@ -23,6 +23,8 @@ export interface CourseLesson {
   sortOrder: number;
   createdAt?: string;
   skills?: Skill[];
+  locale?: string;
+  translationMissing?: boolean;
 }
 
 export interface CourseStage {
@@ -34,6 +36,8 @@ export interface CourseStage {
   levelLabel: string;
   createdAt?: string;
   lessons?: CourseLesson[];
+  locale?: string;
+  translationMissing?: boolean;
 }
 
 export interface Course {
@@ -55,6 +59,8 @@ export interface Course {
   createdAt: string;
   updatedAt: string;
   stages?: CourseStage[];
+  locale?: string;
+  translationMissing?: boolean;
 }
 
 export interface CourseListResponse {

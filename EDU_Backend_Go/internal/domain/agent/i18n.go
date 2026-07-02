@@ -2,8 +2,11 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	"edu-platform/pkg/i18n"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -64,6 +67,89 @@ func (s *Service) SaveManualContentTranslation(ctx context.Context, manualID uin
 	}
 
 	return s.GetManualByID(i18n.WithLocale(ctx, normalizedLocale), manual.ID)
+}
+
+func (s *Service) ImportMarkdownForLocale(ctx context.Context, sourceType int, sourceID uint64, markdown string, creatorID uint64, locale string) (*AgentManual, error) {
+	normalizedLocale := i18n.NormalizeLocale(locale)
+	if normalizedLocale == i18n.LocaleEnUS {
+		manual, err := s.ImportFromMarkdown(ctx, sourceType, sourceID, markdown, creatorID)
+		if err != nil {
+			return nil, err
+		}
+		localizedManual, err := s.SaveManualContentTranslation(ctx, manual.ID, normalizedLocale, manualTranslationInputFromManual(manual))
+		if err != nil {
+			if isMissingAgentTranslationTableError(err) {
+				return manual, nil
+			}
+			return nil, err
+		}
+		return localizedManual, nil
+	}
+
+	parsed, err := ParseMarkdown(markdown)
+	if err != nil {
+		return nil, err
+	}
+	manual, err := s.GetManualForAdmin(ctx, sourceType, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	var steps []AgentStep
+	if err := s.db.WithContext(ctx).
+		Where("manual_id = ?", manual.ID).
+		Order("step_order ASC").
+		Find(&steps).Error; err != nil {
+		return nil, err
+	}
+	if len(steps) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	input := AgentManualContentTranslationInput{
+		Title:       defaultString(parsed.Title, manual.Title),
+		Description: parsed.Description,
+		Steps:       make([]AgentStepContentTranslationInput, 0, len(parsed.Steps)),
+	}
+	for idx, parsedStep := range parsed.Steps {
+		if idx >= len(steps) {
+			break
+		}
+		input.Steps = append(input.Steps, AgentStepContentTranslationInput{
+			ID:             steps[idx].ID,
+			Title:          parsedStep.Title,
+			Content:        parsedStep.Content,
+			QuickQuestions: parsedStep.QuickQuestions,
+		})
+	}
+	if len(input.Steps) == 0 {
+		return nil, errors.New("no matching manual steps")
+	}
+	return s.SaveManualContentTranslation(ctx, manual.ID, normalizedLocale, input)
+}
+
+func isMissingAgentTranslationTableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := err.Error()
+	return strings.Contains(message, "agent_manual_translations") || strings.Contains(message, "agent_step_translations")
+}
+
+func manualTranslationInputFromManual(manual *AgentManual) AgentManualContentTranslationInput {
+	input := AgentManualContentTranslationInput{
+		Title:       manual.Title,
+		Description: manual.Description,
+		Steps:       make([]AgentStepContentTranslationInput, 0, len(manual.Steps)),
+	}
+	for _, step := range manual.Steps {
+		input.Steps = append(input.Steps, AgentStepContentTranslationInput{
+			ID:             step.ID,
+			Title:          step.Title,
+			Content:        step.Content,
+			QuickQuestions: step.QuickQuestions,
+		})
+	}
+	return input
 }
 
 func (s *Service) localizeManual(ctx context.Context, manual *AgentManual) {

@@ -116,9 +116,10 @@ export async function parseMarkdownPreview(markdown: string): Promise<ParsedManu
 export async function importMarkdown(
   sourceType: number,
   sourceId: number,
-  markdown: string
+  markdown: string,
+  locale?: Locale
 ): Promise<ImportResult> {
-  const response = await teacherManualApi.importMarkdown(sourceType, sourceId, markdown);
+  const response = await teacherManualApi.importMarkdown(sourceType, sourceId, markdown, locale);
   const result = response.data || (response as unknown as ImportResult);
   if (response.error || !result || !result.id) {
     throw new Error(response.error || i18n.t('agentManualEditor:importFailed'));

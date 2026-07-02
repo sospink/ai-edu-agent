@@ -76,6 +76,7 @@ interface ProjectFormData {
   envImage: string;
   ideImage: string;
   labTemplateId: number;
+  translationMissing?: boolean;
 }
 
 // ==================== 辅助函数 ====================
@@ -118,6 +119,7 @@ const projectToFormData = (p: Project): ProjectFormData => ({
   envImage: p.envImage || '',
   ideImage: p.ideImage || '',
   labTemplateId: p.labTemplateId || 0,
+  translationMissing: p.translationMissing,
 });
 
 const projectTranslationPayload = (project: ProjectFormData) => ({
@@ -392,6 +394,28 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
     }
   };
 
+  const handleCopyFromEnglish = async () => {
+    if (!formData.id) return;
+    setLoadingTranslation(true);
+    try {
+      const result = await projectApi.getContentTranslation(formData.id, 'en-US');
+      if (result.success && result.data) {
+        setFormData({
+          ...projectToFormData(result.data),
+          translationMissing: false,
+        });
+        onToast(t('copiedFromEnglish'), 'success');
+      } else {
+        onToast(result.error || t('saveFailed'), 'error');
+      }
+    } catch (err) {
+      console.error('复制英文项目内容失败:', err);
+      onToast(t('saveFailed'), 'error');
+    } finally {
+      setLoadingTranslation(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -417,6 +441,16 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {contentLocale !== 'en-US' && formData.id && (
+            <button
+              type="button"
+              onClick={() => void handleCopyFromEnglish()}
+              disabled={loading || loadingTranslation}
+              className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+            >
+              {t('copyFromEnglish')}
+            </button>
+          )}
           <div className="inline-flex rounded-full bg-slate-100 p-1">
             {(['en-US', 'zh-CN'] as Locale[]).map((locale) => (
               <button
@@ -449,6 +483,12 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
           </button>
         </div>
       </div>
+
+      {contentLocale !== 'en-US' && formData.translationMissing && (
+        <div className="bg-amber-50 px-8 py-2 text-xs font-medium text-amber-700">
+          {t('translationMissingHint')}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto bg-slate-50/50 p-8">
