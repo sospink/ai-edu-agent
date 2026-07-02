@@ -32,12 +32,12 @@ func TestMessageUsesStableKey(t *testing.T) {
 	}
 }
 
-func TestDefaultLocaleIsEnglish(t *testing.T) {
-	if got := NormalizeLocale(""); got != LocaleEnUS {
-		t.Fatalf("expected empty locale to default to en-US, got %q", got)
+func TestDefaultLocaleIsChinese(t *testing.T) {
+	if got := NormalizeLocale(""); got != LocaleZhCN {
+		t.Fatalf("expected empty locale to default to zh-CN, got %q", got)
 	}
-	if got := LocaleFromContext(context.Background()); got != LocaleEnUS {
-		t.Fatalf("expected missing context locale to default to en-US, got %q", got)
+	if got := LocaleFromContext(context.Background()); got != LocaleZhCN {
+		t.Fatalf("expected missing context locale to default to zh-CN, got %q", got)
 	}
 }
 

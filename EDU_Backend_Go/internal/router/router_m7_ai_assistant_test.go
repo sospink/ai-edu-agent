@@ -110,7 +110,7 @@ func TestM7AISettingsDisableRecordsFailedRequestAndAudit(t *testing.T) {
 	}
 
 	blockedResp := performJSON(t, fixture.engine, http.MethodPost, fmt.Sprintf("/api/teacher/submissions/%d/ai/suggest-feedback", submission.ID), nil, teacherToken)
-	if blockedResp.Code != http.StatusServiceUnavailable || !strings.Contains(blockedResp.Body.String(), "AI assistant capability is disabled") {
+	if blockedResp.Code != http.StatusServiceUnavailable || !strings.Contains(blockedResp.Body.String(), "AI 辅助能力已关闭") {
 		t.Fatalf("expected disabled ai 503, got %d: %s", blockedResp.Code, blockedResp.Body.String())
 	}
 

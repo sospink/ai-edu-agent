@@ -235,7 +235,7 @@ func TestDashboardSessionDetailLogsAndStop(t *testing.T) {
 	}
 	var stoppedLogsAPI apiResponse
 	decodeJSON(t, stoppedLogsResp.Body.Bytes(), &stoppedLogsAPI)
-	if stoppedLogsAPI.Code != "DASHBOARD_SESSION_LOGS_FAILED" || !strings.Contains(stoppedLogsAPI.Error, "The current session has stopped") {
+	if stoppedLogsAPI.Code != "DASHBOARD_SESSION_LOGS_FAILED" || !strings.Contains(stoppedLogsAPI.Error, "当前会话已停止") {
 		t.Fatalf("expected friendly stopped-session message, got %+v", stoppedLogsAPI)
 	}
 }

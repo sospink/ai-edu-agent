@@ -28,7 +28,7 @@ const (
 func NormalizeLocale(raw string) string {
 	value := strings.TrimSpace(raw)
 	if value == "" {
-		return LocaleEnUS
+		return LocaleZhCN
 	}
 	lower := strings.ToLower(value)
 	switch {
@@ -45,12 +45,12 @@ func WithLocale(ctx context.Context, locale string) context.Context {
 
 func LocaleFromContext(ctx context.Context) string {
 	if ctx == nil {
-		return LocaleEnUS
+		return LocaleZhCN
 	}
 	if value, ok := ctx.Value(localeContextKey).(string); ok {
 		return NormalizeLocale(value)
 	}
-	return LocaleEnUS
+	return LocaleZhCN
 }
 
 func LanguageInstruction(ctx context.Context) string {
