@@ -20,6 +20,7 @@ import PublishCheckDrawer from '@/components/teacher/PublishCheckDrawer';
 import LessonMaterialsModal from './LessonMaterialsModal';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import type { Locale } from '@/i18n/types';
 
 // --- Types ---
 
@@ -117,20 +118,66 @@ const getIconFromUrl = (url: string): React.ElementType => {
   return iconMap[iconName] || BookOpen;
 };
 
+const courseToLocalCourse = (fullCourse: Course): LocalCourse => ({
+  id: fullCourse.id,
+  title: fullCourse.title,
+  slug: fullCourse.slug,
+  description: fullCourse.description,
+  iconUrl: fullCourse.iconUrl || '/icons/book.svg',
+  coverColor: fullCourse.coverColor || '#3b82f6',
+  difficulty: fullCourse.difficulty,
+  status: fullCourse.status,
+  estimatedHours: fullCourse.estimatedHours,
+  totalLessons: fullCourse.totalLessons,
+  totalSkills: fullCourse.totalSkills,
+  envImage: fullCourse.envImage || '',
+  ideImage: fullCourse.ideImage || '',
+  labTemplateId: fullCourse.labTemplateId || 0,
+  stages: (fullCourse.stages || []).map(stage => ({
+    id: stage.id,
+    title: stage.title,
+    description: stage.description || '',
+    levelLabel: stage.levelLabel || '',
+    sortOrder: stage.sortOrder,
+    lessons: (stage.lessons || []).map(lesson => ({
+      id: lesson.id,
+      title: lesson.title,
+      type: lesson.type as LessonTypeValue,
+      durationMinutes: lesson.durationMinutes,
+      points: lesson.points,
+      sortOrder: lesson.sortOrder,
+    })),
+  })),
+});
+
+const courseTranslationPayload = (course: LocalCourse) => ({
+  title: course.title,
+  description: course.description,
+  stages: course.stages
+    .filter((stage) => stage.id > 0)
+    .map((stage) => ({ id: stage.id, title: stage.title, description: stage.description })),
+  lessons: course.stages.flatMap((stage) => stage.lessons)
+    .filter((lesson) => lesson.id > 0)
+    .map((lesson) => ({ id: lesson.id, title: lesson.title })),
+});
+
 
 // --- Course Editor Component ---
 
 interface CourseEditorProps {
   course: LocalCourse;
-  onSave: (course: LocalCourse) => Promise<void>;
+  onSave: (course: LocalCourse) => Promise<number | null | void>;
   onCancel: () => void;
+  onToast: (message: string, type: 'success' | 'error') => void;
   loading: boolean;
 }
 
-const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, loading }) => {
+const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, onToast, loading }) => {
   const { t } = useTranslation('courseManagement');
   const [formData, setFormData] = useState<LocalCourse>(course);
   const [saving, setSaving] = useState(false);
+  const [contentLocale, setContentLocale] = useState<Locale>('en-US');
+  const [loadingTranslation, setLoadingTranslation] = useState(false);
   
   // Docker 镜像列表
   const [dockerImages, setDockerImages] = useState<DockerImage[]>([]);
@@ -144,6 +191,32 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
   useEffect(() => {
     setFormData(course);
   }, [course]);
+
+  useEffect(() => {
+    if (!course.id) {
+      setFormData(course);
+      return;
+    }
+    const courseId = course.id;
+    let cancelled = false;
+    const loadTranslation = async () => {
+      setLoadingTranslation(true);
+      try {
+        const response = await courseApi.getContentTranslation(courseId, contentLocale);
+        if (!cancelled && response.success && response.data) {
+          setFormData(courseToLocalCourse(response.data));
+        }
+      } catch (err) {
+        console.error('加载课程翻译失败:', err);
+      } finally {
+        if (!cancelled) setLoadingTranslation(false);
+      }
+    };
+    loadTranslation();
+    return () => {
+      cancelled = true;
+    };
+  }, [course, contentLocale]);
 
   // 加载镜像与 Lab 模板列表
   useEffect(() => {
@@ -244,7 +317,25 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(formData);
+      if (formData.id && contentLocale !== 'en-US') {
+        const response = await courseApi.saveContentTranslation(formData.id, contentLocale, courseTranslationPayload(formData));
+        if (response.success) {
+          onToast(t('saved'), 'success');
+        } else {
+          onToast(response.error || t('saveFailed'), 'error');
+        }
+        return;
+      }
+
+      const wasExistingCourse = Boolean(formData.id);
+      const savedId = await onSave(formData);
+      const courseId = Number(savedId || formData.id || 0);
+      if (wasExistingCourse && courseId > 0) {
+        const response = await courseApi.saveContentTranslation(courseId, 'en-US', courseTranslationPayload(formData));
+        if (!response.success) {
+          onToast(response.error || t('saveFailed'), 'error');
+        }
+      }
     } finally {
       setSaving(false);
     }
@@ -296,6 +387,22 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-full bg-slate-100 p-1">
+            {(['en-US', 'zh-CN'] as Locale[]).map((locale) => (
+              <button
+                key={locale}
+                type="button"
+                onClick={() => setContentLocale(locale)}
+                disabled={saving || loadingTranslation}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                  contentLocale === locale ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {locale === 'en-US' ? 'English' : '中文'}
+              </button>
+            ))}
+          </div>
+          {loadingTranslation && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
           <button onClick={onCancel} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-colors">
             {t('cancel')}
           </button>
@@ -535,6 +642,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
               </div>
               <button 
                 onClick={handleAddStage}
+                disabled={contentLocale !== 'en-US'}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -580,6 +688,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                         />
                         <button 
                           onClick={() => handleDeleteStage(sIdx)}
+                          disabled={contentLocale !== 'en-US'}
                           className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -654,6 +763,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                               )}
                               <button 
                                 onClick={() => handleDeleteLesson(sIdx, lIdx)}
+                                disabled={contentLocale !== 'en-US'}
                                 className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -665,6 +775,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                       
                       <button 
                         onClick={() => handleAddLesson(sIdx)}
+                        disabled={contentLocale !== 'en-US'}
                         className="w-full py-3 border border-dashed border-slate-200 rounded-xl text-xs font-bold text-slate-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -1021,38 +1132,7 @@ const LearningManagement: React.FC = () => {
       // 获取完整课程信息（包含阶段和课时）
       const response = await courseApi.getById(course.id);
       if (response.success && response.data) {
-        const fullCourse = response.data;
-        setCurrentCourse({
-          id: fullCourse.id,
-          title: fullCourse.title,
-          slug: fullCourse.slug,
-          description: fullCourse.description,
-          iconUrl: fullCourse.iconUrl || '/icons/book.svg',
-          coverColor: fullCourse.coverColor || '#3b82f6',
-          difficulty: fullCourse.difficulty,
-          status: fullCourse.status,
-          estimatedHours: fullCourse.estimatedHours,
-          totalLessons: fullCourse.totalLessons,
-          totalSkills: fullCourse.totalSkills,
-          envImage: fullCourse.envImage || '',
-          ideImage: fullCourse.ideImage || '',
-          labTemplateId: fullCourse.labTemplateId || 0,
-          stages: (fullCourse.stages || []).map(stage => ({
-            id: stage.id,
-            title: stage.title,
-            description: stage.description || '',
-            levelLabel: stage.levelLabel || '',
-            sortOrder: stage.sortOrder,
-            lessons: (stage.lessons || []).map(lesson => ({
-              id: lesson.id,
-              title: lesson.title,
-              type: lesson.type as LessonTypeValue,
-              durationMinutes: lesson.durationMinutes,
-              points: lesson.points,
-              sortOrder: lesson.sortOrder,
-            })),
-          })),
-        });
+        setCurrentCourse(courseToLocalCourse(response.data));
         setView('editor');
       } else {
         showToast(response.error || t('detailFailed'), 'error');
@@ -1157,7 +1237,7 @@ const LearningManagement: React.FC = () => {
   };
 
   // 保存课程
-  const handleSave = async (courseData: LocalCourse) => {
+  const handleSave = async (courseData: LocalCourse): Promise<number | null | void> => {
     try {
       let courseId: number | null = courseData.id ?? currentCourse?.id ?? null;
       const coursePayload = {
@@ -1183,7 +1263,7 @@ const LearningManagement: React.FC = () => {
         
         if (!createResponse.success || !createResponse.data) {
           showToast(createResponse.error || t('createFailed'), 'error');
-          return;
+          return null;
         }
         courseId = createResponse.data.id;
       } else {
@@ -1195,7 +1275,7 @@ const LearningManagement: React.FC = () => {
         
         if (!updateResponse.success) {
           showToast(updateResponse.error || t('updateFailed'), 'error');
-          return;
+          return null;
         }
       }
 
@@ -1290,9 +1370,11 @@ const LearningManagement: React.FC = () => {
       await loadCourses(searchKeyword);
       setView('list');
       setCurrentCourse(null);
+      return courseId;
     } catch (error) {
       console.error('保存课程失败:', error);
       showToast(t('saveFailed'), 'error');
+      return null;
     }
   };
 
@@ -1326,6 +1408,7 @@ const LearningManagement: React.FC = () => {
             course={currentCourse}
             onSave={handleSave} 
             onCancel={handleCancel}
+            onToast={showToast}
             loading={loading}
           />
         ) : null}

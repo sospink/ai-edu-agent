@@ -1,5 +1,6 @@
 import { api } from './api';
 import i18n from '@/i18n';
+import type { Locale } from '@/i18n/types';
 import {
   downloadMarkdown,
   exportToMarkdown,
@@ -24,6 +25,10 @@ export type {
 
 export async function getManual(sourceType: number, sourceId: number): Promise<AgentManualAdmin> {
   return teacherManualApi.getManual(sourceType, sourceId);
+}
+
+export async function getManualTranslation(manualId: number, locale: Locale): Promise<AgentManualAdmin> {
+  return teacherManualApi.getManualTranslation(manualId, locale);
 }
 
 export async function createManual(data: {
@@ -71,6 +76,18 @@ export async function updateSteps(
     throw new Error(response.error);
   }
   return response.data?.steps || [];
+}
+
+export async function saveManualTranslation(
+  manualId: number,
+  locale: Locale,
+  data: {
+    title: string;
+    description?: string;
+    steps: Array<{ id?: number; title: string; content: ContentBlock[]; quickQuestions?: string[] }>;
+  }
+): Promise<AgentManualAdmin> {
+  return teacherManualApi.saveManualTranslation(manualId, locale, data);
 }
 
 export async function getVerificationSuggestion(data: {

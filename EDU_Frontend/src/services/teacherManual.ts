@@ -1,5 +1,6 @@
 import { createScopedApi } from './api';
 import type { ApiResponse, PaginatedResponse } from '@/types';
+import type { Locale } from '@/i18n/types';
 import i18n from '@/i18n';
 
 const teacherApi = createScopedApi('/teacher');
@@ -94,6 +95,19 @@ export const teacherManualApi = {
   async getManual(sourceType: number, sourceId: number): Promise<AgentManualAdmin> {
     const res = await teacherApi.get<AgentManualAdmin>(`/manuals/${sourceType}/${sourceId}`);
     if (res.error) return { exists: false };
+    return res as unknown as AgentManualAdmin;
+  },
+  async getManualTranslation(manualId: number, locale: Locale): Promise<AgentManualAdmin> {
+    const res = await teacherApi.get<AgentManualAdmin>(`/manual-translations/${manualId}/${locale}`);
+    if (res.error) return { exists: false };
+    return res as unknown as AgentManualAdmin;
+  },
+  async saveManualTranslation(
+    manualId: number,
+    locale: Locale,
+    data: { title: string; description?: string; steps: Array<{ id?: number; title: string; content: ContentBlock[]; quickQuestions?: string[] }> }
+  ): Promise<AgentManualAdmin> {
+    const res = await teacherApi.put<AgentManualAdmin>(`/manual-translations/${manualId}/${locale}`, data);
     return res as unknown as AgentManualAdmin;
   },
   createManual(data: { sourceType: number; sourceId: number; title: string; description?: string }) {

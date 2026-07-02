@@ -104,6 +104,45 @@ func (h *Handler) GetByID(c *gin.Context) {
 	response.SuccessKey(c, detail, "course.detailLoaded", nil)
 }
 
+func (h *Handler) GetContentTranslation(c *gin.Context) {
+	id, ok := parseUintParam(c, "id", "course.invalidId")
+	if !ok {
+		return
+	}
+	if !h.ensureCourseAccess(c, id) {
+		return
+	}
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	detail, err := h.service.FindByIDLocalized(i18n.WithLocale(c.Request.Context(), locale), id)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	response.SuccessKey(c, detail, "course.detailLoaded", nil)
+}
+
+func (h *Handler) SaveContentTranslation(c *gin.Context) {
+	id, ok := parseUintParam(c, "id", "course.invalidId")
+	if !ok {
+		return
+	}
+	if !h.ensureCourseAccess(c, id) {
+		return
+	}
+	var req CourseContentTranslationInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequestKey(c, "common.invalidParams", nil)
+		return
+	}
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	detail, err := h.service.SaveCourseContentTranslation(c.Request.Context(), id, locale, req)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	response.SuccessKey(c, detail, "course.updated", nil)
+}
+
 func (h *Handler) GetBySlug(c *gin.Context) {
 	detail, err := h.service.FindBySlugLocalized(c.Request.Context(), c.Param("slug"))
 	if err != nil {

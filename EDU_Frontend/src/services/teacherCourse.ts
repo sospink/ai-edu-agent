@@ -1,5 +1,6 @@
 import { createScopedApi } from './api';
 import type { ApiResponse } from '@/types';
+import type { Locale } from '@/i18n/types';
 import type {
   Course,
   CourseListQuery,
@@ -18,6 +19,20 @@ import type {
 
 const teacherApi = createScopedApi('/teacher');
 
+export interface CourseContentTranslationPayload {
+  title: string;
+  description: string;
+  stages: Array<{
+    id: number;
+    title: string;
+    description: string;
+  }>;
+  lessons: Array<{
+    id: number;
+    title: string;
+  }>;
+}
+
 const buildQuery = (query: object) => {
   const params = new URLSearchParams();
   Object.entries(query as Record<string, unknown>).forEach(([key, value]) => {
@@ -34,6 +49,12 @@ export const teacherCourseApi = {
   },
   getById(id: number): Promise<ApiResponse<Course>> {
     return teacherApi.get<Course>(`/courses/${id}`);
+  },
+  getContentTranslation(id: number, locale: Locale): Promise<ApiResponse<Course>> {
+    return teacherApi.get<Course>(`/courses/${id}/translations/${locale}`);
+  },
+  saveContentTranslation(id: number, locale: Locale, data: CourseContentTranslationPayload): Promise<ApiResponse<Course>> {
+    return teacherApi.put<Course>(`/courses/${id}/translations/${locale}`, data);
   },
   create(data: CreateCourseDTO): Promise<ApiResponse<Course>> {
     return teacherApi.post<Course>('/courses', data);

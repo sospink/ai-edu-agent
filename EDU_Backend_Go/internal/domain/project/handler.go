@@ -70,6 +70,47 @@ func (h *Handler) GetByID(c *gin.Context) {
 	response.SuccessKey(c, detail, "project.detailLoaded", nil)
 }
 
+func (h *Handler) GetContentTranslation(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequestKey(c, "project.invalidId", nil)
+		return
+	}
+	if !h.ensureProjectAccess(c, id) {
+		return
+	}
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	detail, serviceErr := h.service.FindByIDLocalized(i18n.WithLocale(c.Request.Context(), locale), id)
+	if serviceErr != nil {
+		_ = c.Error(serviceErr)
+		return
+	}
+	response.SuccessKey(c, detail, "project.detailLoaded", nil)
+}
+
+func (h *Handler) SaveContentTranslation(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequestKey(c, "project.invalidId", nil)
+		return
+	}
+	if !h.ensureProjectAccess(c, id) {
+		return
+	}
+	var req ProjectContentTranslationInput
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		response.BadRequestKey(c, "common.invalidParams", nil)
+		return
+	}
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	detail, serviceErr := h.service.SaveProjectContentTranslation(c.Request.Context(), id, locale, req)
+	if serviceErr != nil {
+		_ = c.Error(serviceErr)
+		return
+	}
+	response.SuccessKey(c, detail, "project.updated", nil)
+}
+
 func (h *Handler) GetBySlug(c *gin.Context) {
 	detail, err := h.service.FindBySlugLocalized(c.Request.Context(), c.Param("slug"))
 	if err != nil {

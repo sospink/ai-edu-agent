@@ -4,9 +4,28 @@ import (
 	"context"
 
 	"edu-platform/pkg/i18n"
+	"gorm.io/gorm/clause"
 )
 
 const translationStatusPublished = 1
+
+type StageContentTranslationInput struct {
+	ID          uint64 `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type LessonContentTranslationInput struct {
+	ID    uint64 `json:"id"`
+	Title string `json:"title"`
+}
+
+type CourseContentTranslationInput struct {
+	Title       string                          `json:"title"`
+	Description string                          `json:"description"`
+	Stages      []StageContentTranslationInput  `json:"stages"`
+	Lessons     []LessonContentTranslationInput `json:"lessons"`
+}
 
 func (s *Service) ListLocalized(ctx context.Context, page, pageSize int, keyword string, status, difficulty *int) ([]Course, int64, error) {
 	items, total, err := s.List(page, pageSize, keyword, status, difficulty)
@@ -14,6 +33,68 @@ func (s *Service) ListLocalized(ctx context.Context, page, pageSize int, keyword
 		return nil, 0, err
 	}
 	return s.localizeCourses(ctx, items), total, nil
+}
+
+func (s *Service) SaveCourseContentTranslation(ctx context.Context, courseID uint64, locale string, input CourseContentTranslationInput) (*CourseDetail, error) {
+	course, err := s.FindCourseEntity(courseID)
+	if err != nil {
+		return nil, err
+	}
+	normalizedLocale := i18n.NormalizeLocale(locale)
+	if err := s.repo.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "entity_id"}, {Name: "locale"}},
+		DoUpdates: clause.AssignmentColumns([]string{"title", "description", "status", "version", "updated_at"}),
+	}).Create(&CourseTranslation{
+		EntityID:    course.ID,
+		Locale:      normalizedLocale,
+		Title:       input.Title,
+		Description: input.Description,
+		Status:      translationStatusPublished,
+		Version:     1,
+	}).Error; err != nil {
+		return nil, err
+	}
+
+	for _, item := range input.Stages {
+		stage, err := s.repo.FindStageByID(item.ID)
+		if err != nil || stage.CourseID != course.ID {
+			continue
+		}
+		if err := s.repo.db.WithContext(ctx).Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "entity_id"}, {Name: "locale"}},
+			DoUpdates: clause.AssignmentColumns([]string{"title", "description", "status", "version", "updated_at"}),
+		}).Create(&CourseStageTranslation{
+			EntityID:    item.ID,
+			Locale:      normalizedLocale,
+			Title:       item.Title,
+			Description: item.Description,
+			Status:      translationStatusPublished,
+			Version:     1,
+		}).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	for _, item := range input.Lessons {
+		lesson, err := s.repo.FindLessonByID(item.ID)
+		if err != nil || lesson.CourseID != course.ID {
+			continue
+		}
+		if err := s.repo.db.WithContext(ctx).Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "entity_id"}, {Name: "locale"}},
+			DoUpdates: clause.AssignmentColumns([]string{"title", "description", "status", "version", "updated_at"}),
+		}).Create(&CourseLessonTranslation{
+			EntityID: item.ID,
+			Locale:   normalizedLocale,
+			Title:    item.Title,
+			Status:   translationStatusPublished,
+			Version:  1,
+		}).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	return s.FindByIDLocalized(i18n.WithLocale(ctx, normalizedLocale), course.ID)
 }
 
 func (s *Service) ListForTeacherLocalized(ctx context.Context, actorID uint64, roleType int, page, pageSize int, keyword string, status, difficulty *int) ([]Course, int64, error) {

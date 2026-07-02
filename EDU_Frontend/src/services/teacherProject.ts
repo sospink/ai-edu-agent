@@ -1,5 +1,6 @@
 import { createScopedApi } from './api';
 import type { ApiResponse } from '@/types';
+import type { Locale } from '@/i18n/types';
 import type {
   Project,
   ProjectListQuery,
@@ -15,6 +16,19 @@ import { API_BASE_URL } from '@/config';
 import i18n, { getCurrentLocale } from '@/i18n';
 
 const teacherApi = createScopedApi('/teacher');
+
+export interface ProjectContentTranslationPayload {
+  title: string;
+  subtitle: string;
+  description: string;
+  learningGoals: string[];
+  prerequisites: string[];
+  units: Array<{
+    id: number;
+    title: string;
+    description: string;
+  }>;
+}
 
 const buildQuery = (query: object) => {
   const params = new URLSearchParams();
@@ -32,6 +46,12 @@ export const teacherProjectApi = {
   },
   getById(id: number): Promise<ApiResponse<Project>> {
     return teacherApi.get<Project>(`/projects/${id}`);
+  },
+  getContentTranslation(id: number, locale: Locale): Promise<ApiResponse<Project>> {
+    return teacherApi.get<Project>(`/projects/${id}/translations/${locale}`);
+  },
+  saveContentTranslation(id: number, locale: Locale, data: ProjectContentTranslationPayload): Promise<ApiResponse<Project>> {
+    return teacherApi.put<Project>(`/projects/${id}/translations/${locale}`, data);
   },
   create(data: CreateProjectDTO): Promise<ApiResponse<Project>> {
     return teacherApi.post<Project>('/projects', data);

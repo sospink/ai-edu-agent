@@ -12,6 +12,7 @@ import PageDialog from '@/components/common/PageDialog';
 import PublishCheckDrawer from '@/components/teacher/PublishCheckDrawer';
 import { ToolbarSelect } from '@/components/common/ToolbarControls';
 import { useTranslation } from 'react-i18next';
+import type { Locale } from '@/i18n/types';
 
 interface AgentManualEditorProps {
   sourceType: 1 | 2;
@@ -306,6 +307,7 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [manualId, setManualId] = useState<number | null>(null);
+  const [contentLocale, setContentLocale] = useState<Locale>(() => (i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'));
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isPublished, setIsPublished] = useState(false);
@@ -326,17 +328,20 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
 
   useEffect(() => {
     loadManual();
-  }, [sourceType, sourceId, i18n.language]);
+  }, [sourceType, sourceId, contentLocale]);
 
   const loadManual = async () => {
     setLoading(true);
     try {
-      const data = await AdminAgentAPI.getManual(sourceType, sourceId);
+      const baseManual = await AdminAgentAPI.getManual(sourceType, sourceId);
+      const data = baseManual.exists && baseManual.id
+        ? await AdminAgentAPI.getManualTranslation(baseManual.id, contentLocale)
+        : baseManual;
       if (data.exists && data.id) {
         setManualId(data.id);
         setTitle(data.title || '');
         setDescription(data.description || '');
-        setIsPublished(data.isPublished === 1);
+        setIsPublished((data.isPublished ?? baseManual.isPublished) === 1);
         setSteps(data.steps || []);
       } else {
         setManualId(null);
@@ -382,6 +387,29 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
         setManualId(created.id);
       }
 
+      if (contentLocale !== 'en-US') {
+        const translated = await AdminAgentAPI.saveManualTranslation(nextManualId, contentLocale, {
+          title,
+          description,
+          steps: steps.map((step) => ({
+            id: step.id,
+            title: step.title,
+            content: step.content,
+            quickQuestions: step.quickQuestions,
+          })),
+        });
+        if (translated.steps) {
+          setSteps(translated.steps.map((step, index) => ({
+            ...step,
+            skillTags: steps[index]?.skillTags || step.skillTags || [],
+          })));
+        }
+        if (showSuccessToast) {
+          showToast(t('contentSaved'), 'success');
+        }
+        return nextManualId;
+      }
+
       const updateResponse = await teacherManualApi.updateManual(nextManualId, { title, description });
       if (!updateResponse.success) {
         showToast(updateResponse.error || t('saveBasicsFailed'), 'error');
@@ -403,6 +431,16 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
         step.id ? teacherAssignmentApi.updateAgentStepSkillTags(step.id, step.skillTags || []) : Promise.resolve()
       )));
       setSteps(nextSteps);
+      await AdminAgentAPI.saveManualTranslation(nextManualId, 'en-US', {
+        title,
+        description,
+        steps: nextSteps.map((step) => ({
+          id: step.id,
+          title: step.title,
+          content: step.content,
+          quickQuestions: step.quickQuestions,
+        })),
+      });
 
       if (showSuccessToast) {
         showToast(t('contentSaved'), 'success');
@@ -621,6 +659,23 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
       <ToastContainer toast={toast} onClose={hideToast} />
       {/* 基本信息 */}
       <div className="space-y-3">
+        <div className="flex justify-end">
+          <div className="inline-flex rounded-full bg-slate-100 p-1">
+            {(['en-US', 'zh-CN'] as Locale[]).map((locale) => (
+              <button
+                key={locale}
+                type="button"
+                onClick={() => setContentLocale(locale)}
+                disabled={saving || loading}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                  contentLocale === locale ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {locale === 'en-US' ? 'English' : '中文'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div>
           <label className="block text-xs font-bold text-slate-600 mb-1">{t('manualTitle')}</label>
           <input

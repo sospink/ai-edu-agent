@@ -596,6 +596,55 @@ func (h *Handler) UpdateManual(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetManualContentTranslation(c *gin.Context) {
+	manualID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || manualID == 0 {
+		response.BadRequestKey(c, "agent.invalidParams", nil)
+		return
+	}
+	if !h.ensureManualAccessByID(c, manualID) {
+		return
+	}
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	manual, err := h.service.GetManualByID(i18n.WithLocale(c.Request.Context(), locale), manualID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NotFoundKey(c, "agent.manualNotFound", nil)
+		return
+	}
+	if err != nil {
+		response.InternalKey(c, "agent.internalError", nil)
+		return
+	}
+	c.JSON(http.StatusOK, buildManualAdminResponse(manual))
+}
+
+func (h *Handler) SaveManualContentTranslation(c *gin.Context) {
+	manualID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || manualID == 0 {
+		response.BadRequestKey(c, "agent.invalidParams", nil)
+		return
+	}
+	if !h.ensureManualAccessByID(c, manualID) {
+		return
+	}
+	var req AgentManualContentTranslationInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequestKey(c, "agent.invalidParams", nil)
+		return
+	}
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	manual, err := h.service.SaveManualContentTranslation(c.Request.Context(), manualID, locale, req)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NotFoundKey(c, "agent.manualNotFound", nil)
+		return
+	}
+	if err != nil {
+		response.InternalKey(c, "agent.internalError", nil)
+		return
+	}
+	c.JSON(http.StatusOK, buildManualAdminResponse(manual))
+}
+
 func (h *Handler) DeleteManual(c *gin.Context) {
 	manualID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || manualID == 0 {

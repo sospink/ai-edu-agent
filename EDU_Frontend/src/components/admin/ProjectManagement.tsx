@@ -56,6 +56,7 @@ import { getImageUrlCandidates, handleImageFallback } from '@/config';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { getCurrentLocale } from '@/i18n';
+import type { Locale } from '@/i18n/types';
 
 // ==================== 类型定义 ====================
 
@@ -101,12 +102,41 @@ const labTemplatePortSummary = (template: LabTemplate, t: TFunction) => {
   return t('ports', { ports: ports.map((port) => `${port.type === 'novnc' ? 'Desktop' : (port.label || port.name)}:${port.containerPort}`).join('/') });
 };
 
+const projectToFormData = (p: Project): ProjectFormData => ({
+  id: p.id,
+  title: p.title,
+  slug: p.slug,
+  subtitle: p.subtitle,
+  coverUrl: p.coverUrl,
+  difficulty: p.difficulty,
+  status: p.status,
+  description: p.description || '',
+  learningGoals: p.learningGoals || [],
+  prerequisites: p.prerequisites || [],
+  tagIds: p.tags?.map((tag) => tag.id) || [],
+  units: p.units || [],
+  envImage: p.envImage || '',
+  ideImage: p.ideImage || '',
+  labTemplateId: p.labTemplateId || 0,
+});
+
+const projectTranslationPayload = (project: ProjectFormData) => ({
+  title: project.title,
+  subtitle: project.subtitle,
+  description: project.description,
+  learningGoals: project.learningGoals,
+  prerequisites: project.prerequisites,
+  units: project.units
+    .filter((unit) => unit.id > 0)
+    .map((unit) => ({ id: unit.id, title: unit.title, description: unit.description || '' })),
+});
+
 // ==================== 项目编辑器组件 ====================
 
 interface ProjectEditorProps {
   project: ProjectFormData;
   allTags: Tag[];
-  onSave: (data: ProjectFormData) => Promise<void>;
+  onSave: (data: ProjectFormData) => Promise<number | null | void>;
   onCancel: () => void;
   loading: boolean;
   onToast: (message: string, type: 'success' | 'error') => void;
@@ -118,6 +148,8 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
   const { t } = useTranslation('projectManagement');
   const [formData, setFormData] = useState<ProjectFormData>(project);
   const [activeTab, setActiveTab] = useState<'basics' | 'syllabus' | 'settings'>('basics');
+  const [contentLocale, setContentLocale] = useState<Locale>('en-US');
+  const [loadingTranslation, setLoadingTranslation] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [newGoal, setNewGoal] = useState('');
   const [newPrereq, setNewPrereq] = useState('');
@@ -136,6 +168,36 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
   // Agent 手册 Modal 状态
   const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<{ id: number; title: string } | null>(null);
+
+  useEffect(() => {
+    setFormData(project);
+  }, [project]);
+
+  useEffect(() => {
+    if (!project.id) {
+      setFormData(project);
+      return;
+    }
+    const projectId = project.id;
+    let cancelled = false;
+    const loadTranslation = async () => {
+      setLoadingTranslation(true);
+      try {
+        const result = await projectApi.getContentTranslation(projectId, contentLocale);
+        if (!cancelled && result.success && result.data) {
+          setFormData(projectToFormData(result.data));
+        }
+      } catch (err) {
+        console.error('加载项目翻译失败:', err);
+      } finally {
+        if (!cancelled) setLoadingTranslation(false);
+      }
+    };
+    loadTranslation();
+    return () => {
+      cancelled = true;
+    };
+  }, [project, contentLocale]);
 
   // 加载镜像与 Lab 模板列表
   useEffect(() => {
@@ -308,6 +370,28 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
     );
   };
 
+  const handleSaveClick = async () => {
+    if (formData.id && contentLocale !== 'en-US') {
+      const result = await projectApi.saveContentTranslation(formData.id, contentLocale, projectTranslationPayload(formData));
+      if (result.success) {
+        onToast(t('saved'), 'success');
+      } else {
+        onToast(result.error || t('saveFailed'), 'error');
+      }
+      return;
+    }
+
+    const wasExistingProject = Boolean(formData.id);
+    const savedId = await onSave(formData);
+    const projectId = Number(savedId || formData.id || 0);
+    if (wasExistingProject && projectId > 0) {
+      const result = await projectApi.saveContentTranslation(projectId, 'en-US', projectTranslationPayload(formData));
+      if (!result.success) {
+        onToast(result.error || t('saveFailed'), 'error');
+      }
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -333,6 +417,22 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-full bg-slate-100 p-1">
+            {(['en-US', 'zh-CN'] as Locale[]).map((locale) => (
+              <button
+                key={locale}
+                type="button"
+                onClick={() => setContentLocale(locale)}
+                disabled={loading || loadingTranslation}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                  contentLocale === locale ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {locale === 'en-US' ? 'English' : '中文'}
+              </button>
+            ))}
+          </div>
+          {loadingTranslation && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
           <button
             onClick={onCancel}
             className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-colors"
@@ -340,7 +440,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
             {t('cancel')}
           </button>
           <button
-            onClick={() => onSave(formData)}
+            onClick={() => void handleSaveClick()}
             disabled={loading}
             className="px-6 py-2.5 rounded-xl text-sm font-bold bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2 disabled:opacity-50"
           >
@@ -778,6 +878,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                     <h3 className="text-lg font-bold text-slate-800">{t('units')}</h3>
                     <button
                       onClick={handleAddUnit}
+                      disabled={contentLocale !== 'en-US'}
                       className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-bold transition-colors border border-slate-200 flex items-center gap-2"
                     >
                       <Plus className="w-3 h-3" />
@@ -897,6 +998,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                           )}
                           <button
                             onClick={() => handleDeleteUnit(index)}
+                            disabled={contentLocale !== 'en-US'}
                             className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1464,24 +1566,7 @@ const ProjectManagement: React.FC = () => {
       // 获取完整项目信息（包含单元）
       const result = await projectApi.getById(project.id);
       if (result.success && result.data) {
-        const p = result.data;
-        setCurrentProject({
-          id: p.id,
-          title: p.title,
-          slug: p.slug,
-          subtitle: p.subtitle,
-          coverUrl: p.coverUrl,
-          difficulty: p.difficulty,
-          status: p.status,
-          description: p.description || '',
-          learningGoals: p.learningGoals || [],
-          prerequisites: p.prerequisites || [],
-          tagIds: p.tags?.map((t) => t.id) || [],
-          units: p.units || [],
-          envImage: p.envImage || '',
-          ideImage: p.ideImage || '',
-          labTemplateId: p.labTemplateId || 0,
-        });
+        setCurrentProject(projectToFormData(result.data));
         setView('editor');
       }
     } catch (error) {
@@ -1492,14 +1577,14 @@ const ProjectManagement: React.FC = () => {
   };
 
   // 保存项目
-  const handleSave = async (data: ProjectFormData) => {
+  const handleSave = async (data: ProjectFormData): Promise<number | null | void> => {
     if (!data.title.trim()) {
       error(t('nameRequired'));
-      return;
+      return null;
     }
     if (!data.slug.trim()) {
       error(t('slugRequired'));
-      return;
+      return null;
     }
 
     setSaving(true);
@@ -1527,7 +1612,7 @@ const ProjectManagement: React.FC = () => {
         const result = await projectApi.update(data.id, projectData);
         if (!result.success) {
           error(result.error || t('updateFailed'));
-          return;
+          return null;
         }
         projectId = data.id;
       } else {
@@ -1535,7 +1620,7 @@ const ProjectManagement: React.FC = () => {
         const result = await projectApi.create(projectData);
         if (!result.success || !result.data) {
           error(result.error || t('createFailed'));
-          return;
+          return null;
         }
         projectId = result.data.id;
       }
@@ -1581,9 +1666,11 @@ const ProjectManagement: React.FC = () => {
       setView('list');
       setCurrentProject(null);
       loadProjects();
+      return projectId;
     } catch (err) {
       console.error('保存失败:', err);
       error(t('saveFailed'));
+      return null;
     } finally {
       setSaving(false);
     }

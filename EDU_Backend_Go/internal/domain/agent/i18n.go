@@ -4,9 +4,67 @@ import (
 	"context"
 
 	"edu-platform/pkg/i18n"
+	"gorm.io/gorm/clause"
 )
 
 const translationStatusPublished = 1
+
+type AgentStepContentTranslationInput struct {
+	ID             uint64         `json:"id"`
+	Title          string         `json:"title"`
+	Content        []ContentBlock `json:"content"`
+	QuickQuestions []string       `json:"quickQuestions"`
+}
+
+type AgentManualContentTranslationInput struct {
+	Title       string                             `json:"title"`
+	Description string                             `json:"description"`
+	Steps       []AgentStepContentTranslationInput `json:"steps"`
+}
+
+func (s *Service) SaveManualContentTranslation(ctx context.Context, manualID uint64, locale string, input AgentManualContentTranslationInput) (*AgentManual, error) {
+	manual, err := s.FindManualByID(ctx, manualID)
+	if err != nil {
+		return nil, err
+	}
+	normalizedLocale := i18n.NormalizeLocale(locale)
+	if err := s.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "entity_id"}, {Name: "locale"}},
+		DoUpdates: clause.AssignmentColumns([]string{"title", "description", "status", "version", "updated_at"}),
+	}).Create(&AgentManualTranslation{
+		EntityID:    manual.ID,
+		Locale:      normalizedLocale,
+		Title:       input.Title,
+		Description: input.Description,
+		Status:      translationStatusPublished,
+		Version:     1,
+	}).Error; err != nil {
+		return nil, err
+	}
+
+	for _, item := range input.Steps {
+		var step AgentStep
+		if err := s.db.WithContext(ctx).Where("id = ? AND manual_id = ?", item.ID, manual.ID).First(&step).Error; err != nil {
+			continue
+		}
+		if err := s.db.WithContext(ctx).Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "entity_id"}, {Name: "locale"}},
+			DoUpdates: clause.AssignmentColumns([]string{"title", "content_json", "quick_questions_json", "status", "version", "updated_at"}),
+		}).Create(&AgentStepTranslation{
+			EntityID:       item.ID,
+			Locale:         normalizedLocale,
+			Title:          item.Title,
+			Content:        sanitizeContentBlocks(item.Content),
+			QuickQuestions: sanitizeQuickQuestions(item.QuickQuestions),
+			Status:         translationStatusPublished,
+			Version:        1,
+		}).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	return s.GetManualByID(i18n.WithLocale(ctx, normalizedLocale), manual.ID)
+}
 
 func (s *Service) localizeManual(ctx context.Context, manual *AgentManual) {
 	if manual == nil {
