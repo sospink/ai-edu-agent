@@ -83,7 +83,7 @@ type ChatEntry = {
   hintLevel?: 1 | 2 | 3;
 };
 
-const chatStorageKey = (manualId: number) => `agent:coach:chat:${manualId}`;
+const chatStorageKey = (manualId: number, locale: string) => `agent:coach:chat:${manualId}:${locale}`;
 
 const toAPIChatHistory = (chat: ChatEntry[]): AgentAPI.ChatMessage[] => chat
   .filter(msg => typeof msg.content === 'string' && msg.content.trim())
@@ -93,9 +93,9 @@ const toAPIChatHistory = (chat: ChatEntry[]): AgentAPI.ChatMessage[] => chat
     content: msg.content as string,
   }));
 
-const restoreSessionChat = (manualId: number): ChatEntry[] => {
+const restoreSessionChat = (manualId: number, locale: string): ChatEntry[] => {
   try {
-    const raw = sessionStorage.getItem(chatStorageKey(manualId));
+    const raw = sessionStorage.getItem(chatStorageKey(manualId, locale));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ChatEntry[];
     if (!Array.isArray(parsed)) return [];
@@ -105,10 +105,10 @@ const restoreSessionChat = (manualId: number): ChatEntry[] => {
   }
 };
 
-const persistSessionChat = (manualId: number | null, chat: ChatEntry[]) => {
+const persistSessionChat = (manualId: number | null, locale: string, chat: ChatEntry[]) => {
   if (!manualId) return;
   try {
-    sessionStorage.setItem(chatStorageKey(manualId), JSON.stringify(chat.slice(-20)));
+    sessionStorage.setItem(chatStorageKey(manualId, locale), JSON.stringify(chat.slice(-20)));
   } catch {
     // sessionStorage 不可用时忽略，服务端仍保持无状态
   }
@@ -142,7 +142,8 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   onComplete,
   onExecuteCommand,
 }) => {
-  const { t } = useTranslation('agent');
+  const { t, i18n } = useTranslation('agent');
+  const currentLocale = i18n.resolvedLanguage || i18n.language;
   // 自动判断模式：有 sourceType 和 sourceId 时为教学模式，否则为聊天模式
   const mode = propMode || (sourceType && sourceId ? 'teaching' : 'chat');
   const isChatMode = mode === 'chat';
@@ -195,7 +196,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
     if (sourceType && sourceId) {
       loadManual();
     }
-  }, [sourceType, sourceId]);
+  }, [sourceType, sourceId, currentLocale]);
 
   const loadManual = async () => {
     if (!sourceType || !sourceId) return;
@@ -219,7 +220,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           quickQuestions: s.quickQuestions || [],
           verification: s.verification || undefined,
         })));
-        const cachedChat = restoreSessionChat(manual.id);
+        const cachedChat = restoreSessionChat(manual.id, currentLocale);
         if (cachedChat.length > 0) {
           setChatLog(cachedChat);
         }
@@ -253,7 +254,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       if (progress) {
         setCurrentStep(progress.currentStep);
         setCompletedSteps(progress.completedSteps);
-        const cachedChat = manual?.id ? restoreSessionChat(manual.id) : [];
+        const cachedChat = manual?.id ? restoreSessionChat(manual.id, currentLocale) : [];
         // v1 coach 对话优先从 sessionStorage 恢复；没有本地历史时兼容旧服务端进度。
         if (cachedChat.length > 0) {
           setChatLog(cachedChat);
@@ -378,8 +379,8 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   }, [currentStep, chatLog, isValidating, streamingContent, verificationResult]);
 
   useEffect(() => {
-    persistSessionChat(manualId, chatLog);
-  }, [manualId, chatLog]);
+    persistSessionChat(manualId, currentLocale, chatLog);
+  }, [manualId, currentLocale, chatLog]);
 
   useEffect(() => {
     if (isOpen && manualId) {
