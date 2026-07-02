@@ -22,7 +22,7 @@ interface SkillDetailProps {
 }
 
 const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, currentUser, onLoginRequired }) => {
-  const { t } = useTranslation('student');
+  const { t, i18n } = useTranslation('student');
   const [skill, setSkill] = useState<Skill>(initialSkill);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,11 +42,6 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
   // 加载完整课程数据（包含阶段和课时）
   useEffect(() => {
     const fetchCourseDetail = async () => {
-      // 如果已经有阶段数据，不需要重新加载
-      if (skill.stages && skill.stages.length > 0) {
-        return;
-      }
-
       try {
         setLoading(true);
         setError(null);
@@ -88,7 +83,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
     };
 
     fetchCourseDetail();
-  }, [skill.id, t]);
+  }, [skill.id, t, i18n.language]);
 
   // 加载用户学习记录
   useEffect(() => {

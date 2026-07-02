@@ -43,7 +43,7 @@ func (h *TeacherHandler) List(c *gin.Context) {
 		}
 	}
 
-	list, total, err := h.service.ListForTeacher(claims.UserID, claims.RoleType, q.Page, q.PageSize, c.Query("keyword"), status, difficulty)
+	list, total, err := h.service.ListForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, q.Page, q.PageSize, c.Query("keyword"), status, difficulty)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -69,7 +69,7 @@ func (h *TeacherHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	detail, err := h.service.FindByIDForTeacher(claims.UserID, claims.RoleType, id)
+	detail, err := h.service.FindByIDForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, id)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -90,7 +90,7 @@ func (h *TeacherHandler) GetStages(c *gin.Context) {
 		return
 	}
 
-	stages, err := h.service.GetCourseStagesForTeacher(claims.UserID, claims.RoleType, courseID)
+	stages, err := h.service.GetCourseStagesForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, courseID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -111,7 +111,7 @@ func (h *TeacherHandler) GetLessons(c *gin.Context) {
 		return
 	}
 
-	lessons, err := h.service.GetCourseLessonsForTeacher(claims.UserID, claims.RoleType, courseID)
+	lessons, err := h.service.GetCourseLessonsForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, courseID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -132,7 +132,7 @@ func (h *TeacherHandler) GetStageLessons(c *gin.Context) {
 		return
 	}
 
-	lessons, err := h.service.GetStageLessonsForTeacher(claims.UserID, claims.RoleType, stageID)
+	lessons, err := h.service.GetStageLessonsForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, stageID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -153,7 +153,7 @@ func (h *TeacherHandler) GetLessonByID(c *gin.Context) {
 		return
 	}
 
-	lesson, err := h.service.GetLessonByIDForTeacher(claims.UserID, claims.RoleType, lessonID)
+	lesson, err := h.service.GetLessonByIDForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, lessonID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -174,7 +174,7 @@ func (h *TeacherHandler) GetLessonMaterials(c *gin.Context) {
 		return
 	}
 
-	materials, err := h.service.GetLessonMaterialsForTeacher(claims.UserID, claims.RoleType, lessonID)
+	materials, err := h.service.GetLessonMaterialsForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, lessonID)
 	if err != nil {
 		_ = c.Error(err)
 		return

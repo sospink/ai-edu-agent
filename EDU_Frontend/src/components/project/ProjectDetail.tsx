@@ -21,7 +21,7 @@ interface ProjectDetailProps {
 }
 
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, onBack, currentUser, onLoginRequired }) => {
-  const { t } = useTranslation('project');
+  const { t, i18n } = useTranslation('project');
   const [activeTab, setActiveTab] = useState<'intro' | 'syllabus'>('intro');
   const [project, setProject] = useState<Project>(initialProject);
   const [units, setUnits] = useState<ProjectUnit[]>([]);
@@ -53,7 +53,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
     };
 
     loadProjectDetail();
-  }, [initialProject.id]);
+  }, [initialProject.id, i18n.language]);
 
   const level = getDifficultyLevel(project.difficulty);
   const { color } = getDifficultyColor(project.difficulty);

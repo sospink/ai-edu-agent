@@ -300,7 +300,7 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
   sourceId,
   sourceName,
 }) => {
-  const { t } = useTranslation('agentManualEditor');
+  const { t, i18n } = useTranslation('agentManualEditor');
   // 统一复用全站通知组件，避免本编辑器单独使用 HeroUI addToast 造成弹窗样式不一致
   const { toast, showToast, hideToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -326,7 +326,7 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
 
   useEffect(() => {
     loadManual();
-  }, [sourceType, sourceId]);
+  }, [sourceType, sourceId, i18n.language]);
 
   const loadManual = async () => {
     setLoading(true);

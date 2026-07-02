@@ -43,7 +43,7 @@ func (h *Handler) List(c *gin.Context) {
 		}
 	}
 
-	list, total, err := h.service.List(q.Page, q.PageSize, c.Query("keyword"), status, difficulty, tagID)
+	list, total, err := h.service.ListLocalized(c.Request.Context(), q.Page, q.PageSize, c.Query("keyword"), status, difficulty, tagID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -62,7 +62,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
-	detail, serviceErr := h.service.FindByID(id)
+	detail, serviceErr := h.service.FindByIDLocalized(c.Request.Context(), id)
 	if serviceErr != nil {
 		_ = c.Error(serviceErr)
 		return
@@ -71,7 +71,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 }
 
 func (h *Handler) GetBySlug(c *gin.Context) {
-	detail, err := h.service.FindBySlug(c.Param("slug"))
+	detail, err := h.service.FindBySlugLocalized(c.Request.Context(), c.Param("slug"))
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -85,7 +85,7 @@ func (h *Handler) GetUnits(c *gin.Context) {
 		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
-	units, serviceErr := h.service.GetUnits(id)
+	units, serviceErr := h.service.GetUnitsLocalized(c.Request.Context(), id)
 	if serviceErr != nil {
 		_ = c.Error(serviceErr)
 		return

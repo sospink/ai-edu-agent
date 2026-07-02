@@ -26,23 +26,25 @@ const (
 )
 
 type Course struct {
-	ID             uint64       `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	Title          string       `gorm:"column:title;size:128;not null;default:''" json:"title"`
-	Slug           string       `gorm:"column:slug;size:128;unique;not null;default:''" json:"slug"`
-	Description    string       `gorm:"column:description;size:512;not null;default:''" json:"description"`
-	IconURL        string       `gorm:"column:icon_url;size:512;not null;default:''" json:"iconUrl"`
-	CoverColor     string       `gorm:"column:cover_color;size:32;not null;default:''" json:"coverColor"`
-	Difficulty     int          `gorm:"column:difficulty;not null;default:1" json:"difficulty"`
-	TotalLessons   int          `gorm:"column:total_lessons;not null;default:0" json:"totalLessons"`
-	TotalSkills    int          `gorm:"column:total_skills;not null;default:0" json:"totalSkills"`
-	EstimatedHours int          `gorm:"column:estimated_hours;not null;default:0" json:"estimatedHours"`
-	Status         CourseStatus `gorm:"column:status;not null;default:0" json:"status"`
-	EnvImage       string       `gorm:"column:env_image;size:256;not null;default:''" json:"envImage"`
-	IDEImage       string       `gorm:"column:ide_image;size:256;not null;default:''" json:"ideImage"`
-	LabTemplateID  uint64       `gorm:"column:lab_template_id;not null;default:0" json:"labTemplateId"`
-	CreatorID      uint64       `gorm:"column:creator_id;not null;default:0" json:"creatorId"`
-	CreatedAt      time.Time    `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt      time.Time    `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID                 uint64       `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	Title              string       `gorm:"column:title;size:128;not null;default:''" json:"title"`
+	Slug               string       `gorm:"column:slug;size:128;unique;not null;default:''" json:"slug"`
+	Description        string       `gorm:"column:description;size:512;not null;default:''" json:"description"`
+	IconURL            string       `gorm:"column:icon_url;size:512;not null;default:''" json:"iconUrl"`
+	CoverColor         string       `gorm:"column:cover_color;size:32;not null;default:''" json:"coverColor"`
+	Difficulty         int          `gorm:"column:difficulty;not null;default:1" json:"difficulty"`
+	TotalLessons       int          `gorm:"column:total_lessons;not null;default:0" json:"totalLessons"`
+	TotalSkills        int          `gorm:"column:total_skills;not null;default:0" json:"totalSkills"`
+	EstimatedHours     int          `gorm:"column:estimated_hours;not null;default:0" json:"estimatedHours"`
+	Status             CourseStatus `gorm:"column:status;not null;default:0" json:"status"`
+	EnvImage           string       `gorm:"column:env_image;size:256;not null;default:''" json:"envImage"`
+	IDEImage           string       `gorm:"column:ide_image;size:256;not null;default:''" json:"ideImage"`
+	LabTemplateID      uint64       `gorm:"column:lab_template_id;not null;default:0" json:"labTemplateId"`
+	CreatorID          uint64       `gorm:"column:creator_id;not null;default:0" json:"creatorId"`
+	CreatedAt          time.Time    `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt          time.Time    `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	Locale             string       `gorm:"-" json:"locale,omitempty"`
+	TranslationMissing bool         `gorm:"-" json:"translationMissing,omitempty"`
 }
 
 func (Course) TableName() string {
@@ -50,13 +52,15 @@ func (Course) TableName() string {
 }
 
 type CourseStage struct {
-	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	CourseID    uint64    `gorm:"column:course_id;not null;default:0" json:"courseId"`
-	Title       string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
-	Description string    `gorm:"column:description;size:512;not null;default:''" json:"description"`
-	SortOrder   int       `gorm:"column:sort_order;not null;default:0" json:"sortOrder"`
-	LevelLabel  string    `gorm:"column:level_label;size:32;not null;default:''" json:"levelLabel"`
-	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	ID                 uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	CourseID           uint64    `gorm:"column:course_id;not null;default:0" json:"courseId"`
+	Title              string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
+	Description        string    `gorm:"column:description;size:512;not null;default:''" json:"description"`
+	SortOrder          int       `gorm:"column:sort_order;not null;default:0" json:"sortOrder"`
+	LevelLabel         string    `gorm:"column:level_label;size:32;not null;default:''" json:"levelLabel"`
+	CreatedAt          time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	Locale             string    `gorm:"-" json:"locale,omitempty"`
+	TranslationMissing bool      `gorm:"-" json:"translationMissing,omitempty"`
 }
 
 func (CourseStage) TableName() string {
@@ -64,16 +68,18 @@ func (CourseStage) TableName() string {
 }
 
 type CourseLesson struct {
-	ID              uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	CourseID        uint64    `gorm:"column:course_id;not null;default:0" json:"courseId"`
-	StageID         uint64    `gorm:"column:stage_id;not null;default:0" json:"stageId"`
-	Title           string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
-	Type            int       `gorm:"column:type;not null;default:1" json:"type"`
-	DurationMinutes int       `gorm:"column:duration_minutes;not null;default:15" json:"durationMinutes"`
-	LabIdentifier   string    `gorm:"column:lab_identifier;size:64;not null;default:''" json:"labIdentifier"`
-	Points          int       `gorm:"column:points;not null;default:0" json:"points"`
-	SortOrder       int       `gorm:"column:sort_order;not null;default:0" json:"sortOrder"`
-	CreatedAt       time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	ID                 uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	CourseID           uint64    `gorm:"column:course_id;not null;default:0" json:"courseId"`
+	StageID            uint64    `gorm:"column:stage_id;not null;default:0" json:"stageId"`
+	Title              string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
+	Type               int       `gorm:"column:type;not null;default:1" json:"type"`
+	DurationMinutes    int       `gorm:"column:duration_minutes;not null;default:15" json:"durationMinutes"`
+	LabIdentifier      string    `gorm:"column:lab_identifier;size:64;not null;default:''" json:"labIdentifier"`
+	Points             int       `gorm:"column:points;not null;default:0" json:"points"`
+	SortOrder          int       `gorm:"column:sort_order;not null;default:0" json:"sortOrder"`
+	CreatedAt          time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	Locale             string    `gorm:"-" json:"locale,omitempty"`
+	TranslationMissing bool      `gorm:"-" json:"translationMissing,omitempty"`
 }
 
 func (CourseLesson) TableName() string {
@@ -102,16 +108,18 @@ func (LessonSkill) TableName() string {
 }
 
 type LessonMaterial struct {
-	ID        uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	LessonID  uint64    `gorm:"column:lesson_id;not null;default:0" json:"lessonId"`
-	Title     string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
-	Type      int       `gorm:"column:type;not null;default:1" json:"type"`
-	FileURL   string    `gorm:"column:file_url;size:512;not null;default:''" json:"fileUrl"`
-	FileName  string    `gorm:"column:file_name;size:256;not null;default:''" json:"fileName"`
-	FileSize  int64     `gorm:"column:file_size;not null;default:0" json:"fileSize"`
-	SortOrder int       `gorm:"column:sort_order;not null;default:0" json:"sortOrder"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID                 uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	LessonID           uint64    `gorm:"column:lesson_id;not null;default:0" json:"lessonId"`
+	Title              string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
+	Type               int       `gorm:"column:type;not null;default:1" json:"type"`
+	FileURL            string    `gorm:"column:file_url;size:512;not null;default:''" json:"fileUrl"`
+	FileName           string    `gorm:"column:file_name;size:256;not null;default:''" json:"fileName"`
+	FileSize           int64     `gorm:"column:file_size;not null;default:0" json:"fileSize"`
+	SortOrder          int       `gorm:"column:sort_order;not null;default:0" json:"sortOrder"`
+	CreatedAt          time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt          time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	Locale             string    `gorm:"-" json:"locale,omitempty"`
+	TranslationMissing bool      `gorm:"-" json:"translationMissing,omitempty"`
 }
 
 func (LessonMaterial) TableName() string {
@@ -180,6 +188,69 @@ type AssignedCourse struct {
 	Course
 	UserProgress int `json:"userProgress"`
 }
+
+type CourseTranslation struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	EntityID    uint64    `gorm:"column:entity_id;not null;uniqueIndex:uniq_course_translation_locale" json:"entityId"`
+	Locale      string    `gorm:"column:locale;size:16;not null;uniqueIndex:uniq_course_translation_locale" json:"locale"`
+	Title       string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
+	Description string    `gorm:"column:description;size:512;not null;default:''" json:"description"`
+	Status      int       `gorm:"column:status;not null;default:1" json:"status"`
+	Version     int       `gorm:"column:version;not null;default:1" json:"version"`
+	SourceHash  string    `gorm:"column:source_hash;size:64;not null;default:''" json:"sourceHash"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (CourseTranslation) TableName() string { return "course_translations" }
+
+type CourseStageTranslation struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	EntityID    uint64    `gorm:"column:entity_id;not null;uniqueIndex:uniq_course_stage_translation_locale" json:"entityId"`
+	Locale      string    `gorm:"column:locale;size:16;not null;uniqueIndex:uniq_course_stage_translation_locale" json:"locale"`
+	Title       string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
+	Description string    `gorm:"column:description;size:512;not null;default:''" json:"description"`
+	Status      int       `gorm:"column:status;not null;default:1" json:"status"`
+	Version     int       `gorm:"column:version;not null;default:1" json:"version"`
+	SourceHash  string    `gorm:"column:source_hash;size:64;not null;default:''" json:"sourceHash"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (CourseStageTranslation) TableName() string { return "course_stage_translations" }
+
+type CourseLessonTranslation struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	EntityID    uint64    `gorm:"column:entity_id;not null;uniqueIndex:uniq_course_lesson_translation_locale" json:"entityId"`
+	Locale      string    `gorm:"column:locale;size:16;not null;uniqueIndex:uniq_course_lesson_translation_locale" json:"locale"`
+	Title       string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
+	Description string    `gorm:"column:description;size:512;not null;default:''" json:"description"`
+	Status      int       `gorm:"column:status;not null;default:1" json:"status"`
+	Version     int       `gorm:"column:version;not null;default:1" json:"version"`
+	SourceHash  string    `gorm:"column:source_hash;size:64;not null;default:''" json:"sourceHash"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (CourseLessonTranslation) TableName() string { return "course_lesson_translations" }
+
+type LessonMaterialTranslation struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	EntityID    uint64    `gorm:"column:entity_id;not null;uniqueIndex:uniq_lesson_material_translation_locale" json:"entityId"`
+	Locale      string    `gorm:"column:locale;size:16;not null;uniqueIndex:uniq_lesson_material_translation_locale" json:"locale"`
+	Title       string    `gorm:"column:title;size:128;not null;default:''" json:"title"`
+	Description string    `gorm:"column:description;size:512;not null;default:''" json:"description"`
+	FileURL     string    `gorm:"column:file_url;size:512;not null;default:''" json:"fileUrl"`
+	FileName    string    `gorm:"column:file_name;size:256;not null;default:''" json:"fileName"`
+	FileSize    int64     `gorm:"column:file_size;not null;default:0" json:"fileSize"`
+	Status      int       `gorm:"column:status;not null;default:1" json:"status"`
+	Version     int       `gorm:"column:version;not null;default:1" json:"version"`
+	SourceHash  string    `gorm:"column:source_hash;size:64;not null;default:''" json:"sourceHash"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (LessonMaterialTranslation) TableName() string { return "lesson_material_translations" }
 
 type EnrollmentWithCourse struct {
 	UserCourseEnrollment

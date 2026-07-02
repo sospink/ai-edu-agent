@@ -62,7 +62,7 @@ func (h *Handler) List(c *gin.Context) {
 		}
 	}
 
-	list, total, err := h.service.List(q.Page, q.PageSize, c.Query("keyword"), status, difficulty)
+	list, total, err := h.service.ListLocalized(c.Request.Context(), q.Page, q.PageSize, c.Query("keyword"), status, difficulty)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -83,7 +83,7 @@ func (h *Handler) ListAssignedForStudent(c *gin.Context) {
 		return
 	}
 	classID, _ := strconv.ParseUint(c.Query("classId"), 10, 64)
-	items, err := h.service.ListAssignedForStudent(c.Request.Context(), claims.UserID, classID)
+	items, err := h.service.ListAssignedForStudentLocalized(c.Request.Context(), claims.UserID, classID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -96,7 +96,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 	if !ok {
 		return
 	}
-	detail, err := h.service.FindByID(id)
+	detail, err := h.service.FindByIDLocalized(c.Request.Context(), id)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -105,7 +105,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 }
 
 func (h *Handler) GetBySlug(c *gin.Context) {
-	detail, err := h.service.FindBySlug(c.Param("slug"))
+	detail, err := h.service.FindBySlugLocalized(c.Request.Context(), c.Param("slug"))
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -118,7 +118,7 @@ func (h *Handler) GetStages(c *gin.Context) {
 	if !ok {
 		return
 	}
-	stages, err := h.service.GetCourseStages(courseID)
+	stages, err := h.service.GetCourseStagesLocalized(c.Request.Context(), courseID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -131,7 +131,7 @@ func (h *Handler) GetLessons(c *gin.Context) {
 	if !ok {
 		return
 	}
-	lessons, err := h.service.GetCourseLessons(courseID)
+	lessons, err := h.service.GetCourseLessonsLocalized(c.Request.Context(), courseID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -144,7 +144,7 @@ func (h *Handler) GetStageLessons(c *gin.Context) {
 	if !ok {
 		return
 	}
-	lessons, err := h.service.GetStageLessons(stageID)
+	lessons, err := h.service.GetStageLessonsLocalized(c.Request.Context(), stageID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -157,7 +157,7 @@ func (h *Handler) GetLessonByID(c *gin.Context) {
 	if !ok {
 		return
 	}
-	lesson, err := h.service.GetLessonByID(lessonID)
+	lesson, err := h.service.GetLessonByIDLocalized(c.Request.Context(), lessonID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -170,7 +170,7 @@ func (h *Handler) GetLessonMaterials(c *gin.Context) {
 	if !ok {
 		return
 	}
-	materials, err := h.service.GetLessonMaterials(lessonID)
+	materials, err := h.service.GetLessonMaterialsLocalized(c.Request.Context(), lessonID)
 	if err != nil {
 		_ = c.Error(err)
 		return

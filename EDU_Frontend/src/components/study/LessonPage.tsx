@@ -934,7 +934,7 @@ const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, on
 
 // 主组件
 const LessonPage: React.FC = () => {
-  const { t } = useTranslation('lesson');
+  const { t, i18n } = useTranslation('lesson');
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1114,7 +1114,7 @@ const LessonPage: React.FC = () => {
     };
 
     fetchMaterials();
-  }, [lessonId]);
+  }, [lessonId, i18n.language]);
 
   // 加载课程上下文（用于 Dify 动态开场）
   useEffect(() => {
@@ -1146,7 +1146,7 @@ const LessonPage: React.FC = () => {
     };
 
     fetchCourseContext();
-  }, [lessonId, initialCourseId]);
+  }, [lessonId, initialCourseId, i18n.language]);
 
   useEffect(() => {
     let cancelled = false;

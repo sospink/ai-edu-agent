@@ -295,7 +295,7 @@ const ClassCoursesSection: React.FC<ClassCoursesSectionProps> = ({ skills, loadi
 };
 
 const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => {
-  const { t } = useTranslation('study');
+  const { t, i18n } = useTranslation('study');
   const [searchParams, setSearchParams] = useSearchParams();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -343,7 +343,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
     };
 
     fetchCourses();
-  }, []);
+  }, [i18n.language]);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -462,7 +462,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
     };
 
     void loadAssignedCourses();
-  }, [selectedClassId, canUseClassContext]);
+  }, [selectedClassId, canUseClassContext, i18n.language]);
 
   // 加载状态
   if (loading) {

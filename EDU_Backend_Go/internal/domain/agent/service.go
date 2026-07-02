@@ -57,6 +57,7 @@ func (s *Service) GetManual(ctx context.Context, sourceType int, sourceID uint64
 	if err := s.loadManualSteps(ctx, &manual); err != nil {
 		return nil, err
 	}
+	s.localizeManual(ctx, &manual)
 	return &manual, nil
 }
 
@@ -70,6 +71,7 @@ func (s *Service) GetManualForAdmin(ctx context.Context, sourceType int, sourceI
 	if err := s.loadManualSteps(ctx, &manual); err != nil {
 		return nil, err
 	}
+	s.localizeManual(ctx, &manual)
 	return &manual, nil
 }
 
@@ -81,6 +83,7 @@ func (s *Service) GetManualByID(ctx context.Context, manualID uint64) (*AgentMan
 	if err := s.loadManualSteps(ctx, &manual); err != nil {
 		return nil, err
 	}
+	s.localizeManual(ctx, &manual)
 	return &manual, nil
 }
 
@@ -829,6 +832,8 @@ func (s *Service) findStep(ctx context.Context, manualID uint64, stepOrder int) 
 	if err := s.db.WithContext(ctx).Where("manual_id = ? AND step_order = ?", manualID, stepOrder).First(&step).Error; err != nil {
 		return nil, err
 	}
+	localized := s.localizeSteps(ctx, []AgentStep{step})
+	step = localized[0]
 	return &step, nil
 }
 

@@ -43,7 +43,7 @@ const isOpenClawProject = (project: Project): boolean =>
   (project.tags || []).some((tag) => tag.name.trim().toLowerCase().replace(/[\s_-]/g, '') === 'openclaw');
 
 const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
-  const { t } = useTranslation('project');
+  const { t, i18n } = useTranslation('project');
   const [projects, setProjects] = useState<Project[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +91,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
   useEffect(() => {
     loadProjects();
     loadTags();
-  }, []);
+  }, [i18n.language]);
 
   const handleSearch = () => {
     loadProjects(searchQuery, activeFilter || undefined);

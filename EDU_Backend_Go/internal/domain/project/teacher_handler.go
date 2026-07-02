@@ -50,7 +50,7 @@ func (h *TeacherHandler) List(c *gin.Context) {
 		}
 	}
 
-	list, total, err := h.service.ListForTeacher(claims.UserID, claims.RoleType, q.Page, q.PageSize, c.Query("keyword"), status, difficulty, tagID)
+	list, total, err := h.service.ListForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, q.Page, q.PageSize, c.Query("keyword"), status, difficulty, tagID)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -77,7 +77,7 @@ func (h *TeacherHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	detail, serviceErr := h.service.FindByIDForTeacher(claims.UserID, claims.RoleType, id)
+	detail, serviceErr := h.service.FindByIDForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, id)
 	if serviceErr != nil {
 		_ = c.Error(serviceErr)
 		return
@@ -99,7 +99,7 @@ func (h *TeacherHandler) GetUnits(c *gin.Context) {
 		return
 	}
 
-	units, serviceErr := h.service.GetUnitsForTeacher(claims.UserID, claims.RoleType, id)
+	units, serviceErr := h.service.GetUnitsForTeacherLocalized(c.Request.Context(), claims.UserID, claims.RoleType, id)
 	if serviceErr != nil {
 		_ = c.Error(serviceErr)
 		return

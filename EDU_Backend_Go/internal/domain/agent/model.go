@@ -66,16 +66,18 @@ type CoachMeta struct {
 }
 
 type AgentManual struct {
-	ID          uint64      `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	SourceType  int         `gorm:"column:source_type;not null;default:1" json:"sourceType"`
-	SourceID    uint64      `gorm:"column:source_id;not null;default:0" json:"sourceId"`
-	Title       string      `gorm:"column:title;size:255;not null;default:''" json:"title"`
-	Description string      `gorm:"column:description;type:text" json:"description"`
-	IsPublished int         `gorm:"column:is_published;not null;default:0" json:"isPublished"`
-	CreatorID   uint64      `gorm:"column:creator_id;not null;default:0" json:"creatorId"`
-	CreatedAt   time.Time   `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt   time.Time   `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
-	Steps       []AgentStep `gorm:"-" json:"steps,omitempty"`
+	ID                 uint64      `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	SourceType         int         `gorm:"column:source_type;not null;default:1" json:"sourceType"`
+	SourceID           uint64      `gorm:"column:source_id;not null;default:0" json:"sourceId"`
+	Title              string      `gorm:"column:title;size:255;not null;default:''" json:"title"`
+	Description        string      `gorm:"column:description;type:text" json:"description"`
+	IsPublished        int         `gorm:"column:is_published;not null;default:0" json:"isPublished"`
+	CreatorID          uint64      `gorm:"column:creator_id;not null;default:0" json:"creatorId"`
+	CreatedAt          time.Time   `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt          time.Time   `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	Steps              []AgentStep `gorm:"-" json:"steps,omitempty"`
+	Locale             string      `gorm:"-" json:"locale,omitempty"`
+	TranslationMissing bool        `gorm:"-" json:"translationMissing,omitempty"`
 }
 
 func (AgentManual) TableName() string {
@@ -83,21 +85,54 @@ func (AgentManual) TableName() string {
 }
 
 type AgentStep struct {
-	ID             uint64            `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	ManualID       uint64            `gorm:"column:manual_id;not null;default:0" json:"manualId"`
-	StepOrder      int               `gorm:"column:step_order;not null;default:0" json:"stepOrder"`
-	Title          string            `gorm:"column:title;size:255;not null;default:''" json:"title"`
-	Content        []ContentBlock    `gorm:"column:content;serializer:json" json:"content"`
-	QuickQuestions []string          `gorm:"column:quick_questions;serializer:json" json:"quickQuestions"`
-	Verification   *VerificationRule `gorm:"column:verification;serializer:json" json:"verification"`
-	SkillTags      []string          `gorm:"-" json:"skillTags,omitempty"`
-	CreatedAt      time.Time         `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt      time.Time         `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID                 uint64            `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	ManualID           uint64            `gorm:"column:manual_id;not null;default:0" json:"manualId"`
+	StepOrder          int               `gorm:"column:step_order;not null;default:0" json:"stepOrder"`
+	Title              string            `gorm:"column:title;size:255;not null;default:''" json:"title"`
+	Content            []ContentBlock    `gorm:"column:content;serializer:json" json:"content"`
+	QuickQuestions     []string          `gorm:"column:quick_questions;serializer:json" json:"quickQuestions"`
+	Verification       *VerificationRule `gorm:"column:verification;serializer:json" json:"verification"`
+	SkillTags          []string          `gorm:"-" json:"skillTags,omitempty"`
+	CreatedAt          time.Time         `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt          time.Time         `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	Locale             string            `gorm:"-" json:"locale,omitempty"`
+	TranslationMissing bool              `gorm:"-" json:"translationMissing,omitempty"`
 }
 
 func (AgentStep) TableName() string {
 	return "agent_steps"
 }
+
+type AgentManualTranslation struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	EntityID    uint64    `gorm:"column:entity_id;not null;uniqueIndex:uniq_agent_manual_translation_locale" json:"entityId"`
+	Locale      string    `gorm:"column:locale;size:16;not null;uniqueIndex:uniq_agent_manual_translation_locale" json:"locale"`
+	Title       string    `gorm:"column:title;size:255;not null;default:''" json:"title"`
+	Description string    `gorm:"column:description;type:text" json:"description"`
+	Status      int       `gorm:"column:status;not null;default:1" json:"status"`
+	Version     int       `gorm:"column:version;not null;default:1" json:"version"`
+	SourceHash  string    `gorm:"column:source_hash;size:64;not null;default:''" json:"sourceHash"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (AgentManualTranslation) TableName() string { return "agent_manual_translations" }
+
+type AgentStepTranslation struct {
+	ID             uint64         `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	EntityID       uint64         `gorm:"column:entity_id;not null;uniqueIndex:uniq_agent_step_translation_locale" json:"entityId"`
+	Locale         string         `gorm:"column:locale;size:16;not null;uniqueIndex:uniq_agent_step_translation_locale" json:"locale"`
+	Title          string         `gorm:"column:title;size:255;not null;default:''" json:"title"`
+	Content        []ContentBlock `gorm:"column:content_json;serializer:json" json:"content"`
+	QuickQuestions []string       `gorm:"column:quick_questions_json;serializer:json" json:"quickQuestions"`
+	Status         int            `gorm:"column:status;not null;default:1" json:"status"`
+	Version        int            `gorm:"column:version;not null;default:1" json:"version"`
+	SourceHash     string         `gorm:"column:source_hash;size:64;not null;default:''" json:"sourceHash"`
+	CreatedAt      time.Time      `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt      time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (AgentStepTranslation) TableName() string { return "agent_step_translations" }
 
 type UserAgentProgress struct {
 	ID             uint64        `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
