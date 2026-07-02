@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Background } from '@/components/common/Background';
 import Navbar from '@/components/layout/Navbar';
 import Hero from '@/components/home/Hero';
@@ -37,14 +38,18 @@ const getInitialAuthUser = (): User | null => {
   return null;
 };
 
-const AuthRestoreFallback: React.FC = () => (
-  <div className="flex min-h-screen items-center justify-center bg-background px-6">
-    <div className="card-surface rounded-3xl px-8 py-7 text-center">
-      <div className="text-base font-semibold text-foreground">正在恢复登录状态</div>
-      <div className="mt-2 text-sm text-default-500">请稍候，正在校验当前会话。</div>
+const AuthRestoreFallback: React.FC = () => {
+  const { t } = useTranslation('auth');
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="card-surface rounded-3xl px-8 py-7 text-center">
+        <div className="text-base font-semibold text-foreground">{t('restoringTitle')}</div>
+        <div className="mt-2 text-sm text-default-500">{t('restoringDesc')}</div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const isSafeInternalRedirect = (redirect: string | null): redirect is string => {
   return Boolean(redirect && redirect.startsWith('/') && !redirect.startsWith('//'));
@@ -316,6 +321,12 @@ const AppContent: React.FC = () => {
     const storedUser = authService.getStoredUser();
     if (storedUser && authService.isLoggedIn()) {
       setCurrentUser(storedUser);
+      void authService.getCurrentUser().then((response) => {
+        if (response.success && response.data) {
+          setCurrentUser(response.data);
+          localStorage.setItem('currentUser', JSON.stringify(response.data));
+        }
+      });
     } else {
       setCurrentUser(null);
     }

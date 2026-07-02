@@ -5,6 +5,7 @@ import { RoleType } from '@/types';
 import { studentClassApi } from '@/services/studentClass';
 import type { ClassItem } from '@/services/classroom';
 import { formatDate, getClassStatusMeta } from '@/services/classroom';
+import { useTranslation } from 'react-i18next';
 
 interface StudyClassesSectionProps {
   currentUser: User | null;
@@ -12,6 +13,7 @@ interface StudyClassesSectionProps {
 }
 
 const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, onLoginRequired }) => {
+  const { t } = useTranslation('student');
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<ClassItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, 
         setItems(response.data);
       } else {
         setItems([]);
-        setError(response.error || '获取我的班级失败');
+        setError(response.error || t('loadClassesFailed'));
       }
       setLoading(false);
     };
@@ -43,10 +45,10 @@ const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, 
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-bold text-primary-700">
             <School2 className="h-3.5 w-3.5" />
-            我的班级
+            {t('myClasses')}
           </div>
-          <h3 className="mt-4 text-2xl font-black tracking-tight text-slate-900">教学组织视图</h3>
-          <p className="mt-2 text-sm text-slate-500">在这里快速确认当前归属班级、任课教师和班级状态。</p>
+          <h3 className="mt-4 text-2xl font-black tracking-tight text-slate-900">{t('classOverview')}</h3>
+          <p className="mt-2 text-sm text-slate-500">{t('classOverviewDesc')}</p>
         </div>
         {!currentUser && (
           <button
@@ -54,27 +56,27 @@ const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, 
             className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             <LogIn className="h-4 w-4" />
-            登录后查看
+            {t('loginToView')}
           </button>
         )}
       </div>
 
       {!currentUser && (
         <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-8 text-center text-sm text-slate-500">
-          学生登录后会在这里看到所属班级与当前学期信息。
+          {t('classLoginHint')}
         </div>
       )}
 
       {currentUser && currentUser.roleType !== RoleType.STUDENT && (
         <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-8 text-center text-sm text-slate-500">
-          当前账号不是学生角色，学习中心不展示班级归属卡片。
+          {t('studentOnlyClasses')}
         </div>
       )}
 
       {currentUser && currentUser.roleType === RoleType.STUDENT && loading && (
         <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-5 py-8 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          正在同步我的班级...
+          {t('syncingClasses')}
         </div>
       )}
 
@@ -86,7 +88,7 @@ const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, 
 
       {currentUser && currentUser.roleType === RoleType.STUDENT && !loading && !error && items.length === 0 && (
         <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-8 text-center text-sm text-slate-500">
-          当前还没有加入任何班级，后续教师导入后会自动出现在这里。
+          {t('noClasses')}
         </div>
       )}
 
@@ -111,17 +113,17 @@ const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, 
                 </div>
                 <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <div className="text-xs text-slate-400">主教师</div>
+                    <div className="text-xs text-slate-400">{t('primaryTeacher')}</div>
                     <div className="mt-1 font-semibold text-slate-700">{item.ownerTeacherName || '—'}</div>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <div className="text-xs text-slate-400">成员规模</div>
+                    <div className="text-xs text-slate-400">{t('memberCount')}</div>
                     <div className="mt-1 font-semibold text-slate-700">{item.activeMemberCount} / {item.memberCount}</div>
                   </div>
                 </div>
                 <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
                   <BookMarked className="h-3.5 w-3.5" />
-                  最近同步于 {formatDate(item.updatedAt)}
+                  {t('syncedAt', { date: formatDate(item.updatedAt) })}
                 </div>
               </article>
             );

@@ -64,8 +64,9 @@ func TestLogoutRevokesTokenForHTTPAndTerminalWS(t *testing.T) {
 		t.Fatalf("read websocket rejection body failed: %v", readErr)
 	}
 	_ = resp.Body.Close()
-	if !strings.Contains(string(body), "token 已失效") {
-		t.Fatalf("expected revoked token message, got %s", string(body))
+	// 断言稳定的错误码而非具体文案，避免 i18n 文案调整误伤用例。
+	if !strings.Contains(string(body), "TERMINAL_TOKEN_REVOKED") {
+		t.Fatalf("expected revoked token code, got %s", string(body))
 	}
 }
 

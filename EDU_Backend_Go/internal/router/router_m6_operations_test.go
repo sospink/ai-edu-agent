@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -48,7 +47,9 @@ func TestM6QuotaBlocksClassicLabAndRecordsEvent(t *testing.T) {
 		"sourceType": lab.SourceTypeCourse,
 		"sourceId":   courseRecord.ID,
 	}, studentToken)
-	if resp.Code != http.StatusBadRequest || !strings.Contains(resp.Body.String(), "并发上限") {
+	var quotaAPI apiResponse
+	decodeJSON(t, resp.Body.Bytes(), &quotaAPI)
+	if resp.Code != http.StatusBadRequest || quotaAPI.Code != "LAB_CREATE_FAILED" {
 		t.Fatalf("expected quota block 400, got %d: %s", resp.Code, resp.Body.String())
 	}
 

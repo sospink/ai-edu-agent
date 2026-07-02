@@ -18,24 +18,24 @@ func AuthMiddleware(manager *appjwt.Manager, blacklist *authz.TokenBlacklist) gi
 	return func(c *gin.Context) {
 		token := appjwt.ExtractBearerToken(c.GetHeader("Authorization"))
 		if token == "" {
-			response.Unauthorized(c, "未提供认证令牌")
+			response.UnauthorizedKey(c, "auth.tokenRequired", nil)
 			c.Abort()
 			return
 		}
 		claims, err := manager.ParseToken(token)
 		if err != nil {
-			response.Unauthorized(c, "认证令牌无效或已过期")
+			response.UnauthorizedKey(c, "auth.tokenInvalid", nil)
 			c.Abort()
 			return
 		}
 		revoked, err := blacklist.IsRevoked(c.Request.Context(), token)
 		if err != nil {
-			response.Internal(c, "认证状态校验失败")
+			response.InternalKey(c, "auth.statusFailed", nil)
 			c.Abort()
 			return
 		}
 		if revoked {
-			response.Unauthorized(c, "认证令牌已失效")
+			response.UnauthorizedKey(c, "auth.tokenRevoked", nil)
 			c.Abort()
 			return
 		}
@@ -64,13 +64,13 @@ func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, ok := c.Get(UserClaimsKey)
 		if !ok {
-			response.Unauthorized(c, "请先登录")
+			response.UnauthorizedKey(c, "auth.required", nil)
 			c.Abort()
 			return
 		}
 		claims, ok := raw.(*appjwt.Claims)
 		if !ok || claims.RoleType != 10 {
-			response.Forbidden(c, "需要管理员权限")
+			response.ForbiddenKey(c, "auth.adminRequired", nil)
 			c.Abort()
 			return
 		}
@@ -82,13 +82,13 @@ func TeacherMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, ok := c.Get(UserClaimsKey)
 		if !ok {
-			response.Unauthorized(c, "请先登录")
+			response.UnauthorizedKey(c, "auth.required", nil)
 			c.Abort()
 			return
 		}
 		claims, ok := raw.(*appjwt.Claims)
 		if !ok || claims.RoleType < 2 {
-			response.Forbidden(c, "需要教务端权限")
+			response.ForbiddenKey(c, "auth.teacherRequired", nil)
 			c.Abort()
 			return
 		}
@@ -99,25 +99,25 @@ func TeacherMiddleware() gin.HandlerFunc {
 func CasbinMiddleware(enforcer *casbin.Enforcer) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if enforcer == nil {
-			response.Internal(c, "权限服务未初始化")
+			response.InternalKey(c, "auth.permissionUnavailable", nil)
 			c.Abort()
 			return
 		}
 		claims, ok := CurrentClaims(c)
 		if !ok || claims == nil {
-			response.Unauthorized(c, "请先登录")
+			response.UnauthorizedKey(c, "auth.required", nil)
 			c.Abort()
 			return
 		}
 
 		allowed, err := enforcer.Enforce(fmt.Sprintf("role:%d", claims.RoleType), c.Request.URL.Path, c.Request.Method)
 		if err != nil {
-			response.Internal(c, "权限校验失败")
+			response.InternalKey(c, "auth.permissionCheckFailed", nil)
 			c.Abort()
 			return
 		}
 		if !allowed {
-			response.Forbidden(c, "无权访问该资源")
+			response.ForbiddenKey(c, "auth.accessForbidden", nil)
 			c.Abort()
 			return
 		}

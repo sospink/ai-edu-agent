@@ -19,15 +19,16 @@ import {
 import { teacherManualApi, type TeacherManualListItem } from '@/services/teacherManual';
 import { teacherClassApi } from '@/services/teacherClass';
 import type { ClassItem } from '@/services/classroom';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import { getCurrentLocale } from '@/i18n';
 
-const todoTypeMeta: Record<TodoItemType, { label: string; className: string; icon: React.ElementType }> = {
-  pending_review: { label: '待批改', className: 'bg-cyan-50 text-cyan-700', icon: ClipboardCheck },
-  overdue_missing: { label: '逾期未交', className: 'bg-amber-50 text-amber-700', icon: Clock3 },
-  verification_failed: { label: '验证失败', className: 'bg-rose-50 text-rose-700', icon: FileWarning },
-  lab_failed: { label: 'Lab 异常', className: 'bg-violet-50 text-violet-700', icon: ShieldAlert },
-};
-
-const formatDateTime = (value?: string | null) => (value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '未设置');
+const getTodoTypeMeta = (t: TFunction): Record<TodoItemType, { label: string; className: string; icon: React.ElementType }> => ({
+  pending_review: { label: t('todoTypes.pendingReview'), className: 'bg-cyan-50 text-cyan-700', icon: ClipboardCheck },
+  overdue_missing: { label: t('todoTypes.overdueMissing'), className: 'bg-amber-50 text-amber-700', icon: Clock3 },
+  verification_failed: { label: t('todoTypes.verificationFailed'), className: 'bg-rose-50 text-rose-700', icon: FileWarning },
+  lab_failed: { label: t('todoTypes.labFailed'), className: 'bg-violet-50 text-violet-700', icon: ShieldAlert },
+});
 
 type ActionTarget = {
   mode: 'remind' | 'reopen';
@@ -39,6 +40,7 @@ type ActionTarget = {
 };
 
 const TeacherDashboard: React.FC = () => {
+  const { t } = useTranslation('teacherDashboard');
   const navigate = useNavigate();
   const { toast, hideToast, success, error: showError } = useToast();
   const [overview, setOverview] = useState<TeachingOverview | null>(null);
@@ -73,7 +75,7 @@ const TeacherDashboard: React.FC = () => {
     ]);
 
     if (overviewResp.success && overviewResp.data) setOverview(overviewResp.data);
-    else showError(overviewResp.error || '加载教学过程概览失败');
+    else showError(overviewResp.error || t('loadFailed'));
 
     setTodos(todoResp.success && todoResp.data ? todoResp.data.list : []);
     setTodoTotal(todoResp.success && todoResp.data ? todoResp.data.total : 0);
@@ -133,7 +135,7 @@ const TeacherDashboard: React.FC = () => {
       setAgentStepStats(response.data);
     } else {
       setAgentStepStats([]);
-      showError(response.error || 'Agent 步骤统计加载失败');
+      showError(response.error || t('agentStatsFailed'));
     }
   };
 
@@ -144,13 +146,13 @@ const TeacherDashboard: React.FC = () => {
   }, [selectedManualKey, selectedClassId]);
 
   const kpis = useMemo(() => [
-    { key: 'pending_review' as TodoItemType, label: '待批改', value: overview?.pendingReview || 0, icon: ClipboardCheck, accent: 'text-cyan-600 bg-cyan-50' },
-    { key: 'overdue_missing' as TodoItemType, label: '逾期未交', value: overview?.overdueMissing || 0, icon: Clock3, accent: 'text-amber-700 bg-amber-50' },
-    { key: 'verification_failed' as TodoItemType, label: '验证失败', value: overview?.verificationFailed || 0, icon: FileWarning, accent: 'text-rose-600 bg-rose-50' },
-    { key: 'lab_failed' as TodoItemType, label: 'Lab 异常', value: overview?.labFailed || 0, icon: ShieldAlert, accent: 'text-violet-600 bg-violet-50' },
-    { key: 'risk' as const, label: '风险学生', value: overview?.riskStudents || 0, icon: AlertTriangle, accent: 'text-orange-700 bg-orange-50' },
-    { key: 'low' as const, label: '低完成班级', value: overview?.lowCompletionClasses || 0, icon: TrendingDown, accent: 'text-slate-700 bg-slate-100' },
-  ], [overview]);
+    { key: 'pending_review' as TodoItemType, label: t('todoTypes.pendingReview'), value: overview?.pendingReview || 0, icon: ClipboardCheck, accent: 'text-cyan-600 bg-cyan-50' },
+    { key: 'overdue_missing' as TodoItemType, label: t('todoTypes.overdueMissing'), value: overview?.overdueMissing || 0, icon: Clock3, accent: 'text-amber-700 bg-amber-50' },
+    { key: 'verification_failed' as TodoItemType, label: t('todoTypes.verificationFailed'), value: overview?.verificationFailed || 0, icon: FileWarning, accent: 'text-rose-600 bg-rose-50' },
+    { key: 'lab_failed' as TodoItemType, label: t('todoTypes.labFailed'), value: overview?.labFailed || 0, icon: ShieldAlert, accent: 'text-violet-600 bg-violet-50' },
+    { key: 'risk' as const, label: t('riskStudents'), value: overview?.riskStudents || 0, icon: AlertTriangle, accent: 'text-orange-700 bg-orange-50' },
+    { key: 'low' as const, label: t('lowCompletionClasses'), value: overview?.lowCompletionClasses || 0, icon: TrendingDown, accent: 'text-slate-700 bg-slate-100' },
+  ], [overview, t]);
 
   const handleKpiClick = (key: TodoItemType | 'risk' | 'low') => {
     if (key === 'risk' || key === 'low') return;
@@ -160,7 +162,7 @@ const TeacherDashboard: React.FC = () => {
 
   const openAction = (target: ActionTarget) => {
     setActionTarget(target);
-    setActionMessage(target.mode === 'reopen' ? '已为你重开一次提交，请根据反馈补充后重新提交。' : '请关注本次作业进度和老师反馈。');
+    setActionMessage(target.mode === 'reopen' ? t('reopenDefault') : t('remindDefault'));
   };
 
   const submitAction = async () => {
@@ -182,11 +184,11 @@ const TeacherDashboard: React.FC = () => {
       });
     setSubmittingAction(false);
     if (response.success) {
-      success(actionTarget.mode === 'reopen' ? '已重开提交并通知学生' : '提醒已发送');
+      success(actionTarget.mode === 'reopen' ? t('reopened') : t('reminded'));
       setActionTarget(null);
       void load();
     } else {
-      showError(response.error || '操作失败');
+      showError(response.error || t('actionFailed'));
     }
   };
 
@@ -199,9 +201,9 @@ const TeacherDashboard: React.FC = () => {
     setAILoadingKey('');
     if (response.success && response.data) {
       setAISuggestion(response.data);
-      success('AI 作业摘要已生成');
+      success(t('aiSummaryGenerated'));
     } else {
-      showError(response.error || 'AI 作业摘要生成失败');
+      showError(response.error || t('aiSummaryFailed'));
     }
   };
 
@@ -212,9 +214,9 @@ const TeacherDashboard: React.FC = () => {
     setAILoadingKey('');
     if (response.success && response.data) {
       setAISuggestion(response.data);
-      success('AI 诊断已生成');
+      success(t('aiDiagnosisGenerated'));
     } else {
-      showError(response.error || 'AI 诊断生成失败');
+      showError(response.error || t('aiDiagnosisFailed'));
     }
   };
 
@@ -226,9 +228,9 @@ const TeacherDashboard: React.FC = () => {
     setAILoadingKey('');
     if (response.success && response.data) {
       setAISuggestion(response.data);
-      success('AI 步骤诊断已生成');
+      success(t('aiStepGenerated'));
     } else {
-      showError(response.error || 'AI 步骤诊断生成失败');
+      showError(response.error || t('aiStepFailed'));
     }
   };
 
@@ -238,14 +240,14 @@ const TeacherDashboard: React.FC = () => {
     const response = await teacherAssignmentApi.updateAISuggestion(aiSuggestion.id, action);
     setAISuggestionAction('');
     if (response.success) {
-      success(action === 'confirm' ? 'AI 建议已确认' : 'AI 建议已忽略');
+      success(action === 'confirm' ? t('aiConfirmed') : t('aiDismissed'));
       const shouldRefreshAgentStats = aiSuggestion.sourceType === 'agent_step';
       setAISuggestion(null);
       if (shouldRefreshAgentStats) {
         void loadAgentStepStats();
       }
     } else {
-      showError(response.error || 'AI 建议状态更新失败');
+      showError(response.error || t('aiUpdateFailed'));
     }
   };
 
@@ -254,20 +256,20 @@ const TeacherDashboard: React.FC = () => {
       <ToastContainer toast={toast} onClose={hideToast} />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">教学过程工作台</h2>
-          <p className="mt-1 text-sm text-default-500">发现待办、钻取原因、处理提醒与重开提交。</p>
+          <h2 className="text-2xl font-bold text-foreground">{t('title')}</h2>
+          <p className="mt-1 text-sm text-default-500">{t('subtitle')}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <ToolbarSearchField
             value={keyword}
             onChange={setKeyword}
             onEnter={() => void load(todoType, keyword)}
-            placeholder="搜索作业、学生、班级"
+            placeholder={t('searchPlaceholder')}
             className="sm:w-72"
           />
           <button onClick={() => void load()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-default-200 bg-white px-4 text-sm font-semibold text-default-600 hover:bg-default-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            刷新
+            {t('refresh')}
           </button>
         </div>
       </div>
@@ -287,14 +289,14 @@ const TeacherDashboard: React.FC = () => {
       <section className="card-surface overflow-hidden rounded-xl">
         <div className="flex flex-col gap-3 border-b border-default-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="font-semibold text-foreground">Agent 步骤卡点</h3>
-            <p className="mt-1 text-xs text-default-500">按教学手册和班级查看实训步骤中的验证失败与卡点学生。</p>
+            <h3 className="font-semibold text-foreground">{t('agentBottlenecks')}</h3>
+            <p className="mt-1 text-xs text-default-500">{t('agentBottlenecksDesc')}</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <ToolbarSelect
-              ariaLabel="选择教学手册"
+              ariaLabel={t('selectManual')}
               value={selectedManualKey}
-              placeholder={manuals.length === 0 ? '暂无已发布手册' : '选择教学手册'}
+              placeholder={manuals.length === 0 ? t('noPublishedManuals') : t('selectManual')}
               isDisabled={manuals.length === 0}
               disallowEmptySelection={false}
               onChange={setSelectedManualKey}
@@ -305,9 +307,9 @@ const TeacherDashboard: React.FC = () => {
               className="sm:w-72"
             />
             <ToolbarSelect
-              ariaLabel="选择班级"
+              ariaLabel={t('selectClass')}
               value={selectedClassId ? String(selectedClassId) : ''}
-              placeholder={classes.length === 0 ? '暂无班级' : '选择班级'}
+              placeholder={classes.length === 0 ? t('noClasses') : t('selectClass')}
               isDisabled={classes.length === 0}
               disallowEmptySelection={false}
               onChange={(value) => setSelectedClassId(Number(value) || 0)}
@@ -316,7 +318,7 @@ const TeacherDashboard: React.FC = () => {
             />
             <button onClick={() => void loadAgentStepStats()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-default-200 bg-white px-4 text-sm font-semibold text-default-600 hover:bg-default-50">
               <RefreshCw className={`h-4 w-4 ${agentStatsLoading ? 'animate-spin' : ''}`} />
-              刷新
+              {t('refresh')}
             </button>
           </div>
         </div>
@@ -324,39 +326,34 @@ const TeacherDashboard: React.FC = () => {
           <table className="min-w-full text-sm">
             <thead className="bg-default-50 text-left text-xs font-semibold text-default-500">
               <tr>
-                <th className="px-5 py-3">步骤</th>
-                <th className="px-5 py-3">完成率</th>
-                <th className="px-5 py-3">失败</th>
-                <th className="px-5 py-3">卡点预警</th>
-                <th className="px-5 py-3">最近失败</th>
-                <th className="px-5 py-3 text-right">操作</th>
+                <th className="px-5 py-3">{t('step')}</th><th className="px-5 py-3">{t('completionRate')}</th><th className="px-5 py-3">{t('failures')}</th><th className="px-5 py-3">{t('bottleneckAlert')}</th><th className="px-5 py-3">{t('recentFailure')}</th><th className="px-5 py-3 text-right">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-default-100">
               {agentStatsLoading ? (
                 <tr><td colSpan={6}><LoadingRows /></td></tr>
               ) : agentStepStats.length === 0 ? (
-                <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-default-400">请选择已发布手册和班级查看 Agent 步骤统计。</td></tr>
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-default-400">{t('selectStatsPrompt')}</td></tr>
               ) : agentStepStats.map((item) => {
                 const loadingKey = `step-${item.stepId}-${selectedClassId}`;
                 return (
                   <tr key={item.stepId} className="hover:bg-default-50/60">
                     <td className="px-5 py-4">
-                      <div className="font-semibold text-foreground">步骤 {item.stepOrder + 1}</div>
+                      <div className="font-semibold text-foreground">{t('stepNumber', { number: item.stepOrder + 1 })}</div>
                       <div className="max-w-[280px] truncate text-xs text-default-500">{item.stepTitle}</div>
                     </td>
                     <td className="px-5 py-4 text-default-600">{item.completedCount}/{item.totalStudents} · {Math.round(item.completionRate * 100)}%</td>
                     <td className="px-5 py-4 text-default-600">{item.failedCount}</td>
                     <td className="px-5 py-4">
                       {item.strugglingCount > 0 ? (
-                        <span className="rounded-full bg-danger-50 px-2.5 py-1 text-xs font-bold text-danger-700">{item.strugglingCount} 名学生连续失败 3 次以上</span>
+                        <span className="rounded-full bg-danger-50 px-2.5 py-1 text-xs font-bold text-danger-700">{t('struggling', { count: item.strugglingCount })}</span>
                       ) : (
-                        <span className="rounded-full bg-success-50 px-2.5 py-1 text-xs font-bold text-success-700">暂无卡点</span>
+                        <span className="rounded-full bg-success-50 px-2.5 py-1 text-xs font-bold text-success-700">{t('noBottleneck')}</span>
                       )}
                     </td>
                     <td className="px-5 py-4">
                       <div className="max-w-[260px] truncate text-xs text-default-500">
-                        {item.recentFailures[0]?.failureReason || '暂无失败记录'}
+                        {item.recentFailures[0]?.failureReason || t('noFailures')}
                       </div>
                     </td>
                     <td className="px-5 py-4 text-right">
@@ -366,7 +363,7 @@ const TeacherDashboard: React.FC = () => {
                         className="inline-flex items-center gap-1 rounded-xl border border-violet-100 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:text-default-300"
                       >
                         {aiLoadingKey === loadingKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                        AI 诊断
+                        {t('aiDiagnosis')}
                       </button>
                     </td>
                   </tr>
@@ -381,11 +378,11 @@ const TeacherDashboard: React.FC = () => {
         <section className="card-surface overflow-hidden rounded-xl">
           <div className="flex flex-col gap-3 border-b border-default-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h3 className="font-semibold text-foreground">教学待办</h3>
-              <p className="mt-1 text-xs text-default-500">共 {todoTotal} 条，点击 KPI 可快速筛选。</p>
+              <h3 className="font-semibold text-foreground">{t('teachingTodos')}</h3>
+              <p className="mt-1 text-xs text-default-500">{t('todoSummary', { count: todoTotal })}</p>
             </div>
             <ToolbarSelect
-              ariaLabel="按待办类型筛选"
+              ariaLabel={t('todoFilter')}
               value={todoType || 'all'}
               onChange={(value) => {
                 const next = value === 'all' ? '' : value as TodoItemType;
@@ -393,19 +390,20 @@ const TeacherDashboard: React.FC = () => {
                 void load(next, keyword);
               }}
               options={[
-                { key: 'all', label: '全部待办' },
-                { key: 'pending_review', label: '待批改' },
-                { key: 'overdue_missing', label: '逾期未交' },
-                { key: 'verification_failed', label: '验证失败' },
-                { key: 'lab_failed', label: 'Lab 异常' },
+                { key: 'all', label: t('allTodos') },
+                { key: 'pending_review', label: t('todoTypes.pendingReview') },
+                { key: 'overdue_missing', label: t('todoTypes.overdueMissing') },
+                { key: 'verification_failed', label: t('todoTypes.verificationFailed') },
+                { key: 'lab_failed', label: t('todoTypes.labFailed') },
               ]}
               className="lg:w-52"
             />
           </div>
           <div className="divide-y divide-default-100">
             {loading ? <LoadingRows /> : todos.length === 0 ? (
-              <div className="p-10 text-center text-sm text-default-400">当前没有符合条件的教学待办。</div>
+              <div className="p-10 text-center text-sm text-default-400">{t('noTodos')}</div>
             ) : todos.map((item) => {
+              const todoTypeMeta = getTodoTypeMeta(t);
               const meta = todoTypeMeta[item.type] || todoTypeMeta.pending_review;
               const Icon = meta.icon;
               return (
@@ -415,23 +413,23 @@ const TeacherDashboard: React.FC = () => {
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${meta.className}`}><Icon className="h-3.5 w-3.5" />{meta.label}</span>
                       <span className="truncate text-sm font-bold text-foreground">{item.assignmentTitle}</span>
                     </div>
-                    <div className="truncate text-sm text-default-500">{item.studentName || item.studentUsername} · {item.className || '未分班'}</div>
-                    <div className="mt-2 text-xs text-default-400">截止 {formatDateTime(item.dueAt)} · 更新 {formatDateTime(item.updatedAt)}</div>
+                    <div className="truncate text-sm text-default-500">{item.studentName || item.studentUsername} · {item.className || t('unassigned')}</div>
+                    <div className="mt-2 text-xs text-default-400">{t('dates', { due: item.dueAt ? new Date(item.dueAt).toLocaleString(getCurrentLocale(), { hour12: false }) : t('notSet'), updated: item.updatedAt ? new Date(item.updatedAt).toLocaleString(getCurrentLocale(), { hour12: false }) : t('notSet') })}</div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {item.submissionId > 0 && (
                       <button onClick={() => navigate(`/teacher/submissions/${item.submissionId}`)} className="inline-flex items-center gap-1 rounded-xl border border-default-200 px-3 py-2 text-xs font-bold text-default-600 hover:bg-default-50">
                         <Eye className="h-3.5 w-3.5" />
-                        详情
+                        {t('details')}
                       </button>
                     )}
                     <button onClick={() => openAction({ mode: 'remind', assignmentId: item.assignmentId, studentId: item.studentId, title: item.assignmentTitle, studentName: item.studentName || item.studentUsername })} className="inline-flex items-center gap-1 rounded-xl border border-default-200 px-3 py-2 text-xs font-bold text-default-600 hover:bg-default-50">
                       <Bell className="h-3.5 w-3.5" />
-                      提醒
+                      {t('remind')}
                     </button>
                     <button onClick={() => openAction({ mode: 'reopen', assignmentId: item.assignmentId, studentId: item.studentId, title: item.assignmentTitle, studentName: item.studentName || item.studentUsername })} className="inline-flex items-center gap-1 rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white">
                       <RotateCcw className="h-3.5 w-3.5" />
-                      重开
+                      {t('reopen')}
                     </button>
                   </div>
                 </div>
@@ -442,20 +440,20 @@ const TeacherDashboard: React.FC = () => {
 
         <section className="card-surface overflow-hidden rounded-xl">
           <div className="border-b border-default-100 px-5 py-4">
-            <h3 className="font-semibold text-foreground">风险学生</h3>
-            <p className="mt-1 text-xs text-default-500">按逾期、失败、低完成率和长时间无活跃识别。</p>
+            <h3 className="font-semibold text-foreground">{t('riskStudents')}</h3>
+            <p className="mt-1 text-xs text-default-500">{t('riskDescription')}</p>
           </div>
           <div className="space-y-3 p-4">
             {loading ? <LoadingRows /> : risks.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-default-200 p-8 text-center text-sm text-default-400">暂无风险学生。</div>
+              <div className="rounded-xl border border-dashed border-default-200 p-8 text-center text-sm text-default-400">{t('noRisk')}</div>
             ) : risks.map((item) => (
               <div key={`${item.studentId}-${item.classId}`} className="card-surface-muted rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-bold text-foreground">{item.studentName || item.studentUsername}</div>
-                    <div className="mt-1 text-xs text-default-500">{item.className} · 完成率 {Math.round(item.completionRate * 100)}%</div>
+                    <div className="mt-1 text-xs text-default-500">{t('classCompletion', { className: item.className, rate: Math.round(item.completionRate * 100) })}</div>
                   </div>
-                  <button onClick={() => openAction({ mode: 'remind', assignmentId: 0, classId: item.classId, studentId: item.studentId, title: item.className, studentName: item.studentName || item.studentUsername })} className="rounded-lg border border-default-200 bg-white p-2 text-default-500 hover:text-primary-600" aria-label="提醒学生">
+                  <button onClick={() => openAction({ mode: 'remind', assignmentId: 0, classId: item.classId, studentId: item.studentId, title: item.className, studentName: item.studentName || item.studentUsername })} className="rounded-lg border border-default-200 bg-white p-2 text-default-500 hover:text-primary-600" aria-label={t('remindStudent')}>
                     <Bell className="h-4 w-4" />
                   </button>
                 </div>
@@ -468,7 +466,7 @@ const TeacherDashboard: React.FC = () => {
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:text-default-300"
                 >
                   {aiLoadingKey === `weakness-${item.studentId}-${item.classId}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
-                  AI 诊断
+                  {t('aiDiagnosis')}
                 </button>
               </div>
             ))}
@@ -478,19 +476,14 @@ const TeacherDashboard: React.FC = () => {
 
       <section className="card-surface overflow-hidden rounded-xl">
         <div className="border-b border-default-100 px-5 py-4">
-          <h3 className="font-semibold text-foreground">作业进度钻取</h3>
-          <p className="mt-1 text-xs text-default-500">按作业和班级聚合提交、退回、评分与成绩发布。</p>
+          <h3 className="font-semibold text-foreground">{t('assignmentProgress')}</h3>
+          <p className="mt-1 text-xs text-default-500">{t('assignmentProgressDesc')}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-default-50 text-left text-xs font-semibold text-default-500">
               <tr>
-                <th className="px-5 py-3">作业 / 班级</th>
-                <th className="px-5 py-3">提交</th>
-                <th className="px-5 py-3">待批改</th>
-                <th className="px-5 py-3">退回</th>
-                <th className="px-5 py-3">成绩</th>
-                <th className="px-5 py-3 text-right">操作</th>
+                <th className="px-5 py-3">{t('assignmentClass')}</th><th className="px-5 py-3">{t('submitted')}</th><th className="px-5 py-3">{t('pendingReview')}</th><th className="px-5 py-3">{t('returned')}</th><th className="px-5 py-3">{t('grades')}</th><th className="px-5 py-3 text-right">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-default-100">
@@ -498,7 +491,7 @@ const TeacherDashboard: React.FC = () => {
                 <tr key={`${item.assignmentId}-${item.classId}`} className="hover:bg-default-50/60">
                   <td className="px-5 py-4">
                     <div className="font-semibold text-foreground">{item.assignmentTitle}</div>
-                    <div className="text-xs text-default-400">{item.className} · 截止 {formatDateTime(item.dueAt)}</div>
+                    <div className="text-xs text-default-400">{t('classDue', { className: item.className, due: item.dueAt ? new Date(item.dueAt).toLocaleString(getCurrentLocale(), { hour12: false }) : t('notSet') })}</div>
                   </td>
                   <td className="px-5 py-4 text-default-600">{item.submitted}/{item.totalStudents}</td>
                   <td className="px-5 py-4 text-default-600">{item.pendingReview}</td>
@@ -511,17 +504,17 @@ const TeacherDashboard: React.FC = () => {
                       className="mr-2 inline-flex items-center gap-1 rounded-xl border border-violet-100 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:text-default-300"
                     >
                       {aiLoadingKey === `summary-${item.assignmentId}-${item.classId}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      AI 摘要
+                      {t('aiSummary')}
                     </button>
                     <button onClick={() => openAction({ mode: 'remind', assignmentId: item.assignmentId, classId: item.classId, title: item.assignmentTitle })} className="inline-flex items-center gap-1 rounded-xl border border-default-200 px-3 py-2 text-xs font-bold text-default-600 hover:bg-default-50">
                       <UsersRound className="h-3.5 w-3.5" />
-                      班级提醒
+                      {t('classReminder')}
                     </button>
                   </td>
                 </tr>
               ))}
               {!loading && progress.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-default-400">暂无作业进度数据。</td></tr>
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-default-400">{t('noProgress')}</td></tr>
               )}
             </tbody>
           </table>
@@ -531,16 +524,16 @@ const TeacherDashboard: React.FC = () => {
       <section className="card-surface overflow-hidden rounded-xl">
         <div className="flex items-center justify-between gap-4 border-b border-default-100 px-5 py-4">
           <div>
-            <h3 className="font-semibold text-foreground">班级 Lab 异常</h3>
-            <p className="mt-1 text-xs text-default-500">只读展示班级实训运行异常，治理操作由管理员在运维工作台处理。</p>
+            <h3 className="font-semibold text-foreground">{t('labIssues')}</h3>
+            <p className="mt-1 text-xs text-default-500">{t('labIssuesDesc')}</p>
           </div>
-          <span className="rounded-full bg-violet-50 px-3 py-1 text-sm font-bold text-violet-700">{overview?.labFailed || 0} 条</span>
+          <span className="rounded-full bg-violet-50 px-3 py-1 text-sm font-bold text-violet-700">{t('itemCount', { count: overview?.labFailed || 0 })}</span>
         </div>
         <div className="space-y-3 p-5">
           {loading ? (
             <LoadingRows />
           ) : (overview?.labFailed || 0) === 0 ? (
-            <div className="rounded-xl border border-dashed border-default-200 p-8 text-center text-sm text-default-400">当前没有需要教师关注的班级 Lab 异常。</div>
+            <div className="rounded-xl border border-dashed border-default-200 p-8 text-center text-sm text-default-400">{t('noLabIssues')}</div>
           ) : (
             <>
               {todos.filter((item) => item.type === 'lab_failed').slice(0, 4).map((item) => (
@@ -548,14 +541,14 @@ const TeacherDashboard: React.FC = () => {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-bold text-foreground">{item.assignmentTitle}</div>
-                      <div className="mt-1 text-xs text-default-500">{item.className || '未分班'} · {item.studentName || item.studentUsername}</div>
+                      <div className="mt-1 text-xs text-default-500">{item.className || t('unassigned')} · {item.studentName || item.studentUsername}</div>
                     </div>
-                    <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700">Lab 异常</span>
+                    <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700">{t('todoTypes.labFailed')}</span>
                   </div>
                 </div>
               ))}
               {todos.filter((item) => item.type === 'lab_failed').length === 0 && (
-                <div className="rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-700">检测到 Lab 异常，请点击上方 KPI 切换到 Lab 异常待办查看详情。</div>
+                <div className="rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-700">{t('labIssueHint')}</div>
               )}
             </>
           )}
@@ -564,17 +557,17 @@ const TeacherDashboard: React.FC = () => {
 
       <PageDialog isOpen={Boolean(actionTarget)} onClose={() => setActionTarget(null)} panelClassName="max-w-lg">
         <div className="border-b border-default-100 p-5">
-          <h3 className="text-lg font-bold text-foreground">{actionTarget?.mode === 'reopen' ? '重开提交' : '发送提醒'}</h3>
-          <p className="mt-1 text-sm text-default-500">{actionTarget?.studentName ? `对象：${actionTarget.studentName}` : '对象：当前班级学生'} · {actionTarget?.title}</p>
+          <h3 className="text-lg font-bold text-foreground">{actionTarget?.mode === 'reopen' ? t('reopenTitle') : t('remindTitle')}</h3>
+          <p className="mt-1 text-sm text-default-500">{actionTarget?.studentName ? t('targetStudent', { name: actionTarget.studentName }) : t('targetClass')} · {actionTarget?.title}</p>
         </div>
         <div className="space-y-3 p-5">
           <textarea value={actionMessage} onChange={(event) => setActionMessage(event.target.value)} rows={4} className="w-full rounded-xl border border-default-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
         </div>
         <div className="flex justify-end gap-2 border-t border-default-100 p-5">
-          <button onClick={() => setActionTarget(null)} className="rounded-xl px-4 py-2 text-sm font-bold text-default-500 hover:bg-default-100">取消</button>
+          <button onClick={() => setActionTarget(null)} className="rounded-xl px-4 py-2 text-sm font-bold text-default-500 hover:bg-default-100">{t('cancel')}</button>
           <button onClick={() => void submitAction()} disabled={submittingAction} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white disabled:bg-default-300">
             {submittingAction && <Loader2 className="h-4 w-4 animate-spin" />}
-            确认
+            {t('confirm')}
           </button>
         </div>
       </PageDialog>
@@ -583,9 +576,9 @@ const TeacherDashboard: React.FC = () => {
         <div className="border-b border-default-100 p-5">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-violet-600" />
-            <h3 className="text-lg font-bold text-foreground">{aiSuggestion?.title || 'AI 建议'}</h3>
+            <h3 className="text-lg font-bold text-foreground">{aiSuggestion?.title || t('aiSuggestion')}</h3>
           </div>
-          <p className="mt-1 text-sm text-default-500">仅教师可见，确认后仍需由教师决定下一步操作。</p>
+          <p className="mt-1 text-sm text-default-500">{t('aiNotice')}</p>
         </div>
         <div className="max-h-[60vh] overflow-auto p-5">
           <div className="whitespace-pre-wrap rounded-xl bg-default-50 p-4 text-sm leading-6 text-default-700">{aiSuggestion?.content}</div>
@@ -596,7 +589,7 @@ const TeacherDashboard: React.FC = () => {
             disabled={Boolean(aiSuggestionAction)}
             className="rounded-xl px-4 py-2 text-sm font-bold text-default-500 hover:bg-default-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            关闭
+            {t('close')}
           </button>
           <button
             onClick={() => void handleAISuggestionAction('dismiss')}
@@ -604,7 +597,7 @@ const TeacherDashboard: React.FC = () => {
             className="inline-flex items-center gap-2 rounded-xl border border-default-200 px-4 py-2 text-sm font-bold text-default-600 hover:bg-default-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiSuggestionAction === 'dismiss' && <Loader2 className="h-4 w-4 animate-spin" />}
-            忽略
+            {t('dismiss')}
           </button>
           <button
             onClick={() => void handleAISuggestionAction('confirm')}
@@ -612,7 +605,7 @@ const TeacherDashboard: React.FC = () => {
             className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-default-300"
           >
             {aiSuggestionAction === 'confirm' && <Loader2 className="h-4 w-4 animate-spin" />}
-            确认采用
+            {t('adopt')}
           </button>
         </div>
       </PageDialog>

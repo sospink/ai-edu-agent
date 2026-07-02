@@ -12,6 +12,7 @@ import type {
   UpdateUnitDTO,
 } from './project';
 import { API_BASE_URL } from '@/config';
+import i18n, { getCurrentLocale } from '@/i18n';
 
 const teacherApi = createScopedApi('/teacher');
 
@@ -91,7 +92,7 @@ export const teacherUploadApi = {
     formData.append('image', file);
 
     const token = localStorage.getItem('authToken');
-    const headers: HeadersInit = {};
+    const headers: HeadersInit = { 'X-Locale': getCurrentLocale() };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -106,7 +107,7 @@ export const teacherUploadApi = {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '上传失败',
+        error: error instanceof Error ? error.message : i18n.t('errors:UPLOAD_FAILED'),
       };
     }
   },

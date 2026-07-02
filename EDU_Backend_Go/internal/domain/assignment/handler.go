@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"edu-platform/internal/middleware"
-	apperrors "edu-platform/pkg/errors"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/response"
 )
 
@@ -22,7 +22,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) ListTeacherAssignments(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.ListForTeacher(c.Request.Context(), claims.UserID, claims.RoleType, parseListQuery(c))
@@ -30,18 +30,18 @@ func (h *Handler) ListTeacherAssignments(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取作业列表成功")
+	response.SuccessKey(c, result, "assignment.listLoaded", nil)
 }
 
 func (h *Handler) CreateTeacherAssignment(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	var req UpsertAssignmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.Create(c.Request.Context(), claims.UserID, claims.RoleType, req)
@@ -49,13 +49,13 @@ func (h *Handler) CreateTeacherAssignment(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "创建作业成功")
+	response.CreatedKey(c, result, "assignment.created", nil)
 }
 
 func (h *Handler) GetTeacherAssignment(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -67,13 +67,13 @@ func (h *Handler) GetTeacherAssignment(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取作业详情成功")
+	response.SuccessKey(c, result, "assignment.detailLoaded", nil)
 }
 
 func (h *Handler) UpdateTeacherAssignment(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -82,7 +82,7 @@ func (h *Handler) UpdateTeacherAssignment(c *gin.Context) {
 	}
 	var req UpsertAssignmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.Update(c.Request.Context(), claims.UserID, claims.RoleType, id, req)
@@ -90,25 +90,25 @@ func (h *Handler) UpdateTeacherAssignment(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "更新作业成功")
+	response.SuccessKey(c, result, "assignment.updated", nil)
 }
 
 func (h *Handler) PublishTeacherAssignment(c *gin.Context) {
-	h.transitionTeacherAssignment(c, h.service.Publish, "发布作业成功")
+	h.transitionTeacherAssignment(c, h.service.Publish, "assignment.published")
 }
 
 func (h *Handler) CloseTeacherAssignment(c *gin.Context) {
-	h.transitionTeacherAssignment(c, h.service.Close, "关闭作业成功")
+	h.transitionTeacherAssignment(c, h.service.Close, "assignment.closed")
 }
 
 func (h *Handler) DraftTeacherAssignment(c *gin.Context) {
-	h.transitionTeacherAssignment(c, h.service.Draft, "作业已设为草稿")
+	h.transitionTeacherAssignment(c, h.service.Draft, "assignment.drafted")
 }
 
 func (h *Handler) ListStudentAssignments(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.ListForStudent(c.Request.Context(), claims.UserID, parseListQuery(c))
@@ -116,13 +116,13 @@ func (h *Handler) ListStudentAssignments(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取我的任务成功")
+	response.SuccessKey(c, result, "assignment.studentListLoaded", nil)
 }
 
 func (h *Handler) GetStudentAssignment(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -134,13 +134,13 @@ func (h *Handler) GetStudentAssignment(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取任务详情成功")
+	response.SuccessKey(c, result, "assignment.studentDetailLoaded", nil)
 }
 
 func (h *Handler) CreateStudentSubmission(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -149,7 +149,7 @@ func (h *Handler) CreateStudentSubmission(c *gin.Context) {
 	}
 	var req CreateSubmissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.CreateStudentSubmission(c.Request.Context(), claims.UserID, id, req)
@@ -157,13 +157,13 @@ func (h *Handler) CreateStudentSubmission(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "提交成功")
+	response.CreatedKey(c, result, "assignment.submitted", nil)
 }
 
 func (h *Handler) GetStudentSubmission(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -175,13 +175,13 @@ func (h *Handler) GetStudentSubmission(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取提交详情成功")
+	response.SuccessKey(c, result, "assignment.submissionLoaded", nil)
 }
 
 func (h *Handler) ListStudentGrades(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.ListStudentGrades(c.Request.Context(), claims.UserID)
@@ -189,13 +189,13 @@ func (h *Handler) ListStudentGrades(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取成绩成功")
+	response.SuccessKey(c, result, "assignment.gradesLoaded", nil)
 }
 
 func (h *Handler) ListStudentNotifications(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.ListStudentNotifications(c.Request.Context(), claims.UserID, parseTeacherDashboardQuery(c))
@@ -203,13 +203,13 @@ func (h *Handler) ListStudentNotifications(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取通知成功")
+	response.SuccessKey(c, result, "assignment.notificationsLoaded", nil)
 }
 
 func (h *Handler) MarkStudentNotificationRead(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -221,7 +221,7 @@ func (h *Handler) MarkStudentNotificationRead(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "通知已读")
+	response.SuccessKey(c, result, "assignment.notificationRead", nil)
 }
 
 func (h *Handler) AdminOverview(c *gin.Context) {
@@ -230,7 +230,7 @@ func (h *Handler) AdminOverview(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取作业概览成功")
+	response.SuccessKey(c, result, "assignment.overviewLoaded", nil)
 }
 
 func (h *Handler) AdminTeachingQualityOverview(c *gin.Context) {
@@ -239,7 +239,7 @@ func (h *Handler) AdminTeachingQualityOverview(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取教学质量概览成功")
+	response.SuccessKey(c, result, "assignment.qualityLoaded", nil)
 }
 
 func (h *Handler) ListAdminAssignments(c *gin.Context) {
@@ -248,13 +248,13 @@ func (h *Handler) ListAdminAssignments(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取作业列表成功")
+	response.SuccessKey(c, result, "assignment.listLoaded", nil)
 }
 
 func (h *Handler) ListTeacherSubmissions(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.ListTeacherSubmissions(c.Request.Context(), claims.UserID, claims.RoleType, parseSubmissionListQuery(c))
@@ -262,13 +262,13 @@ func (h *Handler) ListTeacherSubmissions(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取待批改列表成功")
+	response.SuccessKey(c, result, "assignment.reviewQueueLoaded", nil)
 }
 
 func (h *Handler) GetTeacherSubmission(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -280,13 +280,13 @@ func (h *Handler) GetTeacherSubmission(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取提交详情成功")
+	response.SuccessKey(c, result, "assignment.submissionLoaded", nil)
 }
 
 func (h *Handler) RunTeacherSubmissionChecks(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -300,13 +300,13 @@ func (h *Handler) RunTeacherSubmissionChecks(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "重新验证已记录")
+	response.SuccessKey(c, result, "assignment.checksRecorded", nil)
 }
 
 func (h *Handler) GradeTeacherSubmission(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -315,7 +315,7 @@ func (h *Handler) GradeTeacherSubmission(c *gin.Context) {
 	}
 	var req GradeSubmissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.GradeTeacherSubmission(c.Request.Context(), claims.UserID, claims.RoleType, id, req)
@@ -323,13 +323,13 @@ func (h *Handler) GradeTeacherSubmission(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "评分已保存")
+	response.SuccessKey(c, result, "assignment.gradeSaved", nil)
 }
 
 func (h *Handler) ReturnTeacherSubmission(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -338,7 +338,7 @@ func (h *Handler) ReturnTeacherSubmission(c *gin.Context) {
 	}
 	var req ReturnSubmissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.ReturnTeacherSubmission(c.Request.Context(), claims.UserID, claims.RoleType, id, req)
@@ -346,13 +346,13 @@ func (h *Handler) ReturnTeacherSubmission(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "提交已退回")
+	response.SuccessKey(c, result, "assignment.returned", nil)
 }
 
 func (h *Handler) PublishTeacherGrade(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -364,13 +364,13 @@ func (h *Handler) PublishTeacherGrade(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "成绩已发布")
+	response.SuccessKey(c, result, "assignment.gradePublished", nil)
 }
 
 func (h *Handler) SuggestSubmissionFeedback(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -382,13 +382,13 @@ func (h *Handler) SuggestSubmissionFeedback(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "AI 反馈草稿已生成")
+	response.CreatedKey(c, result, "assignment.aiFeedbackCreated", nil)
 }
 
 func (h *Handler) SuggestAssignmentSummary(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -402,13 +402,13 @@ func (h *Handler) SuggestAssignmentSummary(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "AI 作业摘要已生成")
+	response.CreatedKey(c, result, "assignment.aiSummaryCreated", nil)
 }
 
 func (h *Handler) SuggestStudentWeakness(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -417,7 +417,7 @@ func (h *Handler) SuggestStudentWeakness(c *gin.Context) {
 	}
 	var req AIGenerateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.WeaknessDiagnosis(c.Request.Context(), claims.UserID, claims.RoleType, id, req.ClassID)
@@ -425,13 +425,13 @@ func (h *Handler) SuggestStudentWeakness(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "AI 薄弱点诊断已生成")
+	response.CreatedKey(c, result, "assignment.aiWeaknessCreated", nil)
 }
 
 func (h *Handler) UpdateAISuggestion(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -440,7 +440,7 @@ func (h *Handler) UpdateAISuggestion(c *gin.Context) {
 	}
 	var req AISuggestionActionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.UpdateAISuggestion(c.Request.Context(), claims.UserID, claims.RoleType, id, req.Action)
@@ -448,20 +448,20 @@ func (h *Handler) UpdateAISuggestion(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "AI 建议状态已更新")
+	response.SuccessKey(c, result, "assignment.aiSuggestionUpdated", nil)
 }
 
 func (h *Handler) AgentStepStats(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	sourceType := parseIntQuery(c, "sourceType", 0)
 	sourceID := parseUintQuery(c, "sourceId")
 	classID := parseUintQuery(c, "classId")
 	if sourceType == 0 || sourceID == 0 || classID == 0 {
-		_ = c.Error(apperrors.BadRequest("请选择 Agent 手册来源和班级"))
+		response.BadRequestKey(c, "assignment.selectAgentContext", nil)
 		return
 	}
 	result, err := h.service.AgentStepStats(c.Request.Context(), claims.UserID, claims.RoleType, sourceType, sourceID, classID)
@@ -469,13 +469,13 @@ func (h *Handler) AgentStepStats(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "Agent 步骤统计已加载")
+	response.SuccessKey(c, result, "assignment.agentStatsLoaded", nil)
 }
 
 func (h *Handler) GenerateAgentStepInsight(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	stepID, ok := parseIDParam(c, "stepId")
@@ -484,7 +484,7 @@ func (h *Handler) GenerateAgentStepInsight(c *gin.Context) {
 	}
 	var req AgentStepInsightRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.ClassID == 0 {
-		_ = c.Error(apperrors.BadRequest("请选择班级"))
+		response.BadRequestKey(c, "assignment.selectClass", nil)
 		return
 	}
 	result, err := h.service.GenerateAgentStepInsight(c.Request.Context(), claims.UserID, claims.RoleType, stepID, req.ClassID)
@@ -492,13 +492,13 @@ func (h *Handler) GenerateAgentStepInsight(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "AI 步骤诊断已生成")
+	response.CreatedKey(c, result, "assignment.aiStepCreated", nil)
 }
 
 func (h *Handler) AgentObservatory(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	manualID := parseUintQuery(c, "manualId")
@@ -508,13 +508,13 @@ func (h *Handler) AgentObservatory(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "Agent 观察台已加载")
+	response.SuccessKey(c, result, "assignment.observatoryLoaded", nil)
 }
 
 func (h *Handler) AgentCellDetail(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.AgentCellDetail(
@@ -530,13 +530,13 @@ func (h *Handler) AgentCellDetail(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "Agent 详情已加载")
+	response.SuccessKey(c, result, "assignment.agentDetailLoaded", nil)
 }
 
 func (h *Handler) ReplaceAgentStepSkillTags(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	stepID, ok := parseIDParam(c, "stepId")
@@ -545,7 +545,7 @@ func (h *Handler) ReplaceAgentStepSkillTags(c *gin.Context) {
 	}
 	var req AgentStepSkillTagsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.ReplaceAgentStepSkillTags(c.Request.Context(), claims.UserID, claims.RoleType, stepID, req.Tags)
@@ -553,13 +553,13 @@ func (h *Handler) ReplaceAgentStepSkillTags(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "技能标签已更新")
+	response.SuccessKey(c, result, "assignment.skillTagsUpdated", nil)
 }
 
 func (h *Handler) AgentSkillWeakness(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	manualID := parseUintQuery(c, "manualId")
@@ -569,13 +569,13 @@ func (h *Handler) AgentSkillWeakness(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "Agent 薄弱点已加载")
+	response.SuccessKey(c, result, "assignment.weaknessLoaded", nil)
 }
 
 func (h *Handler) GenerateFAQSuggestion(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	stepID, ok := parseIDParam(c, "stepId")
@@ -584,7 +584,7 @@ func (h *Handler) GenerateFAQSuggestion(c *gin.Context) {
 	}
 	var req AIGenerateRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.ClassID == 0 {
-		_ = c.Error(apperrors.BadRequest("请选择班级"))
+		response.BadRequestKey(c, "assignment.selectClass", nil)
 		return
 	}
 	result, err := h.service.GenerateFAQSuggestion(c.Request.Context(), claims.UserID, claims.RoleType, stepID, req.ClassID)
@@ -592,13 +592,13 @@ func (h *Handler) GenerateFAQSuggestion(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "AI FAQ 草稿已生成")
+	response.CreatedKey(c, result, "assignment.aiFAQCreated", nil)
 }
 
 func (h *Handler) PublishFAQ(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -607,7 +607,7 @@ func (h *Handler) PublishFAQ(c *gin.Context) {
 	}
 	var req FAQPublishRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.ClassID == 0 {
-		_ = c.Error(apperrors.BadRequest("请选择班级"))
+		response.BadRequestKey(c, "assignment.selectClass", nil)
 		return
 	}
 	result, err := h.service.PublishFAQ(c.Request.Context(), claims.UserID, claims.RoleType, id, req.ClassID)
@@ -615,13 +615,13 @@ func (h *Handler) PublishFAQ(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "FAQ 已发布")
+	response.CreatedKey(c, result, "assignment.faqPublished", nil)
 }
 
 func (h *Handler) ListTeacherFAQ(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.ListTeacherFAQ(
@@ -637,13 +637,13 @@ func (h *Handler) ListTeacherFAQ(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "FAQ 列表已加载")
+	response.SuccessKey(c, result, "assignment.faqLoaded", nil)
 }
 
 func (h *Handler) ArchiveFAQ(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -655,18 +655,18 @@ func (h *Handler) ArchiveFAQ(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "FAQ 已归档")
+	response.SuccessKey(c, result, "assignment.faqArchived", nil)
 }
 
 func (h *Handler) CreateAgentIntervention(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	var req AgentInterventionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.CreateAgentIntervention(c.Request.Context(), claims.UserID, claims.RoleType, req)
@@ -674,13 +674,13 @@ func (h *Handler) CreateAgentIntervention(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, result, "干预记录已创建")
+	response.CreatedKey(c, result, "assignment.interventionCreated", nil)
 }
 
 func (h *Handler) ListTeacherInterventions(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.ListTeacherInterventions(
@@ -695,7 +695,7 @@ func (h *Handler) ListTeacherInterventions(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "干预记录已加载")
+	response.SuccessKey(c, result, "assignment.interventionsLoaded", nil)
 }
 
 func (h *Handler) AIStatus(c *gin.Context) {
@@ -704,7 +704,7 @@ func (h *Handler) AIStatus(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "AI 状态已加载")
+	response.SuccessKey(c, result, "assignment.aiStatusLoaded", nil)
 }
 
 func (h *Handler) GetAdminAISettings(c *gin.Context) {
@@ -713,20 +713,20 @@ func (h *Handler) GetAdminAISettings(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "AI 设置已加载")
+	response.SuccessKey(c, result, "assignment.aiSettingsLoaded", nil)
 }
 
 func (h *Handler) UpdateAdminAISettings(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	var req struct {
 		Enabled bool `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.UpdateAISetting(c.Request.Context(), claims.UserID, claims.RoleType, req.Enabled, c.ClientIP(), c.Request.UserAgent())
@@ -734,13 +734,13 @@ func (h *Handler) UpdateAdminAISettings(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "AI 设置已更新")
+	response.SuccessKey(c, result, "assignment.aiSettingsUpdated", nil)
 }
 
 func (h *Handler) TeacherTeachingOverview(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.TeachingOverview(c.Request.Context(), claims.UserID, claims.RoleType)
@@ -748,13 +748,13 @@ func (h *Handler) TeacherTeachingOverview(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取教学工作台概览成功")
+	response.SuccessKey(c, result, "assignment.workbenchLoaded", nil)
 }
 
 func (h *Handler) TeacherTodoItems(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.TodoItems(c.Request.Context(), claims.UserID, claims.RoleType, parseTeacherDashboardQuery(c))
@@ -762,13 +762,13 @@ func (h *Handler) TeacherTodoItems(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取教学待办成功")
+	response.SuccessKey(c, result, "assignment.todosLoaded", nil)
 }
 
 func (h *Handler) TeacherRiskStudents(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, _, err := h.service.RiskStudents(c.Request.Context(), claims.UserID, claims.RoleType, parseTeacherDashboardQuery(c))
@@ -776,13 +776,13 @@ func (h *Handler) TeacherRiskStudents(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取风险学生成功")
+	response.SuccessKey(c, result, "assignment.risksLoaded", nil)
 }
 
 func (h *Handler) TeacherAssignmentProgress(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.AssignmentProgress(c.Request.Context(), claims.UserID, claims.RoleType, parseTeacherDashboardQuery(c))
@@ -790,13 +790,13 @@ func (h *Handler) TeacherAssignmentProgress(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取作业进度成功")
+	response.SuccessKey(c, result, "assignment.progressLoaded", nil)
 }
 
 func (h *Handler) ListTeacherGrades(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	result, err := h.service.ListTeacherGrades(c.Request.Context(), claims.UserID, claims.RoleType, parseTeacherDashboardQuery(c))
@@ -804,18 +804,18 @@ func (h *Handler) ListTeacherGrades(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "获取成绩簿成功")
+	response.SuccessKey(c, result, "assignment.gradebookLoaded", nil)
 }
 
 func (h *Handler) RemindStudents(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	var req RemindRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.RemindStudents(c.Request.Context(), claims.UserID, claims.RoleType, req)
@@ -823,13 +823,13 @@ func (h *Handler) RemindStudents(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "提醒已发送")
+	response.SuccessKey(c, result, "assignment.reminderSent", nil)
 }
 
 func (h *Handler) ReopenTeacherAssignment(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -838,7 +838,7 @@ func (h *Handler) ReopenTeacherAssignment(c *gin.Context) {
 	}
 	var req ReopenAssignmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		_ = c.Error(apperrors.BadRequest("请求参数错误"))
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	result, err := h.service.ReopenAssignment(c.Request.Context(), claims.UserID, claims.RoleType, id, req)
@@ -846,13 +846,13 @@ func (h *Handler) ReopenTeacherAssignment(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "提交已重开")
+	response.SuccessKey(c, result, "assignment.reopened", nil)
 }
 
-func (h *Handler) transitionTeacherAssignment(c *gin.Context, action func(context.Context, uint64, int, uint64) (*AssignmentDetail, error), message string) {
+func (h *Handler) transitionTeacherAssignment(c *gin.Context, action func(context.Context, uint64, int, uint64) (*AssignmentDetail, error), key i18n.MessageKey) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c, "id")
@@ -864,7 +864,7 @@ func (h *Handler) transitionTeacherAssignment(c *gin.Context, action func(contex
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, message)
+	response.SuccessKey(c, result, key, nil)
 }
 
 func parseListQuery(c *gin.Context) AssignmentListQuery {
@@ -922,7 +922,7 @@ func parseIntQuery(c *gin.Context, key string, fallback int) int {
 func parseIDParam(c *gin.Context, key string) (uint64, bool) {
 	id, err := strconv.ParseUint(c.Param(key), 10, 64)
 	if err != nil || id == 0 {
-		response.BadRequest(c, "无效的作业 ID")
+		response.BadRequestKey(c, "assignment.invalidId", nil)
 		return 0, false
 	}
 	return id, true

@@ -13,6 +13,8 @@ import * as AgentAPI from '@/services/agent';
 import { studentClassApi } from '@/services/studentClass';
 import confetti from 'canvas-confetti';
 import CompleteLessonDialog from '../study/CompleteLessonDialog';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 // Debounce hook
 function useDebounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
@@ -29,30 +31,30 @@ function useDebounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
 }
 
 // 示例步骤数据（无 API 数据时使用）
-const DEMO_STEPS: Step[] = [
+const createDemoSteps = (t: TFunction<'agent'>): Step[] => [
   {
     id: 0,
-    title: "问题排查与文件创建",
+    title: t('demo.step1Title'),
     content: [
-      { type: 'text', text: '你好！我注意到你正在尝试运行你的第一个 Bash 脚本 `./hello.sh`。' },
-      { type: 'text', text: '如果你看到 `bash: ./hello.sh: No such file or directory` 或 `Permission denied` 错误，不用担心！这是很常见的起点。' },
-      { type: 'heading', text: '1. 创建文件' },
+      { type: 'text', text: t('demo.greeting') },
+      { type: 'text', text: t('demo.errorIntro') },
+      { type: 'heading', text: t('demo.createFile') },
       { type: 'code', language: 'bash', code: 'touch hello.sh', executable: true },
-      { type: 'heading', text: '2. 添加内容' },
+      { type: 'heading', text: t('demo.addContent') },
       { type: 'code', language: 'bash', code: '#!/bin/bash\necho "Hello, Bash!"' }
     ],
-    quickQuestions: ["告诉我更多", "什么是 shell 脚本？", "./ 符号是什么意思？"],
+    quickQuestions: [t('demo.more'), t('demo.shellScript'), t('demo.dotSlash')],
   },
   {
     id: 1,
-    title: "设置执行权限",
+    title: t('demo.step2Title'),
     content: [
-      { type: 'heading', text: '3. 授予权限' },
-      { type: 'text', text: '默认情况下，新文件不可执行。你需要使用 `chmod` 命令授予执行权限。' },
+      { type: 'heading', text: t('demo.grantPermission') },
+      { type: 'text', text: t('demo.permissionDesc') },
       { type: 'code', language: 'bash', code: 'chmod +x hello.sh', executable: true },
       { type: 'code', language: 'bash', code: './hello.sh', executable: true },
     ],
-    quickQuestions: ["chmod +x 是什么意思？", "什么是 755 权限？"],
+    quickQuestions: [t('demo.chmod'), t('demo.permission755')],
   }
 ];
 
@@ -119,11 +121,12 @@ const agentBubbleClass = (hintLevel?: 1 | 2 | 3) => {
 };
 
 const HintBadge: React.FC<{ level?: 1 | 2 | 3 }> = ({ level }) => {
+  const { t } = useTranslation('agent');
   if (level === 2) {
-    return <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-1 text-[11px] font-bold text-primary-700"><Lightbulb size={12} />方向提示</div>;
+    return <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-1 text-[11px] font-bold text-primary-700"><Lightbulb size={12} />{t('directionHint')}</div>;
   }
   if (level === 3) {
-    return <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-warning-50 px-2 py-1 text-[11px] font-bold text-warning-700"><BookOpen size={12} />完整提示</div>;
+    return <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-warning-50 px-2 py-1 text-[11px] font-bold text-warning-700"><BookOpen size={12} />{t('fullHint')}</div>;
   }
   return null;
 };
@@ -139,6 +142,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   onComplete,
   onExecuteCommand,
 }) => {
+  const { t } = useTranslation('agent');
   // 自动判断模式：有 sourceType 和 sourceId 时为教学模式，否则为聊天模式
   const mode = propMode || (sourceType && sourceId ? 'teaching' : 'chat');
   const isChatMode = mode === 'chat';
@@ -149,7 +153,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   const [manualTitle, setManualTitle] = useState<string>('');
   const [manualDescription, setManualDescription] = useState<string>('');
   const [hasManual, setHasManual] = useState<boolean | null>(null);  // null=未加载, true=有手册, false=无手册
-  const [steps, setSteps] = useState<Step[]>(propSteps || DEMO_STEPS);
+  const [steps, setSteps] = useState<Step[]>(() => propSteps || createDemoSteps(t));
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [showToC, setShowToC] = useState(false);
@@ -467,7 +471,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           details: result.details,
           checkItems: result.checkItems || [
             {
-              name: step.title || `步骤 ${currentStep + 1}`,
+              name: step.title || t('step', { count: currentStep + 1 }),
               status: result.success ? 'passed' as const : 'failed' as const,
               message: result.message,
             }
@@ -524,12 +528,12 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           // 最后一步：显示恭喜弹窗
           const successResult = {
             success: true,
-            message: '恭喜完成所有步骤！',
+            message: t('verifiedAll'),
             checkItems: [
               {
-                name: step.title || `步骤 ${currentStep + 1}`,
+                name: step.title || t('step', { count: currentStep + 1 }),
                 status: 'passed' as const,
-                message: '已完成',
+                message: t('completed'),
               }
             ],
           };
@@ -567,19 +571,19 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
     } catch (err: any) {
       const errorResult = {
         success: false,
-        message: '验证失败',
-        details: err.message || '未知错误',
+        message: t('verifyFailed'),
+        details: err.message || t('unknownError'),
         checkItems: [
           {
-            name: step.title || `步骤 ${currentStep + 1}`,
+            name: step.title || t('step', { count: currentStep + 1 }),
             status: 'failed' as const,
-            message: err.message || '验证过程中发生错误',
+            message: err.message || t('verifyError'),
           }
         ],
       };
       setVerificationResult(errorResult);
       setCanEscalateHint(true);
-      setVerifyError(err.message || '验证失败');
+      setVerifyError(err.message || t('verifyFailed'));
     } finally {
       setIsValidating(false);
     }
@@ -615,7 +619,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
 
   const handleTroubleshoot = () => {
     if (!verificationResult) return;
-    const output = verificationResult.details || verificationResult.message || '验证失败，暂无详细输出';
+    const output = verificationResult.details || verificationResult.message || t('noDetails');
     if (manualId) {
       void AgentAPI.recordEvent({
         manualId,
@@ -625,13 +629,13 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       });
     }
     setShowInputBox(true);
-    void handleQuestion(`验证失败，错误输出：${output}`, { troubleshootMode: true });
+    void handleQuestion(t('troubleshootQuestion', { output }), { troubleshootMode: true });
   };
 
   const handleEscalateHint = () => {
     if (!canEscalateHint) return;
     setShowInputBox(true);
-    void handleQuestion('请给我完整提示，我还是卡在这一步。', { escalate: true });
+    void handleQuestion(t('escalateQuestion'), { escalate: true });
   };
 
   // 处理 AI 问答（流式）
@@ -661,9 +665,9 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
     }
 
     // 构建上下文：聊天模式继续使用通用流式接口；教学模式使用 coach 接口。
-    const stepContext = isChatMode 
-      ? '你是 EDU Agent，Agent EDU 平台的智能助手，帮助用户解答编程和学习相关的问题。'
-      : `当前步骤: ${step.title}\n内容摘要: ${step.content.map(b => b.text || b.code || '').join(' ').slice(0, 500)}`;
+    const stepContext = isChatMode
+      ? t('chatContext')
+      : t('stepContext', { title: step.title, summary: step.content.map(b => b.text || b.code || '').join(' ').slice(0, 500) });
 
     const onDone = () => {
       setStreamingContent(currentContent => {
@@ -704,7 +708,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
         },
         onDone,
         (error) => {
-          setChatLog(prev => [...prev, { role: 'agent', content: `抱歉，${error}` }]);
+          setChatLog(prev => [...prev, { role: 'agent', content: t('apology', { error }) }]);
           setStreamingContent('');
           setIsAsking(false);
         }
@@ -722,7 +726,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       },
       onDone,
       (error) => {
-        setChatLog(prev => [...prev, { role: 'agent', content: `抱歉，${error}` }]);
+        setChatLog(prev => [...prev, { role: 'agent', content: t('apology', { error }) }]);
         setStreamingContent('');
         setIsAsking(false);
       }
@@ -734,12 +738,12 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
     if (onExecuteCommand) {
       return await onExecuteCommand(code, { manualId: manualId || undefined, stepOrder: currentStep });
     }
-    return { output: `$ ${code}\n执行成功`, exitCode: 0 };
+    return { output: `$ ${code}\n${t('runSuccess')}`, exitCode: 0 };
   };
 
   // 处理代码解释
   const handleCodeExplain = (code: string, language: string) => {
-    handleQuestion(`请解释这段 ${language} 代码：\n${code}`);
+    handleQuestion(t('explainCode', { language, code }));
   };
 
   // 处理输入提交
@@ -785,7 +789,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           {showToC && (
             <div className="absolute top-16 left-2 z-20 w-64 bg-white border border-default-200 rounded-lg shadow-xl animate-enter origin-top-left flex flex-col overflow-hidden ring-1 ring-black/5">
               <div className="text-sm font-bold text-default-900 px-4 py-3 border-b border-default-100 bg-default-50/50">
-                课程大纲
+                {t('outline')}
               </div>
               <div className="flex flex-col py-1 max-h-[400px] overflow-y-auto">
                 {steps.map((s) => (
@@ -854,8 +858,8 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                       <div className="flex-1 max-w-[90%]">
                         <div className="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm">
                           <p className="text-[15px] leading-relaxed text-slate-600">
-                            你好！我是 EDU Agent 👋<br/>
-                            有任何编程或学习相关的问题都可以问我！
+                            {t('hello')}<br/>
+                            {t('welcome')}
                           </p>
                         </div>
                       </div>
@@ -868,7 +872,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                       <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center ${
                         msg.role === 'user' ? 'rounded-full bg-default-400 text-white shadow-md ring-2 ring-white' : ''
                       }`}>
-                        {msg.role === 'agent' ? <img src={EnergyRobotGif} alt="Agent" className="w-8 h-8 object-contain" /> : <span className="text-xs font-bold">你</span>}
+                        {msg.role === 'agent' ? <img src={EnergyRobotGif} alt="Agent" className="w-8 h-8 object-contain" /> : <span className="text-xs font-bold">{t('you')}</span>}
                       </div>
                       <div className={`rounded-2xl p-4 shadow-sm max-w-[85%] ${
                         msg.role === 'agent' ? agentBubbleClass(msg.hintLevel) : 'bg-primary text-white rounded-tr-none'
@@ -923,7 +927,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                             handleSubmit(e);
                           }
                         }}
-                        placeholder="输入你的问题..." 
+                        placeholder={t('inputPlaceholder')}
                         rows={2}
                         className="w-full px-4 py-3 pr-14 text-[15px] outline-none placeholder:text-default-400 text-default-900 resize-none bg-transparent"
                         disabled={isAsking}
@@ -955,12 +959,9 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                     <div className="w-16 h-16 flex items-center justify-center mb-4">
                       <img src={EnergyRobotGif} alt="Agent" className="w-16 h-16 object-contain" />
                     </div>
-                    <h3 className="text-lg font-semibold text-default-700 mb-2">暂无教学手册</h3>
+                    <h3 className="text-lg font-semibold text-default-700 mb-2">{t('noManual')}</h3>
                     <p className="text-sm text-default-500 mb-4">
-                      该课时尚未配置 Agent 教学手册，请联系管理员添加。
-                    </p>
-                    <p className="text-xs text-default-400">
-                      sourceType: {sourceType}, sourceId: {sourceId}
+                      {t('noManualDesc')}
                     </p>
                   </div>
                 ) : (
@@ -981,7 +982,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                               {/* 介绍卡片 */}
                               <div className="bg-white rounded-2xl rounded-tl-none shadow-sm overflow-hidden">
                                 <div className="p-4">
-                                  <h3 className="text-lg font-bold text-default-900 mb-3">介绍</h3>
+                                  <h3 className="text-lg font-bold text-default-900 mb-3">{t('introduction')}</h3>
                                   <div className="text-[15px] leading-relaxed text-slate-600">
                                     <MarkdownRenderer content={manualDescription} />
                                   </div>
@@ -1000,7 +1001,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                           </div>
                           <div className="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm">
                             <p className="text-[15px] leading-relaxed text-slate-600">
-                              太好了！实验环境已经为你准备好了。现在让我们开始学习第一步的内容吧！👇
+                              {t('environmentReady')}
                             </p>
                           </div>
                         </div>
@@ -1026,7 +1027,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                               }}
                               className="shrink-0 rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold text-warning-700 hover:bg-white"
                             >
-                              已读
+                              {t('acknowledged')}
                             </button>
                           </div>
                         </div>
@@ -1057,7 +1058,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                               onClick={() => setFaqOpen(value => !value)}
                               className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-primary-700"
                             >
-                              <span>本班常见问题</span>
+                              <span>{t('classFaq')}</span>
                               <ChevronDown className={`h-4 w-4 transition ${faqOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {faqOpen && (
@@ -1080,7 +1081,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                               onClick={handleContinue}
                               className="px-6 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-600 transition-colors"
                             >
-                              {currentStep === steps.length - 1 ? '完成' : '继续'}
+                              {currentStep === steps.length - 1 ? t('complete') : t('continue')}
                             </button>
                           </div>
                         )}
@@ -1103,7 +1104,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                         <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center ${
                           msg.role === 'user' ? 'rounded-full bg-default-400 text-white shadow-md ring-2 ring-white' : ''
                         }`}>
-                          {msg.role === 'agent' ? <img src={EnergyRobotGif} alt="Agent" className="w-8 h-8 object-contain" /> : <span className="text-xs font-bold">你</span>}
+                          {msg.role === 'agent' ? <img src={EnergyRobotGif} alt="Agent" className="w-8 h-8 object-contain" /> : <span className="text-xs font-bold">{t('you')}</span>}
                         </div>
                         <div className={`rounded-2xl p-4 shadow-sm max-w-[85%] ${
                           msg.role === 'agent' ? agentBubbleClass(msg.hintLevel) : 'bg-primary text-white rounded-tr-none'
@@ -1126,7 +1127,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                                 onClick={handleContinue}
                                 className="px-6 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-600 transition-colors"
                               >
-                                {currentStep === steps.length - 1 ? '完成' : '继续'}
+                                {currentStep === steps.length - 1 ? t('complete') : t('continue')}
                               </button>
                             </div>
                           )}
@@ -1169,7 +1170,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                         <div className="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm">
                           <div className="flex items-center gap-2 text-default-600">
                             <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                            <span>正在检查环境...</span>
+                            <span>{t('checking')}</span>
                           </div>
                         </div>
                       </div>
@@ -1191,7 +1192,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                         }`}>
                           {/* 检查结果标题 */}
                           <h4 className="text-lg font-bold text-default-900 mb-3">
-                            {verificationResult.success && currentStep === steps.length - 1 ? '🎉 恭喜完成！' : '检查结果'}
+                            {verificationResult.success && currentStep === steps.length - 1 ? t('congratulations') : t('checkResult')}
                           </h4>
                           
                           {/* 检查项列表 */}
@@ -1233,7 +1234,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                                 className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-700 border border-primary-200 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors disabled:opacity-50"
                               >
                                 <Wrench size={14} />
-                                帮我排查
+                                {t('troubleshoot')}
                               </button>
                               <button
                                 onClick={handleEscalateHint}
@@ -1241,13 +1242,13 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                                 className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-warning-700 border border-warning-200 bg-warning-50 rounded-lg hover:bg-warning-100 transition-colors disabled:cursor-not-allowed disabled:opacity-45"
                               >
                                 <BookOpen size={14} />
-                                给我完整提示
+                                {t('giveFullHint')}
                               </button>
                               <button 
                                 onClick={handleRetry}
                                 className="px-5 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-600 transition-colors"
                               >
-                                重新检查
+                                {t('recheck')}
                               </button>
                             </div>
                           )}
@@ -1259,8 +1260,8 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                                 <CheckCircle2 className="w-5 h-5" />
                                 <span className="text-sm font-medium">
                                   {currentStep === steps.length - 1 
-                                    ? '太棒了！你已完成所有步骤 🚀' 
-                                    : '验证通过，正在进入下一步...'}
+                                    ? t('allStepsComplete')
+                                    : t('nextStep')}
                                 </span>
                               </div>
                             </div>
@@ -1291,10 +1292,10 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                     <button
                       onClick={scrollToBottom}
                       className="px-3 py-1.5 bg-white rounded-full shadow-lg border border-default-200 hover:bg-default-50 transition-all flex items-center gap-1.5 text-sm text-default-600"
-                      title="返回底部"
+                      title={t('scrollBottom')}
                     >
                       <ChevronDown size={16} />
-                      <span>返回底部</span>
+                      <span>{t('scrollBottom')}</span>
                     </button>
                   </div>
                 )}
@@ -1319,7 +1320,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                         }`}
                       >
                         <HelpCircle size={14} />
-                        提问
+                        {t('ask')}
                       </button>
                       <button
                         onClick={handleEscalateHint}
@@ -1327,7 +1328,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                         className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-warning-700 bg-warning-50 rounded-full hover:bg-warning-100 transition-colors disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         <BookOpen size={14} />
-                        完整提示
+                        {t('fullHint')}
                       </button>
                       
                       {/* 关闭输入框按钮 - 只在输入框展开时显示 */}
@@ -1356,7 +1357,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                                   handleSubmit(e);
                                 }
                               }}
-                              placeholder="输入你的问题..." 
+                              placeholder={t('inputPlaceholder')}
                               rows={2}
                               className="w-full px-4 py-3 pr-14 text-[15px] outline-none placeholder:text-default-400 text-default-900 resize-none bg-transparent"
                               disabled={isAsking}
@@ -1388,15 +1389,15 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       <CompleteLessonDialog
         isOpen={showCompleteDialog}
         onClose={() => setShowCompleteDialog(false)}
-        lessonName={manualTitle || '实验'}
+        lessonName={manualTitle || t('experiment')}
         earnedXP={100}
         manualId={manualId}
         duration={(() => {
           const elapsed = Math.round((Date.now() - widgetStartRef.current) / 1000);
           const mins = Math.floor(elapsed / 60);
           const secs = elapsed % 60;
-          if (mins > 0) return `${mins}分 ${secs}秒`;
-          return `${secs}秒`;
+          if (mins > 0) return t('durationMinutes', { minutes: mins, seconds: secs });
+          return t('durationSeconds', { seconds: secs });
         })()}
       />
     </>

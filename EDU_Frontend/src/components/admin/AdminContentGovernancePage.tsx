@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Select, SelectItem } from '@heroui/react';
 import { Activity, AlertTriangle, CheckCircle2, FileSearch, FlaskConical, PencilLine, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
 import PageDialog from '@/components/common/PageDialog';
@@ -18,6 +19,9 @@ import {
   type LabTemplateExposedPortType,
   type PublishAuditLog,
 } from '@/services/publishing';
+import i18n, { getCurrentLocale } from '@/i18n';
+
+const tr = (key: string, options?: Record<string, unknown>) => i18n.t('adminContent:' + key, options);
 
 type GovernanceTab = 'templates' | 'audit';
 
@@ -47,13 +51,13 @@ const emptyTemplateForm: LabTemplateFormState = {
 
 const appPortSummary = (ports?: LabTemplateAppPort[]) => {
   const list = Array.isArray(ports) ? ports : [];
-  if (list.length === 0) return '未配置';
+  if (list.length === 0) return tr('notConfigured');
   return list.map((port) => `${port.label || port.name}:${port.containerPort}`).join(' / ');
 };
 
 const exposedPortSummary = (ports?: LabTemplateExposedPort[], fallbackAppPorts?: LabTemplateAppPort[], desktopEnabled = true) => {
   const list = normalizeExposedPortsForForm(ports, fallbackAppPorts, desktopEnabled);
-  if (list.length === 0) return '未配置';
+  if (list.length === 0) return tr('notConfigured');
   return list.map((port) => {
     const prefix = port.type === 'novnc' ? 'Desktop' : (port.label || port.name);
     return `${prefix}:${port.containerPort}`;
@@ -94,32 +98,33 @@ const normalizeExposedPortsForForm = (
 
 const formatDateTime = (value?: string) => {
   if (!value) return '-';
-  return new Date(value).toLocaleString('zh-CN');
+  return new Date(value).toLocaleString(getCurrentLocale());
 };
 
 const templateStatusMeta = (status: number) => (
   status === 1
-    ? { label: '启用中', className: 'bg-emerald-50 text-emerald-700' }
-    : { label: '已停用', className: 'bg-slate-100 text-slate-600' }
+    ? { label: tr('active'), className: 'bg-emerald-50 text-emerald-700' }
+    : { label: tr('disabled'), className: 'bg-slate-100 text-slate-600' }
 );
 
 const actionLabelMap: Record<string, string> = {
-  check: '发布检查',
-  publish: '发布',
-  archive: '下架',
-  draft: '草稿',
-  template_create: '模板创建',
-  template_update: '模板更新',
-  template_status: '模板状态',
+  check: tr('actions.check'),
+  publish: tr('actions.publish'),
+  archive: tr('actions.archive'),
+  draft: tr('actions.draft'),
+  template_create: tr('actions.templateCreate'),
+  template_update: tr('actions.templateUpdate'),
+  template_status: tr('actions.templateStatus'),
 };
 
 const resultLabelMap: Record<string, string> = {
-  success: '成功',
-  warning: '成功（警告）',
-  blocked: '已阻断',
+  success: tr('results.success'),
+  warning: tr('results.warning'),
+  blocked: tr('results.blocked'),
 };
 
 const AdminContentGovernancePage: React.FC = () => {
+  useTranslation('adminContent');
   const [activeTab, setActiveTab] = useState<GovernanceTab>('templates');
   const [templateKeyword, setTemplateKeyword] = useState('');
   const [templateStatusFilter, setTemplateStatusFilter] = useState<'all' | '1' | '2'>('all');
@@ -165,7 +170,7 @@ const AdminContentGovernancePage: React.FC = () => {
       setTemplates(response.data);
     } else {
       setTemplates([]);
-      setTemplateError(response.error || '获取 Lab 模板失败');
+      setTemplateError(response.error || tr('loadTemplatesFailed'));
     }
     setLoadingTemplates(false);
   };
@@ -188,7 +193,7 @@ const AdminContentGovernancePage: React.FC = () => {
       setAuditLogs([]);
       setAuditTotal(0);
       setAuditPage(page);
-      setAuditError(response.error || '获取发布审计失败');
+      setAuditError(response.error || tr('loadAuditFailed'));
     }
     setLoadingAudit(false);
   };
@@ -288,11 +293,11 @@ const AdminContentGovernancePage: React.FC = () => {
 
   const handleTemplateSubmit = async () => {
     if (!templateForm.name.trim() || !templateForm.code.trim() || !templateForm.envImage.trim()) {
-      error('请至少填写模板名称、编码和实验镜像');
+      error(tr('required'));
       return;
     }
     if (templateForm.exposedPorts.length === 0) {
-      error('请至少配置一个镜像暴露端口');
+      error(tr('portRequired'));
       return;
     }
     const normalizedExposedPorts = templateForm.exposedPorts.map((port) => ({
@@ -305,7 +310,7 @@ const AdminContentGovernancePage: React.FC = () => {
     }));
     const defaultCount = normalizedExposedPorts.filter((port) => port.isDefault).length;
     if (defaultCount > 1) {
-      error('默认入口只能选择一个');
+      error(tr('singleDefault'));
       return;
     }
     const normalizedAppPorts = normalizedExposedPorts
@@ -337,29 +342,29 @@ const AdminContentGovernancePage: React.FC = () => {
     setSavingTemplate(false);
 
     if (!response.success) {
-      error(response.error || (editingTemplate ? '更新模板失败' : '创建模板失败'));
+      error(response.error || (editingTemplate ? tr('updateFailed') : tr('createFailed')));
       return;
     }
 
-    success(editingTemplate ? 'Lab 模板已更新' : 'Lab 模板已创建');
+    success(editingTemplate ? tr('updated') : tr('created'));
     setTemplateDialogOpen(false);
     await loadTemplates();
     await loadAuditLogs(1);
   };
 
   const handleTemplateStatusChange = (template: LabTemplate, nextStatus: 1 | 2) => {
-    const actionLabel = nextStatus === 1 ? '启用' : '停用';
+    const actionLabel = nextStatus === 1 ? tr('enable') : tr('disable');
     confirmDialog.showConfirm({
-      title: `${actionLabel} Lab 模板`,
-      message: `确定要${actionLabel}模板「${template.name}」吗？状态变更会进入发布审计。`,
+      title: tr('statusConfirmTitle', { action: actionLabel }),
+      message: tr('statusConfirmMessage', { action: actionLabel, name: template.name }),
       type: nextStatus === 1 ? 'info' : 'warning',
       onConfirm: async () => {
         const response = await adminLabTemplateApi.updateStatus(template.id, nextStatus);
         if (!response.success) {
-          error(response.error || `${actionLabel}模板失败`);
+          error(response.error || tr('statusFailed', { action: actionLabel }));
           return;
         }
-        success(`模板已${actionLabel}`);
+        success(tr('statusUpdated', { action: actionLabel }));
         await loadTemplates();
         await loadAuditLogs(1);
       },
@@ -372,8 +377,8 @@ const AdminContentGovernancePage: React.FC = () => {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">内容治理</h2>
-          <p className="mt-1 text-sm text-default-500">统一管理 Lab 模板、发布审计与内容发布门禁，避免教师发布后学生无法进入实训。</p>
+          <h2 className="text-2xl font-bold text-foreground">{tr('title')}</h2>
+          <p className="mt-1 text-sm text-default-500">{tr('subtitle')}</p>
         </div>
         <button
           onClick={() => {
@@ -383,14 +388,14 @@ const AdminContentGovernancePage: React.FC = () => {
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
         >
           <RefreshCw className={`h-4 w-4 ${(loadingTemplates || loadingAudit) ? 'animate-spin' : ''}`} />
-          刷新
+          {tr('refresh')}
         </button>
       </div>
 
       <div className="card-surface inline-flex rounded-2xl p-1">
         {([
-          { key: 'templates', label: 'Lab 模板', icon: FlaskConical },
-          { key: 'audit', label: '发布审计', icon: ShieldCheck },
+          { key: 'templates', label: tr('templatesTab'), icon: FlaskConical },
+          { key: 'audit', label: tr('auditTab'), icon: ShieldCheck },
         ] as const).map((item) => (
           <button
             key={item.key}
@@ -411,18 +416,18 @@ const AdminContentGovernancePage: React.FC = () => {
             <ToolbarSearchField
               value={templateKeyword}
               onChange={setTemplateKeyword}
-              placeholder="搜索模板名称、编码或实验镜像"
+              placeholder={tr('searchTemplates')}
               className="lg:flex-1"
             />
             <ToolbarSelect
-              ariaLabel="模板状态"
+              ariaLabel={tr('actions.templateStatus')}
               value={templateStatusFilter}
               onChange={(value) => setTemplateStatusFilter(value as 'all' | '1' | '2')}
               className="lg:w-52"
               options={[
-                { key: 'all', label: '全部状态' },
-                { key: '1', label: '启用中' },
-                { key: '2', label: '已停用' },
+                { key: 'all', label: tr('allStatuses') },
+                { key: '1', label: tr('active') },
+                { key: '2', label: tr('disabled') },
               ]}
             />
             <button
@@ -430,13 +435,13 @@ const AdminContentGovernancePage: React.FC = () => {
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-700"
             >
               <Plus className="h-4 w-4" />
-              新建模板
+              {tr('newTemplate')}
             </button>
           </div>
 
           {loadingTemplates && (
             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-              正在加载 Lab 模板...
+              {tr('loadingTemplates')}
             </div>
           )}
 
@@ -446,7 +451,7 @@ const AdminContentGovernancePage: React.FC = () => {
 
           {!loadingTemplates && !templateError && filteredTemplates.length === 0 && (
             <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-              当前没有符合筛选条件的模板，可以先创建一个 Classic Lab 模板。
+              {tr('emptyTemplates')}
             </div>
           )}
 
@@ -463,48 +468,48 @@ const AdminContentGovernancePage: React.FC = () => {
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}>{statusMeta.label}</span>
                         </div>
                         <div className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{template.code}</div>
-                        <div className="mt-3 text-sm text-slate-600">{template.description || '暂无描述'}</div>
+                        <div className="mt-3 text-sm text-slate-600">{template.description || tr('noDescription')}</div>
                       </div>
                       <button
                         onClick={() => openEditTemplate(template)}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
                       >
                         <PencilLine className="h-4 w-4" />
-                        编辑
+                        {tr('edit')}
                       </button>
                     </div>
 
                     <div className="mt-5 grid gap-3 md:grid-cols-2">
                       <div className="card-surface rounded-2xl px-4 py-3">
-                        <div className="text-xs text-slate-400">实验镜像</div>
+                        <div className="text-xs text-slate-400">{tr('envImage')}</div>
                         <div className="mt-1 truncate text-sm font-semibold text-slate-800">{template.envImage}</div>
                       </div>
                       <div className="card-surface rounded-2xl px-4 py-3">
-                        <div className="text-xs text-slate-400">IDE 镜像</div>
-                        <div className="mt-1 truncate text-sm font-semibold text-slate-800">{template.ideImage || '未配置'}</div>
+                        <div className="text-xs text-slate-400">{tr('ideImage')}</div>
+                        <div className="mt-1 truncate text-sm font-semibold text-slate-800">{template.ideImage || tr('notConfigured')}</div>
                       </div>
                       <div className="card-surface rounded-2xl px-4 py-3">
-                        <div className="text-xs text-slate-400">主容器资源</div>
+                        <div className="text-xs text-slate-400">{tr('mainResources')}</div>
                         <div className="mt-1 text-sm font-semibold text-slate-800">{template.mainCpuRequest} / {template.mainMemoryRequest}</div>
                       </div>
                       <div className="card-surface rounded-2xl px-4 py-3">
-                        <div className="text-xs text-slate-400">IDE 资源</div>
+                        <div className="text-xs text-slate-400">{tr('ideResources')}</div>
                         <div className="mt-1 text-sm font-semibold text-slate-800">{template.ideCpuRequest} / {template.ideMemoryRequest}</div>
                       </div>
                       <div className="card-surface rounded-2xl px-4 py-3">
-                        <div className="text-xs text-slate-400">镜像入口</div>
+                        <div className="text-xs text-slate-400">{tr('imageEntry')}</div>
                         <div className="mt-1 truncate text-sm font-semibold text-slate-800">
                           {exposedPortSummary(template.exposedPorts, template.appPorts, template.desktopEnabled)}
                         </div>
                       </div>
                       <div className="card-surface rounded-2xl px-4 py-3">
-                        <div className="text-xs text-slate-400">应用端口</div>
+                        <div className="text-xs text-slate-400">{tr('appPorts')}</div>
                         <div className="mt-1 truncate text-sm font-semibold text-slate-800">{appPortSummary(template.appPorts)}</div>
                       </div>
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-xs text-slate-400">最近更新：{formatDateTime(template.updatedAt)}</div>
+                      <div className="text-xs text-slate-400">{tr('recentlyUpdated', { value: formatDateTime(template.updatedAt) })}</div>
                       <button
                         onClick={() => handleTemplateStatusChange(template, template.status === 1 ? 2 : 1)}
                         className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
@@ -514,7 +519,7 @@ const AdminContentGovernancePage: React.FC = () => {
                         }`}
                       >
                         <Activity className="h-4 w-4" />
-                        {template.status === 1 ? '停用模板' : '启用模板'}
+                        {template.status === 1 ? tr('disableTemplate') : tr('enableTemplate')}
                       </button>
                     </div>
                   </div>
@@ -531,52 +536,52 @@ const AdminContentGovernancePage: React.FC = () => {
             <ToolbarSearchField
               value=""
               onChange={() => {}}
-              placeholder="审计搜索暂以类型、动作、结果筛选为主"
+              placeholder={tr('auditSearch')}
               className="pointer-events-none opacity-60"
             />
             <ToolbarSelect
-              ariaLabel="审计内容类型"
+              ariaLabel={tr('contentTypeFilter')}
               value={auditContentType}
               onChange={(value) => setAuditContentType(value as typeof auditContentType)}
               options={[
-                { key: 'all', label: '全部内容' },
-                { key: 'course', label: '课程' },
-                { key: 'project', label: '项目' },
-                { key: 'manual', label: '手册' },
-                { key: 'lab_template', label: 'Lab 模板' },
+                { key: 'all', label: tr('allContent') },
+                { key: 'course', label: tr('contentTypes.course') },
+                { key: 'project', label: tr('contentTypes.project') },
+                { key: 'manual', label: tr('contentTypes.manual') },
+                { key: 'lab_template', label: tr('templatesTab') },
               ]}
             />
             <ToolbarSelect
-              ariaLabel="审计动作"
+              ariaLabel={tr('actionFilter')}
               value={auditAction}
               onChange={(value) => setAuditAction(value as typeof auditAction)}
               options={[
-                { key: 'all', label: '全部动作' },
-                { key: 'check', label: '发布检查' },
-                { key: 'publish', label: '发布' },
-                { key: 'archive', label: '下架' },
-                { key: 'draft', label: '草稿' },
-                { key: 'template_create', label: '模板创建' },
-                { key: 'template_update', label: '模板更新' },
-                { key: 'template_status', label: '模板状态' },
+                { key: 'all', label: tr('allActions') },
+                { key: 'check', label: tr('actions.check') },
+                { key: 'publish', label: tr('actions.publish') },
+                { key: 'archive', label: tr('actions.archive') },
+                { key: 'draft', label: tr('actions.draft') },
+                { key: 'template_create', label: tr('actions.templateCreate') },
+                { key: 'template_update', label: tr('actions.templateUpdate') },
+                { key: 'template_status', label: tr('actions.templateStatus') },
               ]}
             />
             <ToolbarSelect
-              ariaLabel="审计结果"
+              ariaLabel={tr('resultFilter')}
               value={auditResult}
               onChange={(value) => setAuditResult(value as typeof auditResult)}
               options={[
-                { key: 'all', label: '全部结果' },
-                { key: 'success', label: '成功' },
-                { key: 'warning', label: '成功（警告）' },
-                { key: 'blocked', label: '已阻断' },
+                { key: 'all', label: tr('allResults') },
+                { key: 'success', label: tr('results.success') },
+                { key: 'warning', label: tr('results.warning') },
+                { key: 'blocked', label: tr('results.blocked') },
               ]}
             />
           </div>
 
           {loadingAudit && (
             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-              正在加载发布审计...
+              {tr('loadingAudit')}
             </div>
           )}
 
@@ -586,7 +591,7 @@ const AdminContentGovernancePage: React.FC = () => {
 
           {!loadingAudit && !auditError && auditLogs.length === 0 && (
             <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-              当前筛选条件下没有发布审计记录。
+              {tr('emptyAudit')}
             </div>
           )}
 
@@ -596,12 +601,12 @@ const AdminContentGovernancePage: React.FC = () => {
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="text-left text-slate-500">
-                      <th className="px-4 py-3 font-medium">内容</th>
-                      <th className="px-4 py-3 font-medium">动作</th>
-                      <th className="px-4 py-3 font-medium">结果</th>
-                      <th className="px-4 py-3 font-medium">说明</th>
-                      <th className="px-4 py-3 font-medium">时间</th>
-                      <th className="px-4 py-3 font-medium text-right">详情</th>
+                      <th className="px-4 py-3 font-medium">{tr('content')}</th>
+                      <th className="px-4 py-3 font-medium">{tr('action')}</th>
+                      <th className="px-4 py-3 font-medium">{tr('result')}</th>
+                      <th className="px-4 py-3 font-medium">{tr('message')}</th>
+                      <th className="px-4 py-3 font-medium">{tr('time')}</th>
+                      <th className="px-4 py-3 font-medium text-right">{tr('details')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -635,7 +640,7 @@ const AdminContentGovernancePage: React.FC = () => {
                               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
                             >
                               <FileSearch className="h-4 w-4" />
-                              查看
+                              {tr('view')}
                             </button>
                           </td>
                         </tr>
@@ -646,21 +651,21 @@ const AdminContentGovernancePage: React.FC = () => {
               </div>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-slate-500">共 {auditTotal} 条记录，当前第 {auditPage} / {totalAuditPages} 页</div>
+                <div className="text-sm text-slate-500">{tr('pagination', { total: auditTotal, page: auditPage, totalPages: totalAuditPages })}</div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => void loadAuditLogs(Math.max(1, auditPage - 1))}
                     disabled={auditPage <= 1}
                     className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    上一页
+                    {tr('previous')}
                   </button>
                   <button
                     onClick={() => void loadAuditLogs(Math.min(totalAuditPages, auditPage + 1))}
                     disabled={auditPage >= totalAuditPages}
                     className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    下一页
+                    {tr('next')}
                   </button>
                 </div>
               </div>
@@ -676,23 +681,23 @@ const AdminContentGovernancePage: React.FC = () => {
       >
         <div className="flex min-h-0 flex-col bg-white">
           <div className="shrink-0 border-b border-slate-200 px-8 py-6">
-            <div className="text-xs font-bold uppercase tracking-[0.18em] text-primary-500">Lab 模板</div>
-            <h3 className="mt-2 text-2xl font-black text-slate-900">{editingTemplate ? '编辑模板' : '新建模板'}</h3>
-            <p className="mt-2 text-sm text-slate-500">模板会被课程/项目发布检查引用，并在 Classic Lab 创建时优先应用镜像和资源配置。</p>
+            <div className="text-xs font-bold uppercase tracking-[0.18em] text-primary-500">{tr('templatesTab')}</div>
+            <h3 className="mt-2 text-2xl font-black text-slate-900">{editingTemplate ? tr('editTemplate') : tr('newTemplate')}</h3>
+            <p className="mt-2 text-sm text-slate-500">{tr('templateHelp')}</p>
           </div>
           <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-8 py-6 lg:grid-cols-2">
             <div className="space-y-4">
               <label className="block text-sm font-semibold text-slate-700">
-                模板名称
+                {tr('templateName')}
                 <input
                   value={templateForm.name}
                   onChange={(event) => setTemplateForm((prev) => ({ ...prev, name: event.target.value }))}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-primary-500 focus:bg-white"
-                  placeholder="例如：Go 基础实验模板"
+                  placeholder={tr('templateNamePlaceholder')}
                 />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
-                模板编码
+                {tr('templateCode')}
                 <input
                   value={templateForm.code}
                   onChange={(event) => setTemplateForm((prev) => ({ ...prev, code: event.target.value }))}
@@ -701,18 +706,18 @@ const AdminContentGovernancePage: React.FC = () => {
                 />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
-                模板描述
+                {tr('templateDescription')}
                 <textarea
                   value={templateForm.description}
                   onChange={(event) => setTemplateForm((prev) => ({ ...prev, description: event.target.value }))}
                   className="mt-2 min-h-[112px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-primary-500 focus:bg-white"
-                  placeholder="说明适用课程、镜像用途和资源建议。"
+                  placeholder={tr('templateDescriptionPlaceholder')}
                 />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
-                Runtime Mode
+                {tr('runtimeMode', { ns: 'uiReview' })}
                 <ToolbarSelect
-                  ariaLabel="Runtime Mode"
+                  ariaLabel={tr('runtimeMode', { ns: 'uiReview' })}
                   value={templateForm.runtimeMode}
                   onChange={(value) => setTemplateForm((prev) => ({ ...prev, runtimeMode: value }))}
                   options={[{ key: 'classic', label: 'classic' }]}
@@ -722,8 +727,8 @@ const AdminContentGovernancePage: React.FC = () => {
               <div className="rounded-2xl bg-slate-50 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-700">镜像暴露端口</div>
-                    <div className="mt-1 text-xs leading-5 text-slate-400">按镜像真实入口填写，Desktop/noVNC 会显示为桌面，Web 应用会显示到 Ports。</div>
+                    <div className="text-sm font-semibold text-slate-700">{tr('exposedPorts')}</div>
+                    <div className="mt-1 text-xs leading-5 text-slate-400">{tr('exposedPortsHelp')}</div>
                   </div>
                   <button
                     type="button"
@@ -731,7 +736,7 @@ const AdminContentGovernancePage: React.FC = () => {
                     className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    添加端口
+                    {tr('addPort')}
                   </button>
                 </div>
                 {templateForm.exposedPorts.length > 0 && (
@@ -739,27 +744,27 @@ const AdminContentGovernancePage: React.FC = () => {
                     {templateForm.exposedPorts.map((port, index) => (
                       <div key={`${index}-${port.type}-${port.name}`} className="rounded-2xl bg-white p-4 shadow-sm">
                         <div className="mb-4 flex items-center justify-between gap-3">
-                          <div className="text-xs font-bold uppercase tracking-wider text-slate-400">端口 {index + 1}</div>
+                          <div className="text-xs font-bold uppercase tracking-wider text-slate-400">{tr('portNumber', { number: index + 1 })}</div>
                           <button
                             type="button"
                             onClick={() => removeTemplateExposedPort(index)}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                            title="删除端口"
+                            title={tr('deletePort')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="min-w-0">
-                            <label className="mb-1.5 block text-xs font-semibold text-slate-500">类型</label>
+                            <label className="mb-1.5 block text-xs font-semibold text-slate-500">{tr('type')}</label>
                             <Select
-                              aria-label="选择端口类型"
+                              aria-label={tr('selectPortType')}
                               selectedKeys={[port.type]}
                               onSelectionChange={(keys) => {
                                 const selected = Array.from(keys)[0] as LabTemplateExposedPortType | undefined;
                                 if (!selected) return;
                                 if (selected === 'novnc' && templateForm.exposedPorts.some((item, itemIndex) => itemIndex !== index && item.type === 'novnc')) {
-                                  error('Desktop/noVNC 入口最多配置 1 个');
+                                  error(tr('desktopLimit'));
                                   return;
                                 }
                                 updateTemplateExposedPort(index, { type: selected });
@@ -771,11 +776,11 @@ const AdminContentGovernancePage: React.FC = () => {
                               listboxProps={{ itemClasses: dialogSelectItemClassNames }}
                             >
                               <SelectItem key="novnc">Desktop/noVNC</SelectItem>
-                              <SelectItem key="web">Web 应用</SelectItem>
+                              <SelectItem key="web">{tr('webApp')}</SelectItem>
                             </Select>
                           </div>
                           <label className="block min-w-0 text-xs font-semibold text-slate-500">
-                            容器端口
+                            {tr('containerPort')}
                             <input
                               type="number"
                               min={1}
@@ -788,7 +793,7 @@ const AdminContentGovernancePage: React.FC = () => {
                           </label>
                           {port.type === 'web' && (
                             <label className="block min-w-0 text-xs font-semibold text-slate-500">
-                              名称
+                              {tr('name')}
                               <input
                                 value={port.name}
                                 onChange={(event) => updateTemplateExposedPort(index, { name: event.target.value })}
@@ -798,17 +803,17 @@ const AdminContentGovernancePage: React.FC = () => {
                             </label>
                           )}
                           <label className="block min-w-0 text-xs font-semibold text-slate-500">
-                            展示名
+                            {tr('displayName')}
                             <input
                               value={port.label}
                               onChange={(event) => updateTemplateExposedPort(index, { label: event.target.value })}
                               className="mt-1.5 h-[46px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-primary-500 focus:bg-white"
-                              placeholder={port.type === 'novnc' ? 'Desktop' : 'Web 服务'}
+                              placeholder={port.type === 'novnc' ? 'Desktop' : tr('webService')}
                             />
                           </label>
                           {port.type === 'web' && (
                             <label className="block min-w-0 text-xs font-semibold text-slate-500">
-                              默认路径
+                              {tr('defaultPath')}
                               <input
                                 value={port.path}
                                 onChange={(event) => updateTemplateExposedPort(index, { path: event.target.value })}
@@ -825,7 +830,7 @@ const AdminContentGovernancePage: React.FC = () => {
                               onChange={() => setDefaultExposedPort(index)}
                               className="h-4 w-4 accent-primary-600"
                             />
-                            默认入口
+                            {tr('defaultEntry')}
                           </label>
                         </div>
                       </div>
@@ -837,7 +842,7 @@ const AdminContentGovernancePage: React.FC = () => {
 
             <div className="space-y-4">
               <label className="block text-sm font-semibold text-slate-700">
-                实验镜像
+                {tr('envImage')}
                 <input
                   value={templateForm.envImage}
                   onChange={(event) => setTemplateForm((prev) => ({ ...prev, envImage: event.target.value }))}
@@ -846,24 +851,24 @@ const AdminContentGovernancePage: React.FC = () => {
                 />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
-                IDE 镜像
+                {tr('ideImage')}
                 <input
                   value={templateForm.ideImage}
                   onChange={(event) => setTemplateForm((prev) => ({ ...prev, ideImage: event.target.value }))}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-primary-500 focus:bg-white"
-                  placeholder="可选，不配置则沿用默认"
+                  placeholder={tr('optionalDefault')}
                 />
               </label>
               <div className="grid gap-4 md:grid-cols-2">
                 {([
-                  ['mainCpuRequest', '主容器 CPU Request'],
-                  ['mainMemoryRequest', '主容器内存 Request'],
-                  ['mainCpuLimit', '主容器 CPU Limit'],
-                  ['mainMemoryLimit', '主容器内存 Limit'],
+                  ['mainCpuRequest', tr('resourceLabels.mainCpuRequest')],
+                  ['mainMemoryRequest', tr('resourceLabels.mainMemoryRequest')],
+                  ['mainCpuLimit', tr('resourceLabels.mainCpuLimit')],
+                  ['mainMemoryLimit', tr('resourceLabels.mainMemoryLimit')],
                   ['ideCpuRequest', 'IDE CPU Request'],
-                  ['ideMemoryRequest', 'IDE 内存 Request'],
+                  ['ideMemoryRequest', tr('resourceLabels.ideMemoryRequest')],
                   ['ideCpuLimit', 'IDE CPU Limit'],
-                  ['ideMemoryLimit', 'IDE 内存 Limit'],
+                  ['ideMemoryLimit', tr('resourceLabels.ideMemoryLimit')],
                 ] as const).map(([field, label]) => (
                   <label key={field} className="block text-sm font-semibold text-slate-700">
                     {label}
@@ -882,7 +887,7 @@ const AdminContentGovernancePage: React.FC = () => {
               onClick={() => setTemplateDialogOpen(false)}
               className="rounded-2xl px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
             >
-              取消
+              {tr('cancel')}
             </button>
             <button
               onClick={() => void handleTemplateSubmit()}
@@ -890,7 +895,7 @@ const AdminContentGovernancePage: React.FC = () => {
               className="inline-flex items-center gap-2 rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
-              {savingTemplate ? '保存中...' : editingTemplate ? '保存模板' : '创建模板'}
+              {savingTemplate ? tr('saving') : editingTemplate ? tr('saveTemplate') : tr('createTemplate')}
             </button>
           </div>
         </div>
@@ -905,32 +910,32 @@ const AdminContentGovernancePage: React.FC = () => {
           {selectedAudit && (
             <>
               <div className="border-b border-slate-200 bg-white px-8 py-6">
-                <div className="text-xs font-bold uppercase tracking-[0.18em] text-primary-500">发布审计详情</div>
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-primary-500">{tr('auditDetail')}</div>
                 <h3 className="mt-2 text-2xl font-black text-slate-900">{selectedAudit.contentTitle || `#${selectedAudit.contentId}`}</h3>
                 <p className="mt-2 text-sm text-slate-500">{selectedAudit.message}</p>
               </div>
               <div className="space-y-6 p-8">
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="card-surface rounded-2xl p-4">
-                    <div className="text-xs text-slate-400">内容类型</div>
+                    <div className="text-xs text-slate-400">{tr('contentType')}</div>
                     <div className="mt-2 text-sm font-semibold text-slate-800">{selectedAudit.contentType}</div>
                   </div>
                   <div className="card-surface rounded-2xl p-4">
-                    <div className="text-xs text-slate-400">动作</div>
+                    <div className="text-xs text-slate-400">{tr('action')}</div>
                     <div className="mt-2 text-sm font-semibold text-slate-800">{actionLabelMap[selectedAudit.action] || selectedAudit.action}</div>
                   </div>
                   <div className="card-surface rounded-2xl p-4">
-                    <div className="text-xs text-slate-400">结果</div>
+                    <div className="text-xs text-slate-400">{tr('result')}</div>
                     <div className="mt-2 text-sm font-semibold text-slate-800">{resultLabelMap[selectedAudit.result] || selectedAudit.result}</div>
                   </div>
                   <div className="card-surface rounded-2xl p-4">
-                    <div className="text-xs text-slate-400">时间</div>
+                    <div className="text-xs text-slate-400">{tr('time')}</div>
                     <div className="mt-2 text-sm font-semibold text-slate-800">{formatDateTime(selectedAudit.createdAt)}</div>
                   </div>
                 </div>
 
                 <div className="card-surface rounded-3xl p-5">
-                  <div className="mb-4 text-sm font-bold text-slate-800">错误与警告</div>
+                  <div className="mb-4 text-sm font-bold text-slate-800">{tr('errorsWarnings')}</div>
                   <div className="space-y-3">
                     {selectedAudit.errors?.map((item, index) => (
                       <div key={`error-${index}`} className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -946,14 +951,14 @@ const AdminContentGovernancePage: React.FC = () => {
                     ))}
                     {(!selectedAudit.errors || selectedAudit.errors.length === 0) && (!selectedAudit.warnings || selectedAudit.warnings.length === 0) && (
                       <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                        当前记录没有错误或警告详情。
+                        {tr('noIssues')}
                       </div>
                     )}
                   </div>
                 </div>
 
                 <div className="card-surface rounded-3xl p-5">
-                  <div className="mb-4 text-sm font-bold text-slate-800">检查快照</div>
+                  <div className="mb-4 text-sm font-bold text-slate-800">{tr('snapshot')}</div>
                   <pre className="overflow-x-auto rounded-2xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
                     {JSON.stringify(selectedAudit.snapshot || {}, null, 2)}
                   </pre>

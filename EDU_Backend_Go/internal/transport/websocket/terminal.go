@@ -21,6 +21,7 @@ import (
 	"edu-platform/internal/domain/lab"
 	"edu-platform/internal/infra/authz"
 	"edu-platform/internal/middleware"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/jwt"
 )
 
@@ -52,41 +53,41 @@ const (
 func (h *TerminalHandler) Handle(c *gin.Context) {
 	token := c.Query("token")
 	if token == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "缺少 token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.tokenRequired", nil), "code": "TERMINAL_TOKEN_REQUIRED"})
 		return
 	}
 	claims, err := h.jwtManager.ParseToken(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "token 无效"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.tokenInvalid", nil), "code": "TERMINAL_TOKEN_INVALID"})
 		return
 	}
 	revoked, err := h.tokenBlacklist.IsRevoked(c.Request.Context(), token)
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "认证状态校验失败"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.authCheckFailed", nil), "code": "TERMINAL_AUTH_CHECK_FAILED"})
 		return
 	}
 	if revoked {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "token 已失效"})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.tokenRevoked", nil), "code": "TERMINAL_TOKEN_REVOKED"})
 		return
 	}
 	if h.labService == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "Lab 服务未启用"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.labUnavailable", nil), "code": "TERMINAL_LAB_UNAVAILABLE"})
 		return
 	}
 
 	sessionID, err := strconv.ParseUint(c.Query("sessionId"), 10, 64)
 	if err != nil || sessionID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "缺少或无效的 sessionId"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.sessionIdInvalid", nil), "code": "TERMINAL_SESSION_ID_INVALID"})
 		return
 	}
 
 	session, err := h.labService.GetActiveSession(c.Request.Context(), claims.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "查询实验会话失败"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.sessionQueryFailed", nil), "code": "TERMINAL_SESSION_QUERY_FAILED"})
 		return
 	}
 	if session == nil || session.ID != sessionID {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "实验会话不存在或已过期"})
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.sessionExpired", nil), "code": "TERMINAL_SESSION_EXPIRED"})
 		return
 	}
 
@@ -113,7 +114,7 @@ func (h *TerminalHandler) Handle(c *gin.Context) {
 	initialCommand := strings.TrimSpace(c.Query("initialCommand"))
 
 	if err := h.handleK8SExec(c.Request.Context(), conn, session, terminalID, mode, command, sessionPolicy, initialCommand, transportMode); err != nil {
-		_ = conn.WriteJSON(gin.H{"type": "error", "message": err.Error()})
+		_ = conn.WriteJSON(gin.H{"type": "error", "message": i18n.Message(c.Request.Context(), "terminal.execFailed", nil), "code": "TERMINAL_EXEC_FAILED"})
 	}
 }
 

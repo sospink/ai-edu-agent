@@ -21,7 +21,7 @@ func NewTeacherHandler(service *Service) *TeacherHandler {
 func (h *TeacherHandler) List(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
@@ -56,24 +56,24 @@ func (h *TeacherHandler) List(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     list,
 		"total":    total,
 		"page":     q.Page,
 		"pageSize": q.PageSize,
-	}, "获取项目列表成功")
+	}, "project.listLoaded", nil)
 }
 
 func (h *TeacherHandler) GetByID(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 
@@ -83,19 +83,19 @@ func (h *TeacherHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, detail, "获取项目成功")
+	response.SuccessKey(c, detail, "project.detailLoaded", nil)
 }
 
 func (h *TeacherHandler) GetUnits(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 
@@ -105,5 +105,5 @@ func (h *TeacherHandler) GetUnits(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, units, "获取单元列表成功")
+	response.SuccessKey(c, units, "project.unitsLoaded", nil)
 }

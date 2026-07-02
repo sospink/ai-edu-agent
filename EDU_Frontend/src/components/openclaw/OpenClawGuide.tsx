@@ -9,6 +9,8 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 const STORAGE_KEY = 'openclaw-guide-dismissed';
 
@@ -19,34 +21,32 @@ interface GuideStep {
   color: string;
 }
 
-const GUIDE_STEPS: GuideStep[] = [
+const createGuideSteps = (t: TFunction<'openclaw'>): GuideStep[] => [
   {
     icon: <FolderOpen className="h-4 w-4" />,
-    title: '场景选择',
-    description: '选择一个实训场景作为 OpenClaw 的工作目标，每个场景预设了不同的 AI 任务类型。',
+    title: t('guide.sceneTitle'), description: t('guide.sceneDesc'),
     color: 'text-slate-600 bg-slate-100',
   },
   {
     icon: <MessageSquare className="h-4 w-4" />,
-    title: '思考中',
-    description: '向 OpenClaw 发送自然语言指令，支持提示词增强功能，AI 将解析你的意图并生成执行计划。',
+    title: t('guide.thinkingTitle'), description: t('guide.thinkingDesc'),
     color: 'text-primary bg-primary/10',
   },
   {
     icon: <Activity className="h-4 w-4" />,
-    title: '执行中',
-    description: '实时查看 Agent 的执行日志与决策分析，监控任务管线、运行状态、队列任务、执行进度及活跃技能。',
+    title: t('guide.executingTitle'), description: t('guide.executingDesc'),
     color: 'text-amber-600 bg-amber-50',
   },
   {
     icon: <CheckCircle2 className="h-4 w-4" />,
-    title: '完成态',
-    description: '查看 OpenClaw 执行完成后返回的产物和链接，同时可回顾完整的流程执行进度。',
+    title: t('guide.completedTitle'), description: t('guide.completedDesc'),
     color: 'text-emerald-600 bg-emerald-50',
   },
 ];
 
 const OpenClawGuide: React.FC = () => {
+  const { t } = useTranslation('openclaw');
+  const guideSteps = createGuideSteps(t);
   const [dismissed, setDismissed] = useState(() => {
     return localStorage.getItem(STORAGE_KEY) === 'true';
   });
@@ -80,7 +80,7 @@ const OpenClawGuide: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-bold text-slate-800">OpenClaw 实训向导</h4>
+              <h4 className="text-sm font-bold text-slate-800">{t('guide.title')}</h4>
             </div>
             <button
               onClick={handleDismiss}
@@ -92,7 +92,7 @@ const OpenClawGuide: React.FC = () => {
 
           {/* 步骤列表 */}
           <div className="space-y-1">
-            {GUIDE_STEPS.map((step, i) => (
+            {guideSteps.map((step, i) => (
               <button
                 key={i}
                 onClick={() => setActiveStep(i)}
@@ -128,12 +128,12 @@ const OpenClawGuide: React.FC = () => {
 
           {/* 底部 */}
           <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">按步骤完成实训</span>
+            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">{t('guide.footer')}</span>
             <button
               onClick={handleDismiss}
               className="text-[11px] font-bold text-primary transition hover:text-primary-600"
             >
-              我知道了
+              {t('guide.understood')}
             </button>
           </div>
         </div>
@@ -147,7 +147,7 @@ const OpenClawGuide: React.FC = () => {
             ? 'bg-slate-800 text-white shadow-slate-800/20'
             : 'bg-primary text-white shadow-primary/30 animate-bounce'
         }`}
-        title="使用向导"
+        title={t('guide.trigger')}
       >
         {open ? <X className="h-4 w-4" /> : <HelpCircle className="h-5 w-5" />}
       </button>

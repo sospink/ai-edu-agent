@@ -31,6 +31,7 @@ func New(deps app.Dependencies) *gin.Engine {
 	engine := gin.New()
 	engine.Use(middleware.Recovery(deps.Logger))
 	engine.Use(middleware.RequestLogger(deps.Logger))
+	engine.Use(middleware.LocaleMiddleware())
 	engine.Use(middleware.CORSMiddleware(deps.Config))
 	engine.Use(middleware.ErrorHandler())
 

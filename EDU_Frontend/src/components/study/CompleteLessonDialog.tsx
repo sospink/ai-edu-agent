@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ShieldCheck, Clock, Zap, X, Loader2, RotateCcw } from 'lucide-react';
 import { useBodyScrollLock } from '@/components/common/bodyScrollLock';
 import * as AgentAPI from '@/services/agent';
+import { useTranslation } from 'react-i18next';
 
 interface CompleteLessonDialogProps {
   isOpen: boolean;
@@ -22,11 +23,12 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
   onClose,
   lessonName,
   earnedXP,
-  actionText = '返回项目',
+  actionText,
   duration = '—',
   accuracy = 100,
   manualId,
 }) => {
+  const { t } = useTranslation('student');
   const [animateContent, setAnimateContent] = useState(false);
   const [reflection, setReflection] = useState<AgentAPI.AgentReflectionCard | null>(null);
   const [reflectionLoading, setReflectionLoading] = useState(false);
@@ -54,11 +56,11 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
         void AgentAPI.markReflectionViewed(card.id);
       }
     } catch (error) {
-      setReflectionError(error instanceof Error ? error.message : '学习复盘生成失败');
+      setReflectionError(error instanceof Error ? error.message : t('reflectionFailed'));
     } finally {
       setReflectionLoading(false);
     }
-  }, [manualId]);
+  }, [manualId, t]);
 
   useEffect(() => {
     if (isOpen && manualId) {
@@ -110,7 +112,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                   <div className="flex items-center gap-2 mb-2">
                     <ShieldCheck className="w-4 h-4 text-[#1677FF]" />
                     <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400">
-                      评估结果
+                      {t('assessment')}
                     </span>
                   </div>
 
@@ -134,7 +136,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                   <div className="bg-white p-4">
                     <div className="flex items-center gap-1.5 mb-1">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">训练耗时</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('duration')}</span>
                     </div>
                     <div className="text-sm font-semibold text-slate-800">{duration}</div>
                   </div>
@@ -143,7 +145,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                   <div className="bg-white p-4">
                     <div className="flex items-center gap-1.5 mb-1">
                       <Zap className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">经验增长</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('xp')}</span>
                     </div>
                     <div className="text-sm font-semibold text-slate-800">+{earnedXP} XP</div>
                   </div>
@@ -152,24 +154,24 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                 {/* 底部分隔线 */}
                 <div className={`flex items-center justify-center gap-2 transition-all duration-700 delay-300 ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                   <div className="h-px flex-1 bg-slate-100" />
-                  <span className="text-[11px] font-medium text-slate-400 px-2 italic">恭喜完成实验</span>
+                  <span className="text-[11px] font-medium text-slate-400 px-2 italic">{t('completed')}</span>
                   <div className="h-px flex-1 bg-slate-100" />
                 </div>
 
                 {manualId && (
                   <div className={`rounded-xl bg-slate-50 p-4 text-left transition-all duration-700 delay-300 ${animateContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                    <div className="mb-2 text-sm font-bold text-slate-800">学习复盘</div>
+                    <div className="mb-2 text-sm font-bold text-slate-800">{t('reflection')}</div>
                     {reflectionLoading ? (
                       <div className="flex items-center gap-2 text-sm text-slate-500">
                         <Loader2 className="h-4 w-4 animate-spin text-[#1677FF]" />
-                        正在生成复盘...
+                        {t('reflecting')}
                       </div>
                     ) : reflectionError ? (
                       <div className="space-y-2">
                         <div className="text-sm text-danger-600">{reflectionError}</div>
                         <button type="button" onClick={() => void loadReflection()} className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-xs font-semibold text-[#1677FF]">
                           <RotateCcw className="h-3 w-3" />
-                          重试
+                          {t('retry')}
                         </button>
                       </div>
                     ) : reflection ? (
@@ -184,7 +186,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                         )}
                       </div>
                     ) : (
-                      <div className="text-sm text-slate-500">复盘将在完成后生成。</div>
+                      <div className="text-sm text-slate-500">{t('reflectionPending')}</div>
                     )}
                   </div>
                 )}
@@ -195,7 +197,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                     onClick={onClose}
                     className="relative inline-flex items-center justify-center w-full py-3 rounded-lg text-sm font-semibold transition-all duration-200 bg-[#1677FF] text-white hover:bg-[#0057D9] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_rgba(22,119,255,0.2)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1677FF]"
                   >
-                    {actionText}
+                    {actionText || t('returnToProject')}
                   </button>
                 </div>
               </div>
@@ -204,7 +206,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
               <button
                 onClick={onClose}
                 className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-full transition-all duration-200"
-                aria-label="关闭"
+                aria-label={t('close')}
               >
                 <X className="w-4 h-4" />
               </button>

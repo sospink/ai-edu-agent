@@ -36,18 +36,20 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { renderAsync } from 'docx-preview';
 import CompleteLessonDialog from './CompleteLessonDialog';
 import 'highlight.js/styles/vs2015.css';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 // 配置 PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 // 获取资料类型信息
-const getMaterialTypeInfo = (type: number) => {
+const getMaterialTypeInfo = (type: number, t: TFunction<'lesson'>) => {
   switch (type) {
     case 1: return { icon: FileText, label: 'Markdown', color: 'text-blue-500' };
     case 2: return { icon: FileType, label: 'PDF', color: 'text-red-500' };
-    case 3: return { icon: Brain, label: '思维导图', color: 'text-purple-500' };
+    case 3: return { icon: Brain, label: t('mindMap'), color: 'text-purple-500' };
     case 4: return { icon: FileText, label: 'Word', color: 'text-indigo-500' };
-    default: return { icon: FileText, label: '文件', color: 'text-slate-500' };
+    default: return { icon: FileText, label: t('file'), color: 'text-slate-500' };
   }
 };
 
@@ -58,6 +60,7 @@ interface MacCodeBlockProps {
 }
 
 const MacCodeBlock: React.FC<MacCodeBlockProps> = ({ children, language }) => {
+  const { t } = useTranslation('lesson');
   const [copied, setCopied] = useState(false);
   const codeContent = extractTextContent(children);
 
@@ -135,17 +138,17 @@ const MacCodeBlock: React.FC<MacCodeBlockProps> = ({ children, language }) => {
         <button
           onClick={handleCopy}
           className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-[#858585] hover:text-[#cccccc] hover:bg-[#3c3c3c] transition-colors opacity-0 group-hover:opacity-100"
-          title="复制代码"
+          title={t('copyCode')}
         >
           {copied ? (
             <>
               <Check className="w-3.5 h-3.5 text-[#4ec9b0]" />
-              <span className="text-[#4ec9b0]">已复制</span>
+              <span className="text-[#4ec9b0]">{t('copied')}</span>
             </>
           ) : (
             <>
               <Copy className="w-3.5 h-3.5" />
-              <span>复制</span>
+              <span>{t('copy')}</span>
             </>
           )}
         </button>
@@ -394,6 +397,7 @@ interface PDFViewerProps {
 }
 
 const PDFViewer: React.FC<PDFViewerProps> = ({ url, title }) => {
+  const { t } = useTranslation('lesson');
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.0);
@@ -427,7 +431,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ url, title }) => {
   const onDocumentLoadError = (error: Error) => {
     console.error('PDF 加载失败:', error);
     setPdfLoading(false);
-    setPdfError('PDF 加载失败，请尝试下载后查看');
+    setPdfError(t('pdfFailed'));
   };
 
   const goToPrevPage = () => setPageNumber(prev => Math.max(1, prev - 1));
@@ -487,7 +491,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ url, title }) => {
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-            title="在新窗口打开"
+            title={t('openNewWindow')}
           >
             <ExternalLink className="w-4 h-4" />
           </a>
@@ -499,10 +503,10 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ url, title }) => {
             className={`flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 rounded-lg text-xs font-medium text-white transition-colors ${
               isCompact ? 'p-2' : 'px-3 py-1.5'
             }`}
-            title="下载"
+            title={t('download')}
           >
             <Download className="w-3.5 h-3.5 flex-shrink-0" />
-            {!isCompact && <span>下载</span>}
+            {!isCompact && <span>{t('download')}</span>}
           </a>
         </div>
       </div>
@@ -528,7 +532,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ url, title }) => {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
             >
               <Download className="w-4 h-4" />
-              下载 PDF
+              {t('downloadPdf')}
             </a>
           </div>
         )}
@@ -560,6 +564,7 @@ interface DocxViewerProps {
 }
 
 const DocxViewer: React.FC<DocxViewerProps> = ({ url, title }) => {
+  const { t } = useTranslation('lesson');
   const [docxLoading, setDocxLoading] = useState<boolean>(true);
   const [docxError, setDocxError] = useState<string | null>(null);
   const [fitToWidth, setFitToWidth] = useState<boolean>(true);
@@ -644,7 +649,7 @@ const DocxViewer: React.FC<DocxViewerProps> = ({ url, title }) => {
       try {
         const response = await fetch(url);
         if (!response.ok) {
-          throw new Error(`文档加载失败: ${response.status}`);
+          throw new Error(t('documentFailed', { status: response.status }));
         }
 
         const arrayBuffer = await response.arrayBuffer();
@@ -673,7 +678,7 @@ const DocxViewer: React.FC<DocxViewerProps> = ({ url, title }) => {
       } catch (error) {
         console.error('DOCX 加载失败:', error);
         if (!cancelled) {
-          setDocxError('Word 文档加载失败，请尝试下载后查看');
+          setDocxError(t('wordFailed'));
           setDocxLoading(false);
         }
       }
@@ -715,16 +720,16 @@ const DocxViewer: React.FC<DocxViewerProps> = ({ url, title }) => {
           <button
             onClick={() => setFitToWidth((prev) => !prev)}
             className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium"
-            title={fitToWidth ? '切换为原始比例' : '切换为适配宽度'}
+            title={fitToWidth ? t('originalScale') : t('fitWidth')}
           >
-            {fitToWidth ? `适配宽度 ${Math.round(docxZoom * 100)}%` : '原始比例'}
+            {fitToWidth ? t('fitWidthValue', { percent: Math.round(docxZoom * 100) }) : t('originalScaleLabel')}
           </button>
           <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-            title="在新窗口打开"
+            title={t('openNewWindow')}
           >
             <ExternalLink className="w-4 h-4" />
           </a>
@@ -732,10 +737,10 @@ const DocxViewer: React.FC<DocxViewerProps> = ({ url, title }) => {
             href={url}
             download
             className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors"
-            title="下载"
+            title={t('download')}
           >
             <Download className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>下载</span>
+            <span>{t('download')}</span>
           </a>
         </div>
       </div>
@@ -766,7 +771,7 @@ const DocxViewer: React.FC<DocxViewerProps> = ({ url, title }) => {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
             >
               <Download className="w-4 h-4" />
-              下载 Word 文档
+              {t('downloadWord')}
             </a>
           </div>
         )}
@@ -820,6 +825,7 @@ interface MindMapViewerProps {
 }
 
 const MindMapViewer: React.FC<MindMapViewerProps> = ({ url, title, fileName }) => {
+  const { t } = useTranslation('lesson');
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gradient-to-br from-purple-50 to-indigo-50">
       <div className="text-center max-w-md">
@@ -838,8 +844,7 @@ const MindMapViewer: React.FC<MindMapViewerProps> = ({ url, title, fileName }) =
         
         <div className="bg-white/60 backdrop-blur rounded-xl p-4 mb-6 border border-purple-100">
           <p className="text-slate-600 text-sm leading-relaxed">
-            思维导图文件需要使用 <span className="font-semibold text-purple-600">XMind</span> 或其他思维导图软件打开查看。
-            点击下方按钮下载文件后，使用对应软件打开即可。
+            {t('mindMapDesc')}
           </p>
         </div>
 
@@ -850,11 +855,11 @@ const MindMapViewer: React.FC<MindMapViewerProps> = ({ url, title, fileName }) =
             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5"
           >
             <Download className="w-5 h-5" />
-            下载思维导图
+            {t('downloadMindMap')}
           </a>
           
           <p className="text-xs text-slate-400">
-            推荐软件：XMind、MindMaster、百度脑图
+            {t('recommended')}
           </p>
         </div>
       </div>
@@ -871,11 +876,12 @@ interface MaterialTabsProps {
 }
 
 const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, onSelect, compact = false }) => {
+  const { t } = useTranslation('lesson');
   if (compact) {
     return (
       <div className="inline-flex items-center p-1 bg-slate-100/80 rounded-xl">
         {materials.map((material, index) => {
-          const typeInfo = getMaterialTypeInfo(material.type);
+        const typeInfo = getMaterialTypeInfo(material.type, t);
           const TypeIcon = typeInfo.icon;
           const isActive = index === currentIndex;
 
@@ -902,7 +908,7 @@ const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, on
     <div className="px-6 py-3 border-b border-slate-100 bg-white/50">
       <div className="inline-flex items-center p-1 bg-slate-100/80 rounded-xl">
         {materials.map((material, index) => {
-          const typeInfo = getMaterialTypeInfo(material.type);
+          const typeInfo = getMaterialTypeInfo(material.type, t);
           const TypeIcon = typeInfo.icon;
           const isActive = index === currentIndex;
 
@@ -928,13 +934,14 @@ const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, on
 
 // 主组件
 const LessonPage: React.FC = () => {
+  const { t } = useTranslation('lesson');
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
 
   // 从 URL 参数获取技能名称、课时名称、课程 ID
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const skillName = searchParams.get('skillName') || '技能实训';
+  const skillName = searchParams.get('skillName') || t('defaultSkill');
   const lessonName = searchParams.get('lessonName') || '';
   const queryCourseId = searchParams.get('courseId');
   const initialCourseId = queryCourseId ? parseInt(queryCourseId, 10) : NaN;
@@ -1056,7 +1063,7 @@ const LessonPage: React.FC = () => {
     console.log('[LessonPage] 完成实验 - token存在:', !!token);
     
     if (!token) {
-      alert('请先登录后再完成实验');
+      alert(t('loginBeforeComplete'));
       return;
     }
 
@@ -1070,11 +1077,11 @@ const LessonPage: React.FC = () => {
         setShowCompleteDialog(true);
       } else {
         console.error('[LessonPage] 完成实验失败:', response.error);
-        alert(response.error || '完成实验失败');
+        alert(response.error || t('completeFailed'));
       }
     } catch (err) {
       console.error('完成实验失败:', err);
-      alert('网络错误，请稍后重试');
+      alert(t('networkError'));
     } finally {
       setCompleting(false);
     }
@@ -1093,14 +1100,14 @@ const LessonPage: React.FC = () => {
         if (response.success && response.data) {
           setMaterials(response.data);
           if (response.data.length === 0) {
-            setError('该课时暂无学习资料');
+            setError(t('noMaterials'));
           }
         } else {
-          setError(response.error || '加载资料失败');
+          setError(response.error || t('loadFailed'));
         }
       } catch (err) {
         console.error('加载资料失败:', err);
-        setError('网络错误，请稍后重试');
+        setError(t('networkError'));
       } finally {
         setLoading(false);
       }
@@ -1199,11 +1206,11 @@ const LessonPage: React.FC = () => {
           const text = await response.text();
           setMarkdownContent(text);
         } else {
-          setMarkdownContent('# 加载失败\n\n无法加载 Markdown 内容');
+          setMarkdownContent(t('markdownFailed'));
         }
       } catch (err) {
         console.error('加载 Markdown 失败:', err);
-        setMarkdownContent('# 加载失败\n\n无法加载 Markdown 内容');
+        setMarkdownContent(t('markdownFailed'));
       } finally {
         setLoadingContent(false);
       }
@@ -1277,7 +1284,7 @@ const LessonPage: React.FC = () => {
       return (
         <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
           <BookOpen className="w-12 h-12 mb-4" />
-          <p>暂无学习资料</p>
+          <p>{t('noMaterials')}</p>
         </div>
       );
     }
@@ -1341,7 +1348,7 @@ const LessonPage: React.FC = () => {
           <button
             onClick={navigateBackSafely}
             className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 hover:text-slate-700"
-            title="返回"
+            title={t('back')}
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -1390,12 +1397,12 @@ const LessonPage: React.FC = () => {
             {completing ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>提交中...</span>
+                <span>{t('submitting')}</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>完成实验</span>
+                <span>{t('completeLab')}</span>
               </>
             )}
           </button>
@@ -1424,14 +1431,14 @@ const LessonPage: React.FC = () => {
             <button
               onClick={navigateBackSafely}
               className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
-              title="返回"
+              title={t('back')}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="flex items-center gap-2 text-slate-600">
               <BookOpen className="w-4 h-4 text-blue-600" />
               <span className="text-xs font-bold uppercase tracking-wider">
-                学习资料
+                {t('materials')}
               </span>
             </div>
             {materials.length > 1 && (
@@ -1449,14 +1456,14 @@ const LessonPage: React.FC = () => {
             <button
               onClick={handleResetLayout}
               className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
-              title="重置布局"
+              title={t('resetLayout')}
             >
               <Settings className="w-4 h-4" />
             </button>
             <button
               onClick={() => setIsDocCollapsed(true)}
               className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
-              title="收起面板"
+              title={t('collapsePanel')}
             >
               <PanelLeftClose className="w-4 h-4" />
             </button>
@@ -1469,7 +1476,7 @@ const LessonPage: React.FC = () => {
         {/* Footer */}
         <div className="h-12 min-h-[48px] border-t border-slate-100 bg-white px-6 flex items-center justify-between">
           <span className="text-xs font-bold text-slate-400">
-            {materials.length > 0 ? `资料 ${currentMaterialIndex + 1} / ${materials.length}` : '暂无资料'}
+            {materials.length > 0 ? t('materialProgress', { current: currentMaterialIndex + 1, total: materials.length }) : t('noMaterialShort')}
           </span>
           <div className="flex items-center gap-2">
             <button 
@@ -1484,7 +1491,7 @@ const LessonPage: React.FC = () => {
               disabled={currentMaterialIndex >= materials.length - 1 || materials.length === 0}
               className="px-4 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              下一个 <ChevronRight className="w-3 h-3" />
+              {t('next')} <ChevronRight className="w-3 h-3" />
             </button>
           </div>
         </div>
@@ -1522,7 +1529,7 @@ const LessonPage: React.FC = () => {
         <div className="relative h-full overflow-hidden">
           {!difyIframeSrc && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500 px-6 text-center">
-              Dify 地址未配置，请在前端环境变量中设置 `VITE_DIFY_BASE_URL` 和 `VITE_DIFY_CHATBOT_TOKEN`。
+              {t('difyMissing')}
             </div>
           )}
           {difyIframeSrc && (
@@ -1545,7 +1552,7 @@ const LessonPage: React.FC = () => {
                 }}
                 onLoad={() => setAssistantIframeLoaded(true)}
                 allow="microphone"
-                title="AI 智能体教师"
+                title={t('aiTeacher')}
               />
             </>
           )}
@@ -1559,12 +1566,12 @@ const LessonPage: React.FC = () => {
         onClose={handleCompleteDialogClose}
         lessonName={lessonName}
         earnedXP={earnedXP}
-        actionText="返回学习中心"
+        actionText={t('backLearning')}
         duration={(() => {
           const mins = Math.floor(studySeconds / 60);
           const secs = studySeconds % 60;
-          if (mins > 0) return `${mins}分 ${secs}秒`;
-          return `${secs}秒`;
+          if (mins > 0) return t('durationMinutes', { minutes: mins, seconds: secs });
+          return t('durationSeconds', { seconds: secs });
         })()}
       />
     </div>

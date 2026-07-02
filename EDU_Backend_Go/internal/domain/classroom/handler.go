@@ -1,7 +1,6 @@
 package classroom
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"edu-platform/internal/middleware"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/pagination"
 	"edu-platform/pkg/response"
 )
@@ -27,7 +27,7 @@ func (h *Handler) GetTeacherTerms(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, items, "获取学期列表成功")
+	response.SuccessKey(c, items, "classroom.termsLoaded", nil)
 }
 
 func (h *Handler) GetAdminTerms(c *gin.Context) {
@@ -36,13 +36,13 @@ func (h *Handler) GetAdminTerms(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, items, "获取学期列表成功")
+	response.SuccessKey(c, items, "classroom.termsLoaded", nil)
 }
 
 func (h *Handler) CreateTerm(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	var req struct {
@@ -53,17 +53,17 @@ func (h *Handler) CreateTerm(c *gin.Context) {
 		Status  *TermStatus `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	startAt, err := parseOptionalDateInput(req.StartAt)
 	if err != nil {
-		response.BadRequest(c, "开始日期格式错误，请使用 YYYY-MM-DD")
+		response.BadRequestKey(c, "classroom.invalidStartDate", nil)
 		return
 	}
 	endAt, err := parseOptionalDateInput(req.EndAt)
 	if err != nil {
-		response.BadRequest(c, "结束日期格式错误，请使用 YYYY-MM-DD")
+		response.BadRequestKey(c, "classroom.invalidEndDate", nil)
 		return
 	}
 	item, err := h.service.CreateTerm(CreateTermParams{
@@ -78,11 +78,11 @@ func (h *Handler) CreateTerm(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, item, "学期创建成功")
+	response.CreatedKey(c, item, "classroom.termCreated", nil)
 }
 
 func (h *Handler) UpdateTerm(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的学期ID")
+	id, ok := parseUintParam(c, "id", "classroom.invalidTermId")
 	if !ok {
 		return
 	}
@@ -93,17 +93,17 @@ func (h *Handler) UpdateTerm(c *gin.Context) {
 		EndAt   *string `json:"endAt"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	startAt, err := parseOptionalDateInput(req.StartAt)
 	if err != nil {
-		response.BadRequest(c, "开始日期格式错误，请使用 YYYY-MM-DD")
+		response.BadRequestKey(c, "classroom.invalidStartDate", nil)
 		return
 	}
 	endAt, err := parseOptionalDateInput(req.EndAt)
 	if err != nil {
-		response.BadRequest(c, "结束日期格式错误，请使用 YYYY-MM-DD")
+		response.BadRequestKey(c, "classroom.invalidEndDate", nil)
 		return
 	}
 	item, err := h.service.UpdateTerm(id, UpdateTermParams{
@@ -116,11 +116,11 @@ func (h *Handler) UpdateTerm(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, item, "学期更新成功")
+	response.SuccessKey(c, item, "classroom.termUpdated", nil)
 }
 
 func (h *Handler) UpdateTermStatus(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的学期ID")
+	id, ok := parseUintParam(c, "id", "classroom.invalidTermId")
 	if !ok {
 		return
 	}
@@ -128,7 +128,7 @@ func (h *Handler) UpdateTermStatus(c *gin.Context) {
 		Status TermStatus `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	item, err := h.service.UpdateTermStatus(id, req.Status)
@@ -136,13 +136,13 @@ func (h *Handler) UpdateTermStatus(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, item, "学期状态更新成功")
+	response.SuccessKey(c, item, "classroom.termStatusUpdated", nil)
 }
 
 func (h *Handler) ListTeacherClasses(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	params, ok := parseListParams(c)
@@ -154,18 +154,18 @@ func (h *Handler) ListTeacherClasses(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     list,
 		"total":    total,
 		"page":     params.Page,
 		"pageSize": params.PageSize,
-	}, "获取班级列表成功")
+	}, "classroom.listLoaded", nil)
 }
 
 func (h *Handler) CreateClass(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	var req struct {
@@ -175,7 +175,7 @@ func (h *Handler) CreateClass(c *gin.Context) {
 		Description string `json:"description"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	item, err := h.service.CreateClass(claims.UserID, CreateClassParams{
@@ -190,16 +190,16 @@ func (h *Handler) CreateClass(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, item, "班级创建成功")
+	response.CreatedKey(c, item, "classroom.classCreated", nil)
 }
 
 func (h *Handler) GetTeacherClass(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的班级ID")
+	id, ok := parseUintParam(c, "id", "classroom.invalidClassId")
 	if !ok {
 		return
 	}
@@ -208,16 +208,16 @@ func (h *Handler) GetTeacherClass(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, item, "获取班级详情成功")
+	response.SuccessKey(c, item, "classroom.classLoaded", nil)
 }
 
 func (h *Handler) UpdateTeacherClass(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的班级ID")
+	id, ok := parseUintParam(c, "id", "classroom.invalidClassId")
 	if !ok {
 		return
 	}
@@ -228,7 +228,7 @@ func (h *Handler) UpdateTeacherClass(c *gin.Context) {
 		Description *string `json:"description"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	item, err := h.service.UpdateClassForTeacher(claims.UserID, claims.RoleType, id, UpdateClassParams{
@@ -241,16 +241,16 @@ func (h *Handler) UpdateTeacherClass(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, item, "班级更新成功")
+	response.SuccessKey(c, item, "classroom.classUpdated", nil)
 }
 
 func (h *Handler) ListTeacherClassMembers(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	classID, ok := parseUintParam(c, "id", "无效的班级ID")
+	classID, ok := parseUintParam(c, "id", "classroom.invalidClassId")
 	if !ok {
 		return
 	}
@@ -259,22 +259,22 @@ func (h *Handler) ListTeacherClassMembers(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, items, "获取班级成员成功")
+	response.SuccessKey(c, items, "classroom.membersLoaded", nil)
 }
 
 func (h *Handler) ImportTeacherClassMembers(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	classID, ok := parseUintParam(c, "id", "无效的班级ID")
+	classID, ok := parseUintParam(c, "id", "classroom.invalidClassId")
 	if !ok {
 		return
 	}
 	file, err := c.FormFile("file")
 	if err != nil {
-		response.BadRequest(c, "请上传导入文件")
+		response.BadRequestKey(c, "classroom.uploadRequired", nil)
 		return
 	}
 	result, err := h.service.ImportMembersForTeacher(claims.UserID, claims.RoleType, classID, file)
@@ -282,20 +282,20 @@ func (h *Handler) ImportTeacherClassMembers(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "班级成员导入完成")
+	response.SuccessKey(c, result, "classroom.membersImported", nil)
 }
 
 func (h *Handler) DeleteTeacherClassMember(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	classID, ok := parseUintParam(c, "id", "无效的班级ID")
+	classID, ok := parseUintParam(c, "id", "classroom.invalidClassId")
 	if !ok {
 		return
 	}
-	userID, ok := parseUintParam(c, "userId", "无效的成员ID")
+	userID, ok := parseUintParam(c, "userId", "classroom.invalidMemberId")
 	if !ok {
 		return
 	}
@@ -303,13 +303,13 @@ func (h *Handler) DeleteTeacherClassMember(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "班级成员已移除")
+	response.SuccessKey[any](c, nil, "classroom.memberRemoved", nil)
 }
 
 func (h *Handler) ListStudentClasses(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	items, err := h.service.ListClassesForStudent(claims.UserID)
@@ -317,7 +317,7 @@ func (h *Handler) ListStudentClasses(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, items, "获取我的班级成功")
+	response.SuccessKey(c, items, "classroom.studentClassesLoaded", nil)
 }
 
 func (h *Handler) ListAdminClasses(c *gin.Context) {
@@ -330,16 +330,16 @@ func (h *Handler) ListAdminClasses(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     list,
 		"total":    total,
 		"page":     params.Page,
 		"pageSize": params.PageSize,
-	}, "获取班级列表成功")
+	}, "classroom.listLoaded", nil)
 }
 
 func (h *Handler) GetAdminClass(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的班级ID")
+	id, ok := parseUintParam(c, "id", "classroom.invalidClassId")
 	if !ok {
 		return
 	}
@@ -348,11 +348,11 @@ func (h *Handler) GetAdminClass(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, item, "获取班级详情成功")
+	response.SuccessKey(c, item, "classroom.classLoaded", nil)
 }
 
 func (h *Handler) UpdateAdminClassStatus(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的班级ID")
+	id, ok := parseUintParam(c, "id", "classroom.invalidClassId")
 	if !ok {
 		return
 	}
@@ -360,7 +360,7 @@ func (h *Handler) UpdateAdminClassStatus(c *gin.Context) {
 		Status ClassStatus `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	item, err := h.service.UpdateClassStatusForAdmin(id, req.Status)
@@ -368,7 +368,7 @@ func (h *Handler) UpdateAdminClassStatus(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, item, "班级状态更新成功")
+	response.SuccessKey(c, item, "classroom.classStatusUpdated", nil)
 }
 
 func parseListParams(c *gin.Context) (ListClassesParams, bool) {
@@ -383,7 +383,7 @@ func parseListParams(c *gin.Context) (ListClassesParams, bool) {
 	if raw := c.Query("termId"); raw != "" {
 		termID, err := strconv.ParseUint(raw, 10, 64)
 		if err != nil {
-			response.BadRequest(c, "无效的学期ID")
+			response.BadRequestKey(c, "classroom.invalidTermId", nil)
 			return ListClassesParams{}, false
 		}
 		params.TermID = &termID
@@ -391,7 +391,7 @@ func parseListParams(c *gin.Context) (ListClassesParams, bool) {
 	if raw := c.Query("status"); raw != "" {
 		status, err := strconv.Atoi(raw)
 		if err != nil {
-			response.BadRequest(c, "无效的班级状态")
+			response.BadRequestKey(c, "classroom.invalidClassStatus", nil)
 			return ListClassesParams{}, false
 		}
 		casted := ClassStatus(status)
@@ -400,10 +400,10 @@ func parseListParams(c *gin.Context) (ListClassesParams, bool) {
 	return params, true
 }
 
-func parseUintParam(c *gin.Context, name, message string) (uint64, bool) {
+func parseUintParam(c *gin.Context, name string, key i18n.MessageKey) (uint64, bool) {
 	value, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, message, "BAD_REQUEST")
+		response.BadRequestKey(c, key, nil)
 		return 0, false
 	}
 	return value, true

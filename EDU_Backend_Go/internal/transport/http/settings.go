@@ -18,7 +18,7 @@ func NewAdminSettingsHandler(cfg *config.Config) *AdminSettingsHandler {
 func (h *AdminSettingsHandler) Get(c *gin.Context) {
 	cfg := h.cfg
 	if cfg == nil {
-		response.Internal(c, "系统配置未初始化")
+		response.InternalKey(c, "common.configUnavailable", nil)
 		return
 	}
 

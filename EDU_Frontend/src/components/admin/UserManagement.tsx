@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Select, SelectItem } from '@heroui/react';
 import {
   AlertCircle,
@@ -26,6 +27,9 @@ import PageDialog, { OverlayPortal } from '@/components/common/PageDialog';
 import { dialogSelectClassNames, dialogSelectItemClassNames } from '@/components/common/dialogSelectStyles';
 import { ToolbarSearchField, ToolbarSelect } from '@/components/common/ToolbarControls';
 import { useBodyScrollLock } from '@/components/common/bodyScrollLock';
+import i18n, { getCurrentLocale } from '@/i18n';
+
+const tr = (key: string, options?: Record<string, unknown>) => i18n.t('adminUsers:' + key, options);
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -72,17 +76,17 @@ interface StatCardProps {
 const pageSizeOptions = [10, 20, 50];
 
 const formatDateTime = (value?: string) => {
-  if (!value) return '未记录';
+  if (!value) return tr('notRecorded');
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString('zh-CN', { hour12: false });
+  return parsed.toLocaleString(getCurrentLocale(), { hour12: false });
 };
 
 const formatListDateTime = (value?: string) => {
-  if (!value) return '未记录';
+  if (!value) return tr('notRecorded');
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString('zh-CN', {
+  return parsed.toLocaleString(getCurrentLocale(), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -95,13 +99,13 @@ const formatListDateTime = (value?: string) => {
 const getRoleName = (roleType: RoleType) => {
   switch (roleType) {
     case RoleType.ADMIN:
-      return '管理员';
+      return tr('roles.admin');
     case RoleType.TEACHER:
-      return '教师';
+      return tr('roles.teacher');
     case RoleType.STUDENT:
-      return '学生';
+      return tr('roles.student');
     default:
-      return '未知';
+      return tr('unknown');
   }
 };
 
@@ -122,25 +126,25 @@ const getStatusMeta = (status: UserStatus) => {
   switch (status) {
     case UserStatus.ACTIVE:
       return {
-        label: '正常',
+        label: tr('statuses.active'),
         badgeClass: 'bg-success-50 text-success-700',
         dotClass: 'bg-success-500',
       };
     case UserStatus.FROZEN:
       return {
-        label: '冻结',
+        label: tr('statuses.frozen'),
         badgeClass: 'bg-warning-50 text-warning-700',
         dotClass: 'bg-warning-500',
       };
     case UserStatus.DELETED:
       return {
-        label: '注销',
+        label: tr('statuses.deleted'),
         badgeClass: 'bg-default-100 text-default-500',
         dotClass: 'bg-default-400',
       };
     default:
       return {
-        label: '未知',
+        label: tr('unknown'),
         badgeClass: 'bg-default-100 text-default-500',
         dotClass: 'bg-default-400',
       };
@@ -219,8 +223,8 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
     <ModalShell panelClassName="max-w-2xl" onClose={onClose}>
       <div className="flex items-center justify-between border-b border-default-100 px-6 py-5">
         <div>
-          <h3 className="text-lg font-bold text-foreground">{user ? '编辑用户' : '添加用户'}</h3>
-          <p className="mt-1 text-sm text-default-500">{user ? '更新用户资料与角色信息' : '创建新的平台账号并分配初始角色'}</p>
+          <h3 className="text-lg font-bold text-foreground">{user ? tr('editUser') : tr('addUser')}</h3>
+          <p className="mt-1 text-sm text-default-500">{user ? tr('editUserDesc') : tr('addUserDesc')}</p>
         </div>
         <button onClick={onClose} className="rounded-xl p-2 text-default-400 transition hover:bg-default-100 hover:text-default-600">
           <X className="h-5 w-5" />
@@ -230,7 +234,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
       <form onSubmit={handleSubmit} className="space-y-5 overflow-y-auto px-6 py-6">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-default-500">用户名 *</label>
+            <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('usernameRequired')}</label>
             <input
               type="text"
               value={formData.username}
@@ -241,7 +245,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-default-500">邮箱 *</label>
+            <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('emailRequired')}</label>
             <input
               type="email"
               value={formData.email}
@@ -255,7 +259,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
 
         {!user && (
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-default-500">初始密码 *</label>
+            <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('passwordRequired')}</label>
             <input
               type="password"
               value={formData.password}
@@ -264,13 +268,13 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
               minLength={8}
               className="w-full rounded-xl border border-default-200 bg-default-50 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             />
-            <div className="mt-1 text-xs text-default-400">建议至少 8 位，并包含字母与数字。</div>
+            <div className="mt-1 text-xs text-default-400">{tr('passwordHelp')}</div>
           </div>
         )}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-default-500">真实姓名</label>
+            <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('fullName')}</label>
             <input
               type="text"
               value={formData.fullName}
@@ -279,7 +283,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-default-500">学号 / 工号</label>
+            <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('studentId')}</label>
             <input
               type="text"
               value={formData.studentId}
@@ -291,7 +295,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-default-500">手机号</label>
+            <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('phone')}</label>
             <input
               type="text"
               value={formData.phone}
@@ -300,9 +304,9 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
             />
           </div>
           <div className="min-w-0">
-            <label className="mb-1.5 block text-xs font-medium text-default-500">角色</label>
+            <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('role')}</label>
             <Select
-              aria-label="选择用户角色"
+              aria-label={tr('selectRole')}
               selectedKeys={[String(formData.roleType)]}
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0];
@@ -315,16 +319,16 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
               classNames={dialogSelectClassNames}
               listboxProps={{ itemClasses: dialogSelectItemClassNames }}
             >
-              <SelectItem key={String(RoleType.STUDENT)}>学生</SelectItem>
-              <SelectItem key={String(RoleType.TEACHER)}>教师</SelectItem>
-              <SelectItem key={String(RoleType.ADMIN)}>管理员</SelectItem>
+              <SelectItem key={String(RoleType.STUDENT)}>{tr('roles.student')}</SelectItem>
+              <SelectItem key={String(RoleType.TEACHER)}>{tr('roles.teacher')}</SelectItem>
+              <SelectItem key={String(RoleType.ADMIN)}>{tr('roles.admin')}</SelectItem>
             </Select>
           </div>
         </div>
 
         <div className="flex justify-end gap-3 border-t border-default-100 pt-5">
           <button type="button" onClick={onClose} className="rounded-xl border border-default-200 px-4 py-2.5 text-sm font-medium text-default-600 transition hover:bg-default-50">
-            取消
+            {tr('cancel')}
           </button>
           <button
             type="submit"
@@ -332,7 +336,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
             className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-60"
           >
             {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {user ? '保存修改' : '创建用户'}
+            {user ? tr('saveChanges') : tr('createUser')}
           </button>
         </div>
       </form>
@@ -340,7 +344,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSubmit
   );
 };
 
-const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, onClose, onConfirm, title, message, confirmText = '确认', isLoading }) => {
+const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, onClose, onConfirm, title, message, confirmText = tr('confirm'), isLoading }) => {
   if (!isOpen) return null;
 
   return (
@@ -357,7 +361,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, onClose, onConfirm,
 
       <div className="flex justify-end gap-3">
         <button onClick={onClose} className="rounded-xl border border-default-200 px-4 py-2.5 text-sm font-medium text-default-600 transition hover:bg-default-50">
-          取消
+          {tr('cancel')}
         </button>
         <button
           onClick={onConfirm}
@@ -387,11 +391,11 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, user, i
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (password.length < 8) {
-      setLocalError('新密码至少需要 8 位');
+      setLocalError(tr('passwordMin'));
       return;
     }
     if (password !== confirmPassword) {
-      setLocalError('两次输入的新密码不一致');
+      setLocalError(tr('passwordMismatch'));
       return;
     }
     setLocalError('');
@@ -404,8 +408,8 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, user, i
     <ModalShell panelClassName="max-w-md p-6" onClose={onClose}>
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-bold text-foreground">重置密码</h3>
-          <p className="mt-1 text-sm text-default-500">为 {user.fullName || user.username} 设置新的登录密码</p>
+          <h3 className="text-lg font-bold text-foreground">{tr('resetPassword')}</h3>
+          <p className="mt-1 text-sm text-default-500">{tr('resetPasswordDesc', { name: user.fullName || user.username })}</p>
         </div>
         <button onClick={onClose} className="rounded-xl p-2 text-default-400 transition hover:bg-default-100 hover:text-default-600">
           <X className="h-5 w-5" />
@@ -414,23 +418,23 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, user, i
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-default-500">新密码</label>
+          <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('newPassword')}</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-xl border border-default-200 bg-default-50 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            placeholder="请输入新的密码"
+            placeholder={tr('newPasswordPlaceholder')}
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-default-500">确认新密码</label>
+          <label className="mb-1.5 block text-xs font-medium text-default-500">{tr('confirmPassword')}</label>
           <input
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full rounded-xl border border-default-200 bg-default-50 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            placeholder="请再次输入新密码"
+            placeholder={tr('confirmPasswordPlaceholder')}
           />
         </div>
         {localError && (
@@ -439,7 +443,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, user, i
 
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="rounded-xl border border-default-200 px-4 py-2.5 text-sm font-medium text-default-600 transition hover:bg-default-50">
-            取消
+            {tr('cancel')}
           </button>
           <button
             type="submit"
@@ -447,7 +451,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, user, i
             className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
           >
             {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-            确认重置
+            {tr('confirmReset')}
           </button>
         </div>
       </form>
@@ -472,7 +476,7 @@ const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ user, onClose, onEd
       <div className="fixed inset-0 z-[9997]">
         <button
           type="button"
-          aria-label="关闭用户详情"
+          aria-label={tr('closeDetails')}
           onClick={onClose}
           className="absolute inset-0 bg-slate-950/45 backdrop-blur-[4px]"
         />
@@ -506,30 +510,30 @@ const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ user, onClose, onEd
 
           <div className="space-y-6 px-6 py-6">
             <div className="grid gap-3 sm:grid-cols-2">
-              <DetailItem label="用户 ID" value={user.id} />
-              <DetailItem label="用户名" value={user.username} />
-              <DetailItem label="学号 / 工号" value={user.studentId || '未填写'} />
-              <DetailItem label="手机号" value={user.phone || '未填写'} />
-              <DetailItem label="创建时间" value={formatDateTime(user.createdAt)} />
-              <DetailItem label="更新时间" value={formatDateTime(user.updatedAt)} />
+              <DetailItem label={tr('userId')} value={user.id} />
+              <DetailItem label={tr('username')} value={user.username} />
+              <DetailItem label={tr('studentId')} value={user.studentId || tr('notProvided')} />
+              <DetailItem label={tr('phone')} value={user.phone || tr('notProvided')} />
+              <DetailItem label={tr('createdAt')} value={formatDateTime(user.createdAt)} />
+              <DetailItem label={tr('updatedAt')} value={formatDateTime(user.updatedAt)} />
             </div>
 
             <div className="rounded-3xl border border-default-200 bg-slate-50/80 p-5">
-              <div className="text-sm font-semibold text-foreground">快捷操作</div>
+              <div className="text-sm font-semibold text-foreground">{tr('quickActions')}</div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   onClick={() => onEdit(user)}
                   className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 transition hover:bg-primary-100"
                 >
                   <PencilLine className="h-4 w-4" />
-                  编辑资料
+                  {tr('editProfile')}
                 </button>
                 <button
                   onClick={() => onResetPassword(user)}
                   className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   <KeyRound className="h-4 w-4" />
-                  重置密码
+                  {tr('resetPassword')}
                 </button>
                 <button
                   onClick={() => onToggleStatus(user)}
@@ -540,14 +544,14 @@ const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ user, onClose, onEd
                   }`}
                 >
                   {user.status === UserStatus.ACTIVE ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                  {user.status === UserStatus.ACTIVE ? '冻结账号' : '恢复账号'}
+                  {user.status === UserStatus.ACTIVE ? tr('freezeAccount') : tr('restoreAccount')}
                 </button>
                 <button
                   onClick={() => onDelete(user)}
                   className="inline-flex items-center gap-2 rounded-full border border-danger-200 bg-danger-50 px-4 py-2 text-sm font-medium text-danger-700 transition hover:bg-danger-100"
                 >
                   <Trash2 className="h-4 w-4" />
-                  删除用户
+                  {tr('deleteUser')}
                 </button>
               </div>
             </div>
@@ -567,6 +571,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, description, accent }
 );
 
 const UserManagement: React.FC = () => {
+  useTranslation('adminUsers');
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -603,12 +608,12 @@ const UserManagement: React.FC = () => {
       }
       setUsers([]);
       setTotal(0);
-      setPageError(response.error || '获取用户列表失败');
+      setPageError(response.error || tr('loadFailed'));
     } catch (fetchError) {
-      console.error('获取用户列表失败:', fetchError);
+      console.error('load users failed:', fetchError);
       setUsers([]);
       setTotal(0);
-      setPageError('获取用户列表失败');
+      setPageError(tr('loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -705,25 +710,25 @@ const UserManagement: React.FC = () => {
       if (editingUser) {
         const response = await adminUserService.updateUser(editingUser.id, data as UpdateUserParams);
         if (!response.success) {
-          error(response.error || '用户更新失败');
+          error(response.error || tr('updateFailed'));
           return;
         }
-        success('用户更新成功');
+        success(tr('updated'));
         const updatedUser = response.data || editingUser;
         setDetailUser((current) => (current?.id === updatedUser.id ? { ...current, ...updatedUser } : current));
       } else {
         const response = await adminUserService.createUser(data as CreateUserParams);
         if (!response.success) {
-          error(response.error || '用户创建失败');
+          error(response.error || tr('createFailed'));
           return;
         }
-        success('用户创建成功');
+        success(tr('created'));
       }
       closeForm();
       await fetchUsers();
     } catch (submitError) {
-      console.error('用户保存失败:', submitError);
-      error('用户保存失败');
+      console.error('save user failed:', submitError);
+      error(tr('saveFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -735,18 +740,18 @@ const UserManagement: React.FC = () => {
     try {
       const response = await adminUserService.deleteUser(deleteUser.id);
       if (!response.success) {
-        error(response.error || '删除失败');
+        error(response.error || tr('deleteFailed'));
         return;
       }
-      success('用户已注销');
+      success(tr('deleted'));
       if (detailUser?.id === deleteUser.id) {
         setDetailUser({ ...deleteUser, status: UserStatus.DELETED });
       }
       setDeleteUser(null);
       await fetchUsers();
     } catch (deleteError) {
-      console.error('删除用户失败:', deleteError);
-      error('删除失败');
+      console.error('delete user failed:', deleteError);
+      error(tr('deleteFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -761,19 +766,19 @@ const UserManagement: React.FC = () => {
           : await adminUserService.activateUser(user.id);
 
       if (!response.success) {
-        error(response.error || '状态更新失败');
+        error(response.error || tr('statusFailed'));
         return;
       }
 
       const nextStatus = user.status === UserStatus.ACTIVE ? UserStatus.FROZEN : UserStatus.ACTIVE;
-      success(nextStatus === UserStatus.FROZEN ? '用户已冻结' : '用户已恢复');
+      success(nextStatus === UserStatus.FROZEN ? tr('frozen') : tr('restored'));
       if (detailUser?.id === user.id) {
         setDetailUser({ ...detailUser, status: nextStatus });
       }
       await fetchUsers();
     } catch (toggleError) {
-      console.error('更新用户状态失败:', toggleError);
-      error('状态更新失败');
+      console.error('update user status failed:', toggleError);
+      error(tr('statusFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -785,14 +790,14 @@ const UserManagement: React.FC = () => {
     try {
       const response = await adminUserService.updatePassword(passwordUser.id, password);
       if (!response.success) {
-        error(response.error || '密码重置失败');
+        error(response.error || tr('resetFailed'));
         return;
       }
-      success('密码已重置');
+      success(tr('resetDone'));
       setPasswordUser(null);
     } catch (resetError) {
-      console.error('重置密码失败:', resetError);
-      error('密码重置失败');
+      console.error('reset password failed:', resetError);
+      error(tr('resetFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -824,9 +829,9 @@ const UserManagement: React.FC = () => {
         isOpen={!!deleteUser}
         onClose={() => setDeleteUser(null)}
         onConfirm={() => void handleDeleteUser()}
-        title="确认注销用户"
-        message={`确定要将 "${deleteUser?.fullName || deleteUser?.username || ''}" 标记为注销吗？此操作会保留历史记录，但该用户将无法继续登录。`}
-        confirmText="确认注销"
+        title={tr('deleteTitle')}
+        message={tr('deleteMessage', { name: deleteUser?.fullName || deleteUser?.username || '' })}
+        confirmText={tr('confirmDelete')}
         isLoading={isSubmitting}
       />
       <ResetPasswordModal
@@ -856,11 +861,11 @@ const UserManagement: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-600">
               <Users className="h-3.5 w-3.5" />
-              用户工作台
+              {tr('workspace')}
             </div>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground">用户管理</h2>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground">{tr('title')}</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-default-500">
-              支持用户检索、角色筛选、状态维护、详情查看、资料编辑与密码重置。当前筛选结果共 <span className="font-semibold text-foreground">{total}</span> 条。
+              {tr('summary', { total })}
             </p>
           </div>
 
@@ -870,33 +875,33 @@ const UserManagement: React.FC = () => {
               className="inline-flex items-center gap-2 rounded-full border border-default-200 bg-white px-4 py-2.5 text-sm font-medium text-default-600 transition hover:bg-default-50"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              刷新列表
+              {tr('refresh')}
             </button>
             <button
               onClick={resetFilters}
               className="inline-flex items-center gap-2 rounded-full border border-default-200 bg-white px-4 py-2.5 text-sm font-medium text-default-600 transition hover:bg-default-50"
             >
               <Filter className="h-4 w-4" />
-              重置筛选
+              {tr('resetFilters')}
             </button>
             <button
               onClick={() => {
-                info('已打开新建用户弹窗');
+                info(tr('createOpened'));
                 openCreateForm();
               }}
               className="inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-600/20 transition hover:bg-primary-700"
             >
               <UserPlus className="h-4 w-4" />
-              添加用户
+              {tr('addUser')}
             </button>
           </div>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="筛选结果" value={total} description="符合当前搜索与筛选条件的总数" accent="text-slate-900" />
-          <StatCard title="当前页学生" value={stats.visibleStudents} description="当前页可见学生账号数量" accent="text-primary-600" />
-          <StatCard title="当前页教师 / 管理员" value={`${stats.visibleTeachers} / ${stats.visibleAdmins}`} description="当前页教学与管理角色分布" accent="text-sky-600" />
-          <StatCard title="当前页冻结" value={stats.visibleFrozen} description="当前页处于冻结状态的账号" accent="text-warning-600" />
+          <StatCard title={tr('filteredResults')} value={total} description={tr('filteredDesc')} accent="text-slate-900" />
+          <StatCard title={tr('pageStudents')} value={stats.visibleStudents} description={tr('pageStudentsDesc')} accent="text-primary-600" />
+          <StatCard title={tr('pageStaff')} value={`${stats.visibleTeachers} / ${stats.visibleAdmins}`} description={tr('pageStaffDesc')} accent="text-sky-600" />
+          <StatCard title={tr('pageFrozen')} value={stats.visibleFrozen} description={tr('pageFrozenDesc')} accent="text-warning-600" />
         </div>
       </div>
 
@@ -907,44 +912,44 @@ const UserManagement: React.FC = () => {
               value={searchKeyword}
               onChange={setSearchKeyword}
               onEnter={handleSearch}
-              placeholder="搜索姓名、用户名、邮箱或学号 / 工号"
+              placeholder={tr('searchPlaceholder')}
               className="min-w-[320px] max-w-[480px] flex-[0.92]"
             />
 
             <ToolbarSelect
-              ariaLabel="按角色筛选"
+              ariaLabel={tr('roleFilter')}
               value={roleFilter === '' ? 'all' : String(roleFilter)}
               onChange={(nextValue) => {
                 setPage(1);
                 setRoleFilter(nextValue === 'all' ? '' : Number(nextValue) as RoleType);
               }}
               options={[
-                { key: 'all', label: '全部角色' },
-                { key: String(RoleType.STUDENT), label: '学生' },
-                { key: String(RoleType.TEACHER), label: '教师' },
-                { key: String(RoleType.ADMIN), label: '管理员' },
+                { key: 'all', label: tr('allRoles') },
+                { key: String(RoleType.STUDENT), label: tr('roles.student') },
+                { key: String(RoleType.TEACHER), label: tr('roles.teacher') },
+                { key: String(RoleType.ADMIN), label: tr('roles.admin') },
               ]}
               className="w-[200px] shrink-0"
             />
 
             <ToolbarSelect
-              ariaLabel="按状态筛选"
+              ariaLabel={tr('statusFilter')}
               value={statusFilter === '' ? 'all' : String(statusFilter)}
               onChange={(nextValue) => {
                 setPage(1);
                 setStatusFilter(nextValue === 'all' ? '' : Number(nextValue) as UserStatus);
               }}
               options={[
-                { key: 'all', label: '全部状态' },
-                { key: String(UserStatus.ACTIVE), label: '正常' },
-                { key: String(UserStatus.FROZEN), label: '冻结' },
-                { key: String(UserStatus.DELETED), label: '注销' },
+                { key: 'all', label: tr('allStatuses') },
+                { key: String(UserStatus.ACTIVE), label: tr('statuses.active') },
+                { key: String(UserStatus.FROZEN), label: tr('statuses.frozen') },
+                { key: String(UserStatus.DELETED), label: tr('statuses.deleted') },
               ]}
               className="w-[200px] shrink-0"
             />
 
             <ToolbarSelect
-              ariaLabel="选择每页数量"
+              ariaLabel={tr('pageSize')}
               value={String(pageSize)}
               onChange={(nextValue) => {
                 setPage(1);
@@ -952,7 +957,7 @@ const UserManagement: React.FC = () => {
               }}
               options={pageSizeOptions.map((option) => ({
                 key: String(option),
-                label: `每页 ${option} 条`,
+                label: tr('perPage', { count: option }),
               }))}
               className="w-[200px] shrink-0"
             />
@@ -962,7 +967,7 @@ const UserManagement: React.FC = () => {
               className="inline-flex h-12 w-[120px] shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               <Search className="h-4 w-4" />
-              搜索
+              {tr('search')}
             </button>
           </div>
         </div>
@@ -971,14 +976,14 @@ const UserManagement: React.FC = () => {
           <div className="px-8 py-12">
             <div className="rounded-[28px] border border-danger-100 bg-danger-50/80 px-6 py-8 text-center">
               <AlertCircle className="mx-auto h-10 w-10 text-danger-500" />
-              <div className="mt-4 text-base font-semibold text-danger-700">加载失败</div>
+              <div className="mt-4 text-base font-semibold text-danger-700">{tr('loadError')}</div>
               <div className="mt-2 text-sm text-danger-600">{pageError}</div>
               <button
                 onClick={() => void fetchUsers()}
                 className="mt-5 inline-flex items-center gap-2 rounded-full bg-danger-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-danger-700"
               >
                 <RefreshCw className="h-4 w-4" />
-                重试
+                {tr('retry')}
               </button>
             </div>
           </div>
@@ -993,14 +998,14 @@ const UserManagement: React.FC = () => {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-default-100 text-default-400">
               <Users className="h-8 w-8" />
             </div>
-            <div className="mt-5 text-lg font-semibold text-foreground">当前没有匹配的用户</div>
-            <div className="mt-2 text-sm text-default-500">可以尝试重置筛选条件，或直接创建新用户。</div>
+            <div className="mt-5 text-lg font-semibold text-foreground">{tr('empty')}</div>
+            <div className="mt-2 text-sm text-default-500">{tr('emptyDesc')}</div>
             <div className="mt-5 flex justify-center gap-3">
               <button onClick={resetFilters} className="rounded-full border border-default-200 px-4 py-2 text-sm font-medium text-default-600 transition hover:bg-default-50">
-                清空筛选
+                {tr('clearFilters')}
               </button>
               <button onClick={openCreateForm} className="rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700">
-                添加用户
+                {tr('addUser')}
               </button>
             </div>
           </div>
@@ -1010,12 +1015,12 @@ const UserManagement: React.FC = () => {
               <table className="min-w-[1180px] text-left">
                 <thead className={hasOverlayOpen ? 'bg-white shadow-[0_1px_0_rgba(241,245,249,1)]' : 'sticky top-0 z-10 bg-white shadow-[0_1px_0_rgba(241,245,249,1)]'}>
                   <tr className="text-xs font-bold uppercase tracking-wider text-default-400">
-                    <th className="w-[360px] px-6 py-3">用户</th>
-                    <th className="w-[110px] px-4 py-3">角色</th>
-                    <th className="w-[110px] px-4 py-3">状态</th>
-                    <th className="w-[150px] px-4 py-3">学号 / 工号</th>
-                    <th className="w-[170px] px-4 py-3">更新时间</th>
-                    <th className="sticky right-0 w-[280px] bg-white px-6 py-3 text-right shadow-[-12px_0_18px_-18px_rgba(15,23,42,0.45)]">操作</th>
+                    <th className="w-[360px] px-6 py-3">{tr('user')}</th>
+                    <th className="w-[110px] px-4 py-3">{tr('role')}</th>
+                    <th className="w-[110px] px-4 py-3">{tr('status')}</th>
+                    <th className="w-[150px] px-4 py-3">{tr('studentId')}</th>
+                    <th className="w-[170px] px-4 py-3">{tr('updatedAt')}</th>
+                    <th className="sticky right-0 w-[280px] bg-white px-6 py-3 text-right shadow-[-12px_0_18px_-18px_rgba(15,23,42,0.45)]">{tr('actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-default-100">
@@ -1057,21 +1062,21 @@ const UserManagement: React.FC = () => {
                             className="inline-flex items-center gap-1 rounded-full bg-default-100 px-2.5 py-1.5 text-xs font-medium text-default-600 transition hover:bg-default-200"
                           >
                             <Eye className="h-3.5 w-3.5" />
-                            详情
+                            {tr('details')}
                           </button>
                           <button
                             onClick={() => openEditForm(user)}
                             className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-1.5 text-xs font-medium text-primary-700 transition hover:bg-primary-100"
                           >
                             <PencilLine className="h-3.5 w-3.5" />
-                            编辑
+                            {tr('edit')}
                           </button>
                           <button
                             onClick={() => openPasswordModal(user)}
                             className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200"
                           >
                             <KeyRound className="h-3.5 w-3.5" />
-                            重置
+                            {tr('reset')}
                           </button>
                           <button
                             onClick={() => void handleToggleStatus(user)}
@@ -1083,14 +1088,14 @@ const UserManagement: React.FC = () => {
                             }`}
                           >
                             {user.status === UserStatus.ACTIVE ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-                            {user.status === UserStatus.ACTIVE ? '冻结' : '激活'}
+                            {user.status === UserStatus.ACTIVE ? tr('statuses.frozen') : tr('activate')}
                           </button>
                           <button
                             onClick={() => openDeleteConfirm(user)}
                             className="inline-flex items-center gap-1 rounded-full bg-danger-50 px-2.5 py-1.5 text-xs font-medium text-danger-700 transition hover:bg-danger-100"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            注销
+                            {tr('statuses.deleted')}
                           </button>
                         </div>
                       </td>
@@ -1101,42 +1106,38 @@ const UserManagement: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-4 border-t border-default-100 px-8 py-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="text-sm text-default-500">
-                显示 <span className="font-semibold text-foreground">{(page - 1) * pageSize + 1}</span> -{' '}
-                <span className="font-semibold text-foreground">{Math.min(page * pageSize, total)}</span> / 共{' '}
-                <span className="font-semibold text-foreground">{total}</span> 条
-              </div>
+              <div className="text-sm text-default-500">{tr('range', { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, total), total })}</div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage(1)}
                   disabled={page === 1}
                   className="rounded-full border border-default-200 px-4 py-2 text-sm font-medium text-default-600 transition hover:bg-default-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  首页
+                  {tr('first')}
                 </button>
                 <button
                   onClick={() => setPage((prev) => Math.max(1, prev - 1))}
                   disabled={page === 1}
                   className="rounded-full border border-default-200 px-4 py-2 text-sm font-medium text-default-600 transition hover:bg-default-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  上一页
+                  {tr('previous')}
                 </button>
                 <span className="px-3 text-sm font-medium text-default-500">
-                  第 <span className="text-foreground">{page}</span> / {totalPages} 页
+                  {tr('page', { page, totalPages })}
                 </span>
                 <button
                   onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
                   disabled={page >= totalPages}
                   className="rounded-full border border-default-200 px-4 py-2 text-sm font-medium text-default-600 transition hover:bg-default-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  下一页
+                  {tr('next')}
                 </button>
                 <button
                   onClick={() => setPage(totalPages)}
                   disabled={page >= totalPages}
                   className="rounded-full border border-default-200 px-4 py-2 text-sm font-medium text-default-600 transition hover:bg-default-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  末页
+                  {tr('last')}
                 </button>
               </div>
             </div>

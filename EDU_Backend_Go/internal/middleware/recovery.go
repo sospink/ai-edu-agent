@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/response"
 )
 
@@ -14,7 +15,7 @@ func Recovery(log *zap.Logger) gin.HandlerFunc {
 		log.Error("panic recovered", zap.Any("recovered", recovered))
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"error":   "服务器内部错误",
+			"error":   i18n.T(c.Request.Context(), "服务器内部错误"),
 			"code":    "INTERNAL_ERROR",
 		})
 	})
@@ -22,6 +23,6 @@ func Recovery(log *zap.Logger) gin.HandlerFunc {
 
 func NotFound() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		response.NotFound(c, "接口不存在")
+		response.NotFoundKey(c, "common.notFound", nil)
 	}
 }

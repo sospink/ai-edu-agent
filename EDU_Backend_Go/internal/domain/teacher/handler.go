@@ -21,7 +21,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) ListManuals(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -53,18 +53,18 @@ func (h *Handler) ListManuals(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     items,
 		"total":    total,
 		"page":     q.Page,
 		"pageSize": q.PageSize,
-	}, "获取手册列表成功")
+	}, "teacher.manualsLoaded", nil)
 }
 
 func (h *Handler) ListStudentProgress(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -83,12 +83,12 @@ func (h *Handler) ListStudentProgress(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"view":     view,
 		"summary":  summary,
 		"list":     items,
 		"total":    total,
 		"page":     q.Page,
 		"pageSize": q.PageSize,
-	}, "获取学生进度成功")
+	}, "teacher.progressLoaded", nil)
 }

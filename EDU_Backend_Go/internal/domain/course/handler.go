@@ -2,7 +2,6 @@ package course
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"edu-platform/internal/middleware"
-	apperrors "edu-platform/pkg/errors"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/pagination"
 	"edu-platform/pkg/response"
 )
@@ -69,18 +68,18 @@ func (h *Handler) List(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     list,
 		"total":    total,
 		"page":     q.Page,
 		"pageSize": q.PageSize,
-	}, "获取课程列表成功")
+	}, "course.listLoaded", nil)
 }
 
 func (h *Handler) ListAssignedForStudent(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	classID, _ := strconv.ParseUint(c.Query("classId"), 10, 64)
@@ -89,15 +88,11 @@ func (h *Handler) ListAssignedForStudent(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    items,
-		"message": "获取班级课程成功",
-	})
+	response.SuccessKey(c, items, "course.assignedLoaded", nil)
 }
 
 func (h *Handler) GetByID(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+	id, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -106,7 +101,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, detail, "获取课程成功")
+	response.SuccessKey(c, detail, "course.detailLoaded", nil)
 }
 
 func (h *Handler) GetBySlug(c *gin.Context) {
@@ -115,11 +110,11 @@ func (h *Handler) GetBySlug(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, detail, "获取课程成功")
+	response.SuccessKey(c, detail, "course.detailLoaded", nil)
 }
 
 func (h *Handler) GetStages(c *gin.Context) {
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -128,11 +123,11 @@ func (h *Handler) GetStages(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, stages, "获取阶段列表成功")
+	response.SuccessKey(c, stages, "course.stagesLoaded", nil)
 }
 
 func (h *Handler) GetLessons(c *gin.Context) {
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -141,11 +136,11 @@ func (h *Handler) GetLessons(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, lessons, "获取课时列表成功")
+	response.SuccessKey(c, lessons, "course.lessonsLoaded", nil)
 }
 
 func (h *Handler) GetStageLessons(c *gin.Context) {
-	stageID, ok := parseUintParam(c, "stageId", "无效的阶段ID")
+	stageID, ok := parseUintParam(c, "stageId", "course.invalidStageId")
 	if !ok {
 		return
 	}
@@ -154,11 +149,11 @@ func (h *Handler) GetStageLessons(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, lessons, "获取课时列表成功")
+	response.SuccessKey(c, lessons, "course.lessonsLoaded", nil)
 }
 
 func (h *Handler) GetLessonByID(c *gin.Context) {
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -167,11 +162,11 @@ func (h *Handler) GetLessonByID(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, lesson, "获取课时成功")
+	response.SuccessKey(c, lesson, "course.lessonLoaded", nil)
 }
 
 func (h *Handler) GetLessonMaterials(c *gin.Context) {
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -180,16 +175,16 @@ func (h *Handler) GetLessonMaterials(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, materials, "获取学习资料成功")
+	response.SuccessKey(c, materials, "course.materialsLoaded", nil)
 }
 
 func (h *Handler) EnrollCourse(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -198,16 +193,16 @@ func (h *Handler) EnrollCourse(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, enrollment, "加入课程成功")
+	response.SuccessKey(c, enrollment, "course.enrolled", nil)
 }
 
 func (h *Handler) GetUserLessonRecords(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -216,16 +211,16 @@ func (h *Handler) GetUserLessonRecords(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, records, "获取课时记录成功")
+	response.SuccessKey(c, records, "course.recordsLoaded", nil)
 }
 
 func (h *Handler) StartLesson(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -234,16 +229,16 @@ func (h *Handler) StartLesson(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, record, "开始学习成功")
+	response.SuccessKey(c, record, "course.lessonStarted", nil)
 }
 
 func (h *Handler) CompleteLesson(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -252,7 +247,7 @@ func (h *Handler) CompleteLesson(c *gin.Context) {
 		Score *int `json:"score"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil && c.ContentType() == "application/json" {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 
@@ -261,13 +256,13 @@ func (h *Handler) CompleteLesson(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "完成学习成功")
+	response.SuccessKey(c, result, "course.lessonCompleted", nil)
 }
 
 func (h *Handler) CreateCourse(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	var req struct {
@@ -284,7 +279,7 @@ func (h *Handler) CreateCourse(c *gin.Context) {
 		LabTemplateID  uint64 `json:"labTemplateId"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	status := CourseStatusDraft
@@ -311,11 +306,11 @@ func (h *Handler) CreateCourse(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, course, "课程创建成功")
+	response.CreatedKey(c, course, "course.created", nil)
 }
 
 func (h *Handler) UpdateCourse(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+	id, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -335,7 +330,7 @@ func (h *Handler) UpdateCourse(c *gin.Context) {
 		IDEImage       *string `json:"ideImage"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	var status *CourseStatus
@@ -359,11 +354,11 @@ func (h *Handler) UpdateCourse(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, course, "课程更新成功")
+	response.SuccessKey(c, course, "course.updated", nil)
 }
 
 func (h *Handler) DeleteCourse(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+	id, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -374,23 +369,23 @@ func (h *Handler) DeleteCourse(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "课程删除成功")
+	response.SuccessKey[any](c, nil, "course.deleted", nil)
 }
 
 func (h *Handler) PublishCourse(c *gin.Context) {
-	h.updateCourseStatus(c, CourseStatusPublished, "课程已发布")
+	h.updateCourseStatus(c, CourseStatusPublished, "publishing.coursePublished")
 }
 
 func (h *Handler) ArchiveCourse(c *gin.Context) {
-	h.updateCourseStatus(c, CourseStatusArchived, "课程已下架")
+	h.updateCourseStatus(c, CourseStatusArchived, "publishing.courseArchived")
 }
 
 func (h *Handler) DraftCourse(c *gin.Context) {
-	h.updateCourseStatus(c, CourseStatusDraft, "课程已设为草稿")
+	h.updateCourseStatus(c, CourseStatusDraft, "publishing.courseDrafted")
 }
 
 func (h *Handler) CreateStage(c *gin.Context) {
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -404,7 +399,7 @@ func (h *Handler) CreateStage(c *gin.Context) {
 		LevelLabel  string `json:"levelLabel"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	stage, err := h.service.CreateStage(CreateStageParams{
@@ -418,11 +413,11 @@ func (h *Handler) CreateStage(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, stage, "阶段创建成功")
+	response.CreatedKey(c, stage, "course.stageCreated", nil)
 }
 
 func (h *Handler) UpdateStage(c *gin.Context) {
-	stageID, ok := parseUintParam(c, "stageId", "无效的阶段ID")
+	stageID, ok := parseUintParam(c, "stageId", "course.invalidStageId")
 	if !ok {
 		return
 	}
@@ -436,7 +431,7 @@ func (h *Handler) UpdateStage(c *gin.Context) {
 		LevelLabel  *string `json:"levelLabel"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	stage, err := h.service.UpdateStage(stageID, UpdateStageParams{
@@ -449,11 +444,11 @@ func (h *Handler) UpdateStage(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, stage, "阶段更新成功")
+	response.SuccessKey(c, stage, "course.stageUpdated", nil)
 }
 
 func (h *Handler) DeleteStage(c *gin.Context) {
-	stageID, ok := parseUintParam(c, "stageId", "无效的阶段ID")
+	stageID, ok := parseUintParam(c, "stageId", "course.invalidStageId")
 	if !ok {
 		return
 	}
@@ -464,11 +459,11 @@ func (h *Handler) DeleteStage(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "阶段删除成功")
+	response.SuccessKey[any](c, nil, "course.stageDeleted", nil)
 }
 
 func (h *Handler) ReorderStages(c *gin.Context) {
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -479,7 +474,7 @@ func (h *Handler) ReorderStages(c *gin.Context) {
 		Orders []stageOrder `json:"orders"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || len(req.Orders) == 0 {
-		response.BadRequest(c, "排序数据格式错误")
+		response.BadRequestKey(c, "common.invalidOrder", nil)
 		return
 	}
 	orders := make([]struct {
@@ -497,18 +492,18 @@ func (h *Handler) ReorderStages(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, stages, "阶段排序更新成功")
+	response.SuccessKey(c, stages, "course.stagesReordered", nil)
 }
 
 func (h *Handler) CreateLesson(c *gin.Context) {
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
 	if !h.ensureCourseAccess(c, courseID) {
 		return
 	}
-	stageID, ok := parseUintParam(c, "stageId", "无效的阶段ID")
+	stageID, ok := parseUintParam(c, "stageId", "course.invalidStageId")
 	if !ok {
 		return
 	}
@@ -522,7 +517,7 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 		SkillIDs        []uint64 `json:"skillIds"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	lesson, err := h.service.CreateLesson(CreateLessonParams{
@@ -540,11 +535,11 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, lesson, "课时创建成功")
+	response.CreatedKey(c, lesson, "course.lessonCreated", nil)
 }
 
 func (h *Handler) UpdateLesson(c *gin.Context) {
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -561,7 +556,7 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 		SkillIDs        *[]uint64 `json:"skillIds"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	lesson, err := h.service.UpdateLesson(lessonID, UpdateLessonParams{
@@ -577,11 +572,11 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, lesson, "课时更新成功")
+	response.SuccessKey(c, lesson, "course.lessonUpdated", nil)
 }
 
 func (h *Handler) DeleteLesson(c *gin.Context) {
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -592,11 +587,11 @@ func (h *Handler) DeleteLesson(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "课时删除成功")
+	response.SuccessKey[any](c, nil, "course.lessonDeleted", nil)
 }
 
 func (h *Handler) ReorderLessons(c *gin.Context) {
-	stageID, ok := parseUintParam(c, "stageId", "无效的阶段ID")
+	stageID, ok := parseUintParam(c, "stageId", "course.invalidStageId")
 	if !ok {
 		return
 	}
@@ -607,7 +602,7 @@ func (h *Handler) ReorderLessons(c *gin.Context) {
 		Orders []lessonOrder `json:"orders"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || len(req.Orders) == 0 {
-		response.BadRequest(c, "排序数据格式错误")
+		response.BadRequestKey(c, "common.invalidOrder", nil)
 		return
 	}
 	orders := make([]struct {
@@ -625,7 +620,7 @@ func (h *Handler) ReorderLessons(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, lessons, "课时排序更新成功")
+	response.SuccessKey(c, lessons, "course.lessonsReordered", nil)
 }
 
 func (h *Handler) GetAllSkills(c *gin.Context) {
@@ -634,7 +629,7 @@ func (h *Handler) GetAllSkills(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, skills, "获取技能列表成功")
+	response.SuccessKey(c, skills, "course.skillsLoaded", nil)
 }
 
 func (h *Handler) GetSkillsByCategory(c *gin.Context) {
@@ -643,7 +638,7 @@ func (h *Handler) GetSkillsByCategory(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, skills, "获取技能列表成功")
+	response.SuccessKey(c, skills, "course.skillsLoaded", nil)
 }
 
 func (h *Handler) CreateSkill(c *gin.Context) {
@@ -652,7 +647,7 @@ func (h *Handler) CreateSkill(c *gin.Context) {
 		Category string `json:"category"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	skill, err := h.service.CreateSkill(req.Name, req.Category)
@@ -660,11 +655,11 @@ func (h *Handler) CreateSkill(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, skill, "技能创建成功")
+	response.CreatedKey(c, skill, "course.skillCreated", nil)
 }
 
 func (h *Handler) UpdateSkill(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的技能ID")
+	id, ok := parseUintParam(c, "id", "course.invalidSkillId")
 	if !ok {
 		return
 	}
@@ -673,7 +668,7 @@ func (h *Handler) UpdateSkill(c *gin.Context) {
 		Category *string `json:"category"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	skill, err := h.service.UpdateSkill(id, req.Name, req.Category)
@@ -681,11 +676,11 @@ func (h *Handler) UpdateSkill(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, skill, "技能更新成功")
+	response.SuccessKey(c, skill, "course.skillUpdated", nil)
 }
 
 func (h *Handler) DeleteSkill(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "无效的技能ID")
+	id, ok := parseUintParam(c, "id", "course.invalidSkillId")
 	if !ok {
 		return
 	}
@@ -693,11 +688,11 @@ func (h *Handler) DeleteSkill(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "技能删除成功")
+	response.SuccessKey[any](c, nil, "course.skillDeleted", nil)
 }
 
 func (h *Handler) UploadMaterial(c *gin.Context) {
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -706,21 +701,21 @@ func (h *Handler) UploadMaterial(c *gin.Context) {
 	}
 	file, err := c.FormFile("material")
 	if err != nil {
-		response.BadRequest(c, "请选择要上传的文件")
+		response.BadRequestKey(c, "course.uploadRequired", nil)
 		return
 	}
 	title := c.PostForm("title")
 	sortOrder, _ := strconv.Atoi(c.DefaultPostForm("sortOrder", "0"))
 	materialType := materialTypeFromFilename(file.Filename)
 	if err := os.MkdirAll(filepath.Join(h.uploadRoot, "materials"), 0o755); err != nil {
-		response.Internal(c, "创建上传目录失败")
+		response.InternalKey(c, "course.uploadDirectoryFailed", nil)
 		return
 	}
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 	destPath := filepath.Join(h.uploadRoot, "materials", filename)
 	if err := c.SaveUploadedFile(file, destPath); err != nil {
-		response.Internal(c, "保存文件失败")
+		response.InternalKey(c, "course.uploadSaveFailed", nil)
 		return
 	}
 	fileURL := "/uploads/materials/" + filename
@@ -744,11 +739,11 @@ func (h *Handler) UploadMaterial(c *gin.Context) {
 	if material.FileURL == "" {
 		material.FileURL = "/uploads/materials/" + storedName
 	}
-	response.Created(c, material, "学习资料上传成功")
+	response.CreatedKey(c, material, "course.materialUploaded", nil)
 }
 
 func (h *Handler) UpdateMaterial(c *gin.Context) {
-	materialID, ok := parseUintParam(c, "materialId", "无效的资料ID")
+	materialID, ok := parseUintParam(c, "materialId", "course.invalidMaterialId")
 	if !ok {
 		return
 	}
@@ -760,7 +755,7 @@ func (h *Handler) UpdateMaterial(c *gin.Context) {
 		SortOrder *int    `json:"sortOrder"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	material, err := h.service.UpdateMaterial(materialID, UpdateMaterialParams{
@@ -771,11 +766,11 @@ func (h *Handler) UpdateMaterial(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, material, "学习资料更新成功")
+	response.SuccessKey(c, material, "course.materialUpdated", nil)
 }
 
 func (h *Handler) DeleteMaterial(c *gin.Context) {
-	materialID, ok := parseUintParam(c, "materialId", "无效的资料ID")
+	materialID, ok := parseUintParam(c, "materialId", "course.invalidMaterialId")
 	if !ok {
 		return
 	}
@@ -786,11 +781,11 @@ func (h *Handler) DeleteMaterial(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "学习资料删除成功")
+	response.SuccessKey[any](c, nil, "course.materialDeleted", nil)
 }
 
 func (h *Handler) ReorderMaterials(c *gin.Context) {
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -801,7 +796,7 @@ func (h *Handler) ReorderMaterials(c *gin.Context) {
 		Orders []materialOrder `json:"orders"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || len(req.Orders) == 0 {
-		response.BadRequest(c, "排序数据格式错误")
+		response.BadRequestKey(c, "common.invalidOrder", nil)
 		return
 	}
 	orders := make([]struct {
@@ -819,20 +814,20 @@ func (h *Handler) ReorderMaterials(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, materials, "学习资料排序更新成功")
+	response.SuccessKey(c, materials, "course.materialsReordered", nil)
 }
 
-func parseUintParam(c *gin.Context, name, message string) (uint64, bool) {
+func parseUintParam(c *gin.Context, name string, key i18n.MessageKey) (uint64, bool) {
 	id, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil {
-		response.BadRequest(c, message)
+		response.BadRequestKey(c, key, nil)
 		return 0, false
 	}
 	return id, true
 }
 
-func (h *Handler) updateCourseStatus(c *gin.Context, status CourseStatus, message string) {
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+func (h *Handler) updateCourseStatus(c *gin.Context, status CourseStatus, key i18n.MessageKey) {
+	id, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -844,7 +839,7 @@ func (h *Handler) updateCourseStatus(c *gin.Context, status CourseStatus, messag
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, course, message)
+	response.SuccessKey(c, course, key, nil)
 }
 
 func (h *Handler) ensureCourseAccess(c *gin.Context, courseID uint64) bool {
@@ -886,13 +881,13 @@ func (h *Handler) ensureCourseAccessByMaterial(c *gin.Context, materialID uint64
 func (h *Handler) ensureCourseOwnership(c *gin.Context, creatorID uint64) bool {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return false
 	}
 	if claims.RoleType >= 10 || creatorID == claims.UserID {
 		return true
 	}
-	_ = c.Error(apperrors.Forbidden("无权管理该课程"))
+	response.ForbiddenKey(c, "publishing.courseForbidden", nil)
 	return false
 }
 

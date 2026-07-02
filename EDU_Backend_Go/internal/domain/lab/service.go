@@ -542,6 +542,9 @@ func (s *Service) ServiceProxyURL(sessionID uint64, target, suffix, rawQuery str
 	}
 
 	upstream := *req.URL()
+	if strings.HasSuffix(suffix, "/") && !strings.HasSuffix(upstream.Path, "/") {
+		upstream.Path += "/"
+	}
 	q, _ := url.ParseQuery(rawQuery)
 	q.Del("authToken")
 	upstream.RawQuery = q.Encode()
@@ -742,6 +745,7 @@ func (s *Service) createRuntimeResources(ctx context.Context, session *UserLabSe
 					Image:           session.ImageName,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Env:             s.mainContainerEnv(session, sourceName),
+					Lifecycle:       desktopLifecycle(session),
 					Ports:           mainContainerPorts(session),
 					VolumeMounts: []corev1.VolumeMount{
 						{Name: "workspace", MountPath: "/workspace"},
@@ -833,6 +837,13 @@ func (s *Service) mainContainerEnv(session *UserLabSession, sourceName string) [
 		{Name: "SOURCE_NAME", Value: sourceName},
 		{Name: "VNC_RESOLUTION", Value: "1920x1080"},
 	}
+	if session.VNCPort > 0 {
+		env = append(env,
+			corev1.EnvVar{Name: "DESKTOP_ENABLED", Value: "true"},
+			corev1.EnvVar{Name: "DESKTOP_HTTP_PORT", Value: strconv.Itoa(int(session.VNCPort))},
+			corev1.EnvVar{Name: "DESKTOP_VNC_PORT", Value: "5901"},
+		)
+	}
 	if session.RuntimeMode != RuntimeModeOpenClaw {
 		return env
 	}
@@ -869,6 +880,32 @@ func (s *Service) mainContainerEnv(session *UserLabSession, sourceName string) [
 		env = append(env, corev1.EnvVar{Name: key, Value: value})
 	}
 	return env
+}
+
+func desktopLifecycle(session *UserLabSession) *corev1.Lifecycle {
+	if session == nil || session.VNCPort == 0 {
+		return nil
+	}
+	script := strings.Join([]string{
+		"set +e",
+		"if ! command -v websockify >/dev/null 2>&1; then exit 0; fi",
+		"WEB_ROOT=\"\"",
+		"for candidate in /usr/share/novnc /usr/share/noVNC /opt/noVNC /opt/novnc; do",
+		"  if [ -d \"$candidate\" ]; then WEB_ROOT=\"$candidate\"; break; fi",
+		"done",
+		"if [ -z \"$WEB_ROOT\" ]; then exit 0; fi",
+		"HTTP_PORT=\"${DESKTOP_HTTP_PORT:-6080}\"",
+		"VNC_PORT=\"${DESKTOP_VNC_PORT:-5901}\"",
+		"nohup websockify --web \"$WEB_ROOT\" \"0.0.0.0:${HTTP_PORT}\" \"localhost:${VNC_PORT}\" >/tmp/websockify.log 2>&1 &",
+		"exit 0",
+	}, "\n")
+	return &corev1.Lifecycle{
+		PostStart: &corev1.LifecycleHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"sh", "-lc", script},
+			},
+		},
+	}
 }
 
 func (s *Service) ensureRuntimeNamespace(ctx context.Context) error {

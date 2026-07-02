@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate, useAnimationFrame } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowRight, Code2, MessageSquareText, Cpu } from 'lucide-react';
 
 const cn = (...classes: (string | undefined | null | false)[]) => {
@@ -13,9 +14,12 @@ const ScrambleText = ({ text, className, delay = 0 }: { text: string, className?
   const finished = useRef(false);
 
   useEffect(() => {
+    finished.current = false;
+    setDisplay(text.split('').map(() => '!').join(''));
+    let interval: ReturnType<typeof setInterval> | undefined;
     const timeout = setTimeout(() => {
       let iterations = 0;
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         if (finished.current) return;
         const next = text.split('').map((char, index) => {
           if (index < iterations) return text[index];
@@ -29,9 +33,11 @@ const ScrambleText = ({ text, className, delay = 0 }: { text: string, className?
         }
         iterations += 1/2;
       }, 50);
-      return () => clearInterval(interval);
     }, delay * 1000);
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      if (interval) clearInterval(interval);
+    };
   }, [text, delay]);
 
   return <span className={className}>{display}</span>;
@@ -41,9 +47,11 @@ const Typewriter = ({ text, delay = 0 }: { text: string, delay?: number }) => {
   const [displayedText, setDisplayedText] = useState('');
 
   useEffect(() => {
+    setDisplayedText('');
+    let interval: ReturnType<typeof setInterval> | undefined;
     const timeout = setTimeout(() => {
       let currentIndex = 0;
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         if (currentIndex <= text.length) {
           setDisplayedText(text.slice(0, currentIndex));
           currentIndex++;
@@ -51,9 +59,11 @@ const Typewriter = ({ text, delay = 0 }: { text: string, delay?: number }) => {
           clearInterval(interval);
         }
       }, 50);
-      return () => clearInterval(interval);
     }, delay * 1000);
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      if (interval) clearInterval(interval);
+    };
   }, [text, delay]);
 
   return (
@@ -159,6 +169,7 @@ const GridPattern = ({ offsetX, offsetY }: { offsetX: any; offsetY: any }) => {
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation('home');
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHoveringHero, setIsHoveringHero] = useState(false);
 
@@ -238,9 +249,9 @@ const Hero: React.FC = () => {
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
         className="relative z-10 mx-auto mt-8 flex max-w-7xl flex-col items-center justify-center px-6 text-center md:mt-10"
       >
-        <FloatingCard icon={Code2} title="自动编码" subtitle="模块实时生成" color="blue" xOffset={-350} yOffset={-180} delay={0.2} mouseX={springX} mouseY={springY} />
-        <FloatingCard icon={Cpu} title="神经推理" subtitle="上下文智能分析" color="purple" xOffset={380} yOffset={-120} delay={0.4} mouseX={springX} mouseY={springY} />
-        <FloatingCard icon={MessageSquareText} title="自然语言交互" subtitle="人机协同决策" color="green" xOffset={-320} yOffset={150} delay={0.6} mouseX={springX} mouseY={springY} />
+        <FloatingCard icon={Code2} title={t('hero.cards.coding.title')} subtitle={t('hero.cards.coding.subtitle')} color="blue" xOffset={-350} yOffset={-180} delay={0.2} mouseX={springX} mouseY={springY} />
+        <FloatingCard icon={Cpu} title={t('hero.cards.reasoning.title')} subtitle={t('hero.cards.reasoning.subtitle')} color="purple" xOffset={380} yOffset={-120} delay={0.4} mouseX={springX} mouseY={springY} />
+        <FloatingCard icon={MessageSquareText} title={t('hero.cards.collab.title')} subtitle={t('hero.cards.collab.subtitle')} color="green" xOffset={-320} yOffset={150} delay={0.6} mouseX={springX} mouseY={springY} />
 
         <h1 className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tight mb-6 text-slate-900 leading-[0.9]" style={{ transform: "translateZ(60px)" }}>
           Agent <br className="hidden md:block" /> 
@@ -251,7 +262,7 @@ const Hero: React.FC = () => {
 
         <div className="h-8 md:h-12 mb-10" style={{ transform: "translateZ(40px)" }}>
           <h2 className="text-xl md:text-3xl font-light text-slate-500">
-            <Typewriter text="探索智能体技术应用新方向" delay={1.5} />
+            <Typewriter key={i18n.language} text={t('hero.tagline')} delay={1.5} />
           </h2>
         </div>
 
@@ -262,14 +273,14 @@ const Hero: React.FC = () => {
           className="text-lg md:text-xl text-slate-500 max-w-2xl mb-12 leading-relaxed font-light"
           style={{ transform: "translateZ(30px)" }}
         >
-          深度集成 <span className="font-semibold text-slate-800">阿里通义 / 智谱 GLM</span> 等主流 AI 生态，构建从基础到多智能体系统的全栈实训解决方案。
+          {t('hero.descriptionPrefix')} <span className="font-semibold text-slate-800">{t('hero.descriptionVendors')}</span> {t('hero.descriptionSuffix')}
         </motion.p>
 
         <div className="flex flex-col sm:flex-row gap-6 items-center" style={{ transform: "translateZ(50px)" }}>
           <MagneticButton className="rounded-2xl" onClick={() => navigate('/study')}>
             <div className="relative overflow-hidden rounded-2xl bg-slate-900 text-white shadow-xl shadow-primary/20 transition-transform active:scale-95">
               <div className="relative px-10 py-5 flex items-center gap-3 bg-slate-900 rounded-2xl z-10 hover:bg-slate-800 transition-colors">
-                <span className="font-semibold text-lg tracking-wide">开始探索</span>
+                <span className="font-semibold text-lg tracking-wide">{t('hero.cta')}</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>

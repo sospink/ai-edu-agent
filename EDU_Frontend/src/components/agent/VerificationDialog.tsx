@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@heroui/react';
 import { X, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // 检查项接口
 export interface CheckItem {
@@ -40,6 +41,7 @@ export const VerificationDialog: React.FC<VerificationDialogProps> = ({
   onSkip,
   onClose,
 }) => {
+  const { t } = useTranslation('agent');
   // 不显示弹窗的情况
   if (!open) return null;
 
@@ -54,8 +56,8 @@ export const VerificationDialog: React.FC<VerificationDialogProps> = ({
         <div className="relative bg-white rounded-2xl shadow-2xl w-[400px] max-w-[90vw] overflow-hidden">
           <div className="flex flex-col items-center justify-center py-12 px-6">
             <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
-            <p className="text-default-700 font-medium">正在检查环境...</p>
-            <p className="text-default-500 text-sm mt-1">请稍候</p>
+            <p className="text-default-700 font-medium">{t('checking')}</p>
+            <p className="text-default-500 text-sm mt-1">{t('wait')}</p>
           </div>
         </div>
       </div>
@@ -74,7 +76,7 @@ export const VerificationDialog: React.FC<VerificationDialogProps> = ({
       <div className="relative bg-white rounded-2xl shadow-2xl w-[400px] max-w-[90vw] overflow-hidden animate-enter">
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-default-100">
-          <h3 className="text-lg font-bold text-default-900">检查结果</h3>
+          <h3 className="text-lg font-bold text-default-900">{t('checkResult')}</h3>
           <button 
             onClick={onClose} 
             className="p-1 text-default-400 hover:text-default-600 hover:bg-default-100 rounded-full transition-colors"
@@ -138,7 +140,7 @@ export const VerificationDialog: React.FC<VerificationDialogProps> = ({
           {/* AI 建议 */}
           {result.suggestion && (
             <div className="mt-4 p-3 bg-warning-50 rounded-lg border border-warning-100">
-              <p className="text-xs font-medium text-warning-700 mb-1">💡 建议</p>
+              <p className="text-xs font-medium text-warning-700 mb-1">{t('suggestion')}</p>
               <p className="text-sm text-warning-800 whitespace-pre-wrap break-words">
                 {result.suggestion}
               </p>
@@ -154,7 +156,7 @@ export const VerificationDialog: React.FC<VerificationDialogProps> = ({
             onPress={onSkip}
             className="font-medium"
           >
-            跳过
+            {t('skip')}
           </Button>
           {/* 重新检查按钮 */}
           <Button 
@@ -162,7 +164,7 @@ export const VerificationDialog: React.FC<VerificationDialogProps> = ({
             onPress={onRetry}
             className="font-medium"
           >
-            重新检查
+            {t('recheck')}
           </Button>
         </div>
       </div>

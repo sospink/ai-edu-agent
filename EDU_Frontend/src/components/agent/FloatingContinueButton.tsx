@@ -1,5 +1,6 @@
 import React from 'react';
 import { Loader2, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * 悬浮继续按钮组件属性接口
@@ -41,6 +42,7 @@ export const FloatingContinueButton: React.FC<FloatingContinueButtonProps> = ({
   isLastStep,
   onClick,
 }) => {
+  const { t } = useTranslation('agent');
   // 不可见时不渲染
   if (!visible) return null;
 
@@ -61,16 +63,16 @@ export const FloatingContinueButton: React.FC<FloatingContinueButtonProps> = ({
         disabled:opacity-70 disabled:cursor-not-allowed
         font-medium
       `}
-      aria-label={isLastStep ? '完成' : '继续'}
+      aria-label={isLastStep ? t('complete') : t('continue')}
     >
       {isLoading ? (
         <>
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span>检查中...</span>
+          <span>{t('checkingShort')}</span>
         </>
       ) : (
         <>
-          <span>{isLastStep ? '完成' : '继续'}</span>
+          <span>{isLastStep ? t('complete') : t('continue')}</span>
           <ChevronRight className="w-4 h-4" />
         </>
       )}

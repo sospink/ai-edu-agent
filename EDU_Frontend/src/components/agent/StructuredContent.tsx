@@ -2,6 +2,7 @@ import React from 'react';
 import { ContentBlock } from './types';
 import CodeBlock from './CodeBlock';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { useTranslation } from 'react-i18next';
 
 interface StructuredContentProps {
   blocks: ContentBlock[];
@@ -14,6 +15,7 @@ export const StructuredContent: React.FC<StructuredContentProps> = ({
   onCodeRun,
   onCodeExplain 
 }) => {
+  const { t } = useTranslation('agent');
   if (!blocks || !Array.isArray(blocks)) return null;
   
   return (
@@ -50,7 +52,7 @@ export const StructuredContent: React.FC<StructuredContentProps> = ({
           case 'image':
             return (
               <div key={idx} className="rounded-lg overflow-hidden border border-slate-200 shadow-sm my-2">
-                <img src={block.src} alt="步骤图示" className="w-full h-auto" />
+                <img src={block.src} alt={t('stepImage')} className="w-full h-auto" />
               </div>
             );
           

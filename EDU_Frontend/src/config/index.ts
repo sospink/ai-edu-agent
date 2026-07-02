@@ -87,7 +87,6 @@ export const handleImageFallback = (
 // App configuration
 export const APP_CONFIG = {
   name: 'Agent EDU Lab',
-  description: 'AI 教育实训平台',
   version: '0.1.0',
 };
 

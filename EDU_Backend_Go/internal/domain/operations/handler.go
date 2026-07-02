@@ -28,16 +28,16 @@ func (h *Handler) ListResourceQuotas(c *gin.Context) {
 		PageSize:  parseInt(c.Query("pageSize")),
 	})
 	if err != nil {
-		response.Internal(c, "获取资源配额失败: "+err.Error())
+		response.ErrorKeyWithDetail(c, http.StatusInternalServerError, "RESOURCE_QUOTA_LIST_FAILED", "operations.quotaListFailed", nil, err)
 		return
 	}
-	response.Success(c, result, "资源配额已加载")
+	response.SuccessKey(c, result, "operations.quotasLoaded", nil)
 }
 
 func (h *Handler) CreateResourceQuota(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	input, ok := bindQuotaInput(c)
@@ -46,16 +46,16 @@ func (h *Handler) CreateResourceQuota(c *gin.Context) {
 	}
 	quota, err := h.service.CreateQuota(c.Request.Context(), claims.UserID, input)
 	if err != nil {
-		response.BadRequest(c, "创建资源配额失败: "+err.Error())
+		response.ErrorKeyWithDetail(c, http.StatusBadRequest, "RESOURCE_QUOTA_CREATE_FAILED", "operations.quotaCreateFailed", nil, err)
 		return
 	}
-	response.Created(c, quota, "资源配额已创建")
+	response.CreatedKey(c, quota, "operations.quotaCreated", nil)
 }
 
 func (h *Handler) UpdateResourceQuota(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c)
@@ -68,16 +68,16 @@ func (h *Handler) UpdateResourceQuota(c *gin.Context) {
 	}
 	quota, err := h.service.UpdateQuota(c.Request.Context(), claims.UserID, id, input)
 	if err != nil {
-		response.BadRequest(c, "更新资源配额失败: "+err.Error())
+		response.ErrorKeyWithDetail(c, http.StatusBadRequest, "RESOURCE_QUOTA_UPDATE_FAILED", "operations.quotaUpdateFailed", nil, err)
 		return
 	}
-	response.Success(c, quota, "资源配额已更新")
+	response.SuccessKey(c, quota, "operations.quotaUpdated", nil)
 }
 
 func (h *Handler) UpdateResourceQuotaStatus(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	id, ok := parseIDParam(c)
@@ -88,15 +88,15 @@ func (h *Handler) UpdateResourceQuotaStatus(c *gin.Context) {
 		Enabled bool `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数无效")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	quota, err := h.service.SetQuotaStatus(c.Request.Context(), claims.UserID, id, req.Enabled)
 	if err != nil {
-		response.BadRequest(c, "更新资源配额状态失败: "+err.Error())
+		response.ErrorKeyWithDetail(c, http.StatusBadRequest, "RESOURCE_QUOTA_STATUS_FAILED", "operations.quotaStatusFailed", nil, err)
 		return
 	}
-	response.Success(c, quota, "资源配额状态已更新")
+	response.SuccessKey(c, quota, "operations.quotaStatusUpdated", nil)
 }
 
 func (h *Handler) ListAuditLogs(c *gin.Context) {
@@ -111,10 +111,10 @@ func (h *Handler) ListAuditLogs(c *gin.Context) {
 		PageSize:   parseInt(c.Query("pageSize")),
 	})
 	if err != nil {
-		response.Internal(c, "获取审计日志失败: "+err.Error())
+		response.ErrorKeyWithDetail(c, http.StatusInternalServerError, "AUDIT_LOG_LIST_FAILED", "operations.auditListFailed", nil, err)
 		return
 	}
-	response.Success(c, result, "审计日志已加载")
+	response.SuccessKey(c, result, "operations.auditLoaded", nil)
 }
 
 func bindQuotaInput(c *gin.Context) (QuotaInput, bool) {
@@ -127,7 +127,7 @@ func bindQuotaInput(c *gin.Context) (QuotaInput, bool) {
 		Enabled               *bool  `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数无效")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return QuotaInput{}, false
 	}
 	return QuotaInput{
@@ -143,7 +143,7 @@ func bindQuotaInput(c *gin.Context) (QuotaInput, bool) {
 func parseIDParam(c *gin.Context) (uint64, bool) {
 	id, err := strconv.ParseUint(strings.TrimSpace(c.Param("id")), 10, 64)
 	if err != nil || id == 0 {
-		response.BadRequest(c, "无效的 ID")
+		response.BadRequestKey(c, "operations.invalidId", nil)
 		return 0, false
 	}
 	return id, true

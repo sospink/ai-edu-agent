@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"edu-platform/internal/middleware"
-	apperrors "edu-platform/pkg/errors"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/pagination"
 	"edu-platform/pkg/response"
 )
@@ -48,18 +48,18 @@ func (h *Handler) List(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     list,
 		"total":    total,
 		"page":     q.Page,
 		"pageSize": q.PageSize,
-	}, "获取项目列表成功")
+	}, "project.listLoaded", nil)
 }
 
 func (h *Handler) GetByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 	detail, serviceErr := h.service.FindByID(id)
@@ -67,7 +67,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success(c, detail, "获取项目成功")
+	response.SuccessKey(c, detail, "project.detailLoaded", nil)
 }
 
 func (h *Handler) GetBySlug(c *gin.Context) {
@@ -76,13 +76,13 @@ func (h *Handler) GetBySlug(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, detail, "获取项目成功")
+	response.SuccessKey(c, detail, "project.detailLoaded", nil)
 }
 
 func (h *Handler) GetUnits(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 	units, serviceErr := h.service.GetUnits(id)
@@ -90,7 +90,7 @@ func (h *Handler) GetUnits(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success(c, units, "获取单元列表成功")
+	response.SuccessKey(c, units, "project.unitsLoaded", nil)
 }
 
 func (h *Handler) GetAllTags(c *gin.Context) {
@@ -99,7 +99,7 @@ func (h *Handler) GetAllTags(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, tags, "获取标签列表成功")
+	response.SuccessKey(c, tags, "project.tagsLoaded", nil)
 }
 
 func (h *Handler) CreateTag(c *gin.Context) {
@@ -108,7 +108,7 @@ func (h *Handler) CreateTag(c *gin.Context) {
 		StyleColor string `json:"styleColor"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	tag, err := h.service.CreateTag(req.Name, req.StyleColor)
@@ -116,13 +116,13 @@ func (h *Handler) CreateTag(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, tag, "标签创建成功")
+	response.CreatedKey(c, tag, "project.tagCreated", nil)
 }
 
 func (h *Handler) UpdateTag(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的标签ID")
+		response.BadRequestKey(c, "project.invalidTagId", nil)
 		return
 	}
 	var req struct {
@@ -130,7 +130,7 @@ func (h *Handler) UpdateTag(c *gin.Context) {
 		StyleColor *string `json:"styleColor"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	tag, serviceErr := h.service.UpdateTag(id, req.Name, req.StyleColor)
@@ -138,20 +138,20 @@ func (h *Handler) UpdateTag(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success(c, tag, "标签更新成功")
+	response.SuccessKey(c, tag, "project.tagUpdated", nil)
 }
 
 func (h *Handler) DeleteTag(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的标签ID")
+		response.BadRequestKey(c, "project.invalidTagId", nil)
 		return
 	}
 	if serviceErr := h.service.DeleteTag(id); serviceErr != nil {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success[any](c, nil, "标签删除成功")
+	response.SuccessKey[any](c, nil, "project.tagDeleted", nil)
 }
 
 func (h *Handler) CreateProject(c *gin.Context) {
@@ -171,7 +171,7 @@ func (h *Handler) CreateProject(c *gin.Context) {
 		LabTemplateID uint64   `json:"labTemplateId"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	status := ProjectStatusDraft
@@ -204,13 +204,13 @@ func (h *Handler) CreateProject(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, project, "项目创建成功")
+	response.CreatedKey(c, project, "project.created", nil)
 }
 
 func (h *Handler) UpdateProject(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 	if !h.ensureProjectAccess(c, id) {
@@ -231,7 +231,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		IDEImage      *string   `json:"ideImage"`
 	}
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	var status *ProjectStatus
@@ -257,13 +257,13 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success(c, project, "项目更新成功")
+	response.SuccessKey(c, project, "project.updated", nil)
 }
 
 func (h *Handler) DeleteProject(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 	if !h.ensureProjectAccess(c, id) {
@@ -273,25 +273,25 @@ func (h *Handler) DeleteProject(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success[any](c, nil, "项目删除成功")
+	response.SuccessKey[any](c, nil, "project.deleted", nil)
 }
 
 func (h *Handler) PublishProject(c *gin.Context) {
-	h.updateProjectStatus(c, ProjectStatusPublished, "项目已发布")
+	h.updateProjectStatus(c, ProjectStatusPublished, "publishing.projectPublished")
 }
 
 func (h *Handler) ArchiveProject(c *gin.Context) {
-	h.updateProjectStatus(c, ProjectStatusArchived, "项目已下架")
+	h.updateProjectStatus(c, ProjectStatusArchived, "publishing.projectArchived")
 }
 
 func (h *Handler) DraftProject(c *gin.Context) {
-	h.updateProjectStatus(c, ProjectStatusDraft, "项目已设为草稿")
+	h.updateProjectStatus(c, ProjectStatusDraft, "publishing.projectDrafted")
 }
 
 func (h *Handler) CreateUnit(c *gin.Context) {
 	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 	if !h.ensureProjectAccess(c, projectID) {
@@ -309,7 +309,7 @@ func (h *Handler) CreateUnit(c *gin.Context) {
 		IsHidden    int    `json:"isHidden"`
 	}
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	unit, serviceErr := h.service.CreateUnit(CreateUnitParams{
@@ -328,13 +328,13 @@ func (h *Handler) CreateUnit(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Created(c, unit, "单元创建成功")
+	response.CreatedKey(c, unit, "project.unitCreated", nil)
 }
 
 func (h *Handler) UpdateUnit(c *gin.Context) {
 	unitID, err := strconv.ParseUint(c.Param("unitId"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的单元ID")
+		response.BadRequestKey(c, "project.invalidUnitId", nil)
 		return
 	}
 	if !h.ensureProjectAccessByUnit(c, unitID) {
@@ -352,7 +352,7 @@ func (h *Handler) UpdateUnit(c *gin.Context) {
 		IsHidden    *int    `json:"isHidden"`
 	}
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	unit, serviceErr := h.service.UpdateUnit(unitID, UpdateUnitParams{
@@ -370,13 +370,13 @@ func (h *Handler) UpdateUnit(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success(c, unit, "单元更新成功")
+	response.SuccessKey(c, unit, "project.unitUpdated", nil)
 }
 
 func (h *Handler) DeleteUnit(c *gin.Context) {
 	unitID, err := strconv.ParseUint(c.Param("unitId"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的单元ID")
+		response.BadRequestKey(c, "project.invalidUnitId", nil)
 		return
 	}
 	if !h.ensureProjectAccessByUnit(c, unitID) {
@@ -386,13 +386,13 @@ func (h *Handler) DeleteUnit(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success[any](c, nil, "单元删除成功")
+	response.SuccessKey[any](c, nil, "project.unitDeleted", nil)
 }
 
 func (h *Handler) ReorderUnits(c *gin.Context) {
 	projectID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 	if !h.ensureProjectAccess(c, projectID) {
@@ -405,7 +405,7 @@ func (h *Handler) ReorderUnits(c *gin.Context) {
 		} `json:"orders"`
 	}
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil || len(req.Orders) == 0 {
-		response.BadRequest(c, "排序数据格式错误")
+		response.BadRequestKey(c, "common.invalidOrder", nil)
 		return
 	}
 	orders := make([]struct {
@@ -423,13 +423,13 @@ func (h *Handler) ReorderUnits(c *gin.Context) {
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success(c, units, "单元排序更新成功")
+	response.SuccessKey(c, units, "project.unitsReordered", nil)
 }
 
-func (h *Handler) updateProjectStatus(c *gin.Context, status ProjectStatus, message string) {
+func (h *Handler) updateProjectStatus(c *gin.Context, status ProjectStatus, key i18n.MessageKey) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的项目ID")
+		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
 	if !h.ensureProjectAccess(c, id) {
@@ -440,7 +440,7 @@ func (h *Handler) updateProjectStatus(c *gin.Context, status ProjectStatus, mess
 		_ = c.Error(serviceErr)
 		return
 	}
-	response.Success(c, project, message)
+	response.SuccessKey(c, project, key, nil)
 }
 
 func (h *Handler) ensureProjectAccess(c *gin.Context, projectID uint64) bool {
@@ -464,12 +464,12 @@ func (h *Handler) ensureProjectAccessByUnit(c *gin.Context, unitID uint64) bool 
 func (h *Handler) ensureProjectOwnership(c *gin.Context, creatorID uint64) bool {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return false
 	}
 	if claims.RoleType >= 10 || creatorID == claims.UserID {
 		return true
 	}
-	_ = c.Error(apperrors.Forbidden("无权管理该项目"))
+	response.ForbiddenKey(c, "publishing.projectForbidden", nil)
 	return false
 }

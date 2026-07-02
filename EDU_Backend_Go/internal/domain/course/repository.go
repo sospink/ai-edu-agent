@@ -421,7 +421,17 @@ func (r *Repository) FindActivityLog(userID uint64, date string) (*UserActivityL
 }
 
 func (r *Repository) SaveActivityLog(log *UserActivityLog) error {
+	log.ActivityDate = normalizeActivityDate(log.ActivityDate)
 	return r.db.Save(log).Error
+}
+
+func normalizeActivityDate(value string) string {
+	if len(value) >= len("2006-01-02") &&
+		value[4] == '-' &&
+		value[7] == '-' {
+		return value[:len("2006-01-02")]
+	}
+	return value
 }
 
 func nowPtr(t time.Time) *time.Time {

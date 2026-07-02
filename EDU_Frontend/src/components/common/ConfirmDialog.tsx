@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X, Loader2 } from 'lucide-react';
 import { useBodyScrollLock } from '@/components/common/bodyScrollLock';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -20,13 +21,16 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
   message,
-  confirmText = '确定',
-  cancelText = '取消',
+  confirmText,
+  cancelText,
   type = 'danger',
   loading = false,
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation('common');
+  const resolvedConfirmText = confirmText || t('actions.confirm');
+  const resolvedCancelText = cancelText || t('actions.cancel');
   useBodyScrollLock(isOpen);
 
   const typeStyles = {
@@ -98,7 +102,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                     disabled={loading}
                     className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-50"
                   >
-                    {cancelText}
+              {resolvedCancelText}
                   </button>
                   <button
                     onClick={onConfirm}
@@ -106,7 +110,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                     className={`px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 ${styles.button}`}
                   >
                     {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {confirmText}
+              {resolvedConfirmText}
                   </button>
                 </div>
               </div>

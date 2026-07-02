@@ -10,8 +10,9 @@ import type { Skill, SkillStage, SkillLevel } from '@/types/skill';
 import type { User } from '@/types';
 import { 
   CourseDifficulty, LessonType, 
-  lessonTypeToString, formatDuration, levelLabelToLevel, getDifficultyName
+  lessonTypeToString, levelLabelToLevel
 } from '@/types/skill';
+import { useTranslation } from 'react-i18next';
 
 interface SkillDetailProps {
   skill: Skill;
@@ -21,6 +22,7 @@ interface SkillDetailProps {
 }
 
 const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, currentUser, onLoginRequired }) => {
+  const { t } = useTranslation('student');
   const [skill, setSkill] = useState<Skill>(initialSkill);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
               id: lesson.id,
               title: lesson.title,
               type: lessonTypeToString(lesson.type as LessonType),
-              time: formatDuration(lesson.durationMinutes),
+              time: t('skillDetail.minutes', { count: lesson.durationMinutes }),
               level: levelLabelToLevel(stage.levelLabel),
               points: lesson.points,
               stageId: stage.id,
@@ -75,18 +77,18 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
             stages,
           }));
         } else {
-          setError(response.error || '获取课程详情失败');
+          setError(response.error || t('skillDetail.detailsFailed'));
         }
       } catch (err) {
         console.error('获取课程详情失败:', err);
-        setError('网络错误，请稍后重试');
+        setError(t('skillDetail.networkError'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchCourseDetail();
-  }, [skill.id]);
+  }, [skill.id, t]);
 
   // 加载用户学习记录
   useEffect(() => {
@@ -252,12 +254,18 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
 
   const getCourseTypeName = (type: string) => {
     switch(type) {
-      case 'challenge': return '挑战';
-      case 'text': return '文本';
-      case 'quiz': return '测验';
-      default: return '实验';
+      case 'challenge': return t('skillDetail.challenge');
+      case 'text': return t('skillDetail.text');
+      case 'quiz': return t('skillDetail.quiz');
+      default: return t('skillDetail.lab');
     }
   };
+
+  const difficultyName = skill.difficulty === CourseDifficulty.BEGINNER
+    ? t('skillDetail.beginner')
+    : skill.difficulty === CourseDifficulty.INTERMEDIATE
+      ? t('skillDetail.intermediate')
+      : t('skillDetail.advanced');
 
   return (
     <div className="w-full min-h-screen pt-24 pb-20 px-6 md:px-12 max-w-7xl mx-auto">
@@ -304,18 +312,18 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
             transition={{ delay: 0.2 }}
             className="flex items-center gap-6 text-sm font-medium text-slate-500 mb-8"
           >
-              <span className="flex items-center gap-1.5"><Zap className="w-4 h-4" /> {skill.stats.skills} 技能</span>
+              <span className="flex items-center gap-1.5"><Zap className="w-4 h-4" /> {t('skillDetail.skillCount', { count: skill.stats.skills })}</span>
               <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-              <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4" /> {skill.stats.lessons} 课时</span>
+              <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4" /> {t('skillDetail.lessonCount', { count: skill.stats.lessons })}</span>
               <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-              <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {skill.stats.hours} 小时</span>
+              <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {t('skillDetail.hourCount', { count: skill.stats.hours })}</span>
               <span className="w-1 h-1 rounded-full bg-slate-300"></span>
               <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${
                 skill.difficulty === CourseDifficulty.BEGINNER ? 'bg-emerald-100 text-emerald-600' :
                 skill.difficulty === CourseDifficulty.INTERMEDIATE ? 'bg-blue-100 text-blue-600' :
                 'bg-purple-100 text-purple-600'
               }`}>
-                {getDifficultyName(skill.difficulty)}
+                {difficultyName}
               </span>
           </motion.div>
 
@@ -326,18 +334,18 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
               >
                   {isLoggedIn ? (
                     <>
-                      开始学习
+                      {t('skillDetail.startLearning')}
                     </>
                   ) : (
                     <>
                       <LogIn className="w-4 h-4" />
-                      登录后学习
+                      {t('skillDetail.loginToLearn')}
                     </>
                   )}
               </button>
               <button className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
                   <Share2 className="w-4 h-4" />
-                  分享技能树
+                  {t('skillDetail.share')}
               </button>
           </div>
       </div>
@@ -346,7 +354,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
       {loading && (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-          <span className="ml-3 text-slate-500">加载课程内容...</span>
+          <span className="ml-3 text-slate-500">{t('skillDetail.loading')}</span>
         </div>
       )}
 
@@ -368,7 +376,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                 {(!skill.stages || skill.stages.length === 0) ? (
                   <div className="text-center py-16">
                     <BookOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500">暂无课程内容</p>
+                    <p className="text-slate-500">{t('skillDetail.empty')}</p>
                   </div>
                 ) : (
                   skill.stages.map((stage, stageIndex) => (
@@ -410,7 +418,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
 
                             <div className="px-6 py-4 flex items-center justify-between border-b border-slate-50">
                                 <span className="text-sm font-bold text-slate-500">
-                                    {stage.lessons.length} 课时
+                                    {t('skillDetail.lessonCount', { count: stage.lessons.length })}
                                 </span>
                                 <ChevronRight className="w-4 h-4 text-slate-300 rotate-90" />
                             </div>
@@ -451,7 +459,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                                                   onClick={() => handleStartLesson(lesson.id, lesson.title, lesson.type)}
                                                   className="px-4 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg shadow-lg shadow-slate-900/10 hover:bg-slate-800 transition-all opacity-0 group-hover:opacity-100"
                                                 >
-                                                    开始
+                                                    {t('skillDetail.start')}
                                                 </button>
                                                 
                                                 {/* 进度圈圈 - 始终显示 */}
@@ -484,7 +492,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                 {/* Related Projects Section */}
                 <div className="mt-16 pt-16 border-t border-slate-200/60">
                     <h2 className="text-2xl font-bold text-slate-900 mb-8">
-                        {skill.title} 实战项目
+                        {t('skillDetail.projects', { title: skill.title })}
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <div className="card-surface rounded-3xl p-6 hover:shadow-lg transition-all group cursor-pointer">
@@ -493,13 +501,13 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                                      <Layout className="w-8 h-8 text-violet-500" />
                                  </div>
                              </div>
-                             <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-2 block">Project</span>
+                             <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-2 block">{t('project', { ns: 'uiReview' })}</span>
                              <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-primary-600 transition-colors">
-                                 使用 {skill.title} 构建实战项目
+                                 {t('skillDetail.buildProject', { title: skill.title })}
                              </h3>
                              <div className="flex items-center gap-2 mt-4">
                                  <span className="px-2 py-1 bg-slate-100 rounded-md text-[10px] font-bold text-slate-500">{skill.title}</span>
-                                 <span className="ml-auto text-xs text-slate-400">初级</span>
+                                 <span className="ml-auto text-xs text-slate-400">{t('skillDetail.beginner')}</span>
                              </div>
                          </div>
 
@@ -509,13 +517,13 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                                      <Terminal className="w-8 h-8 text-emerald-500" />
                                  </div>
                              </div>
-                             <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-2 block">Project</span>
+                             <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-2 block">{t('project', { ns: 'uiReview' })}</span>
                              <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-primary-600 transition-colors">
-                                 {skill.title} 进阶实战
+                                 {t('skillDetail.advancedProject', { title: skill.title })}
                              </h3>
                              <div className="flex items-center gap-2 mt-4">
                                  <span className="px-2 py-1 bg-slate-100 rounded-md text-[10px] font-bold text-slate-500">{skill.title}</span>
-                                 <span className="ml-auto text-xs text-slate-400">中级</span>
+                                 <span className="ml-auto text-xs text-slate-400">{t('skillDetail.intermediate')}</span>
                              </div>
                          </div>
                     </div>
@@ -527,29 +535,26 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                 
                 {/* Course Info Widget */}
                 <div className="card-surface rounded-3xl p-6">
-                    <h4 className="font-bold text-slate-900 mb-4">课程信息</h4>
+                    <h4 className="font-bold text-slate-900 mb-4">{t('skillDetail.courseInfo')}</h4>
                     <div className="space-y-3">
                         <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                            <span className="text-sm text-slate-500">难度等级</span>
+                            <span className="text-sm text-slate-500">{t('skillDetail.difficulty')}</span>
                             <span className={`text-sm font-bold ${
                               skill.difficulty === CourseDifficulty.BEGINNER ? 'text-emerald-600' :
                               skill.difficulty === CourseDifficulty.INTERMEDIATE ? 'text-blue-600' :
                               'text-purple-600'
                             }`}>
-                              {getDifficultyName(skill.difficulty)}
+                              {difficultyName}
                             </span>
                         </div>
                         <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                            <span className="text-sm text-slate-500">总课时</span>
-                            <span className="text-sm font-bold text-slate-700">{skill.stats.lessons} 节</span>
+                            <span className="text-sm text-slate-500">{t('skillDetail.totalLessons')}</span><span className="text-sm font-bold text-slate-700">{t('skillDetail.lessonsUnit', { count: skill.stats.lessons })}</span>
                         </div>
                         <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                            <span className="text-sm text-slate-500">预计时长</span>
-                            <span className="text-sm font-bold text-slate-700">{skill.stats.hours} 小时</span>
+                            <span className="text-sm text-slate-500">{t('skillDetail.estimated')}</span><span className="text-sm font-bold text-slate-700">{t('skillDetail.hourCount', { count: skill.stats.hours })}</span>
                         </div>
                         <div className="flex items-center justify-between py-2">
-                            <span className="text-sm text-slate-500">技能点</span>
-                            <span className="text-sm font-bold text-slate-700">{skill.stats.skills} 个</span>
+                            <span className="text-sm text-slate-500">{t('skillDetail.skills')}</span><span className="text-sm font-bold text-slate-700">{t('skillDetail.skillsUnit', { count: skill.stats.skills })}</span>
                         </div>
                     </div>
                 </div>
@@ -561,10 +566,9 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                         <div className="w-16 h-16 mx-auto bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 text-slate-300">
                             <Lock className="w-8 h-8" />
                         </div>
-                        <h4 className="font-bold text-slate-900 mb-1">课程证书</h4>
-                        <p className="text-xs text-slate-500 mb-6">完成所有课程以解锁证书</p>
+                        <h4 className="font-bold text-slate-900 mb-1">{t('skillDetail.certificate')}</h4><p className="text-xs text-slate-500 mb-6">{t('skillDetail.certificateDesc')}</p>
                         <button className="w-full py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-400 cursor-not-allowed">
-                            完成课程获取证书
+                            {t('skillDetail.certificateAction')}
                         </button>
                     </div>
                 </div>
@@ -572,7 +576,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                 {/* Progress Widget - 根据真实数据显示 */}
                 <div className="card-surface rounded-3xl p-6">
                     <div className="flex justify-between items-center mb-4">
-                        <h4 className="font-bold text-slate-900 text-sm">总体进度</h4>
+                        <h4 className="font-bold text-slate-900 text-sm">{t('skillDetail.progress')}</h4>
                         <Award className="w-4 h-4 text-amber-500" />
                     </div>
                     
@@ -610,17 +614,17 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                         <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
                             <div className="flex items-center gap-1">
                               <CheckCircle2 className="w-3 h-3 text-emerald-500" /> 
-                              已完成 {progress.completed}
+                              {t('skillDetail.completed', { count: progress.completed })}
                             </div>
                             <span className="mx-1">•</span>
                             <div className="flex items-center gap-1">
                               <PlayCircle className="w-3 h-3 text-blue-500" /> 
-                              进行中 {progress.inProgress}
+                              {t('skillDetail.inProgress', { count: progress.inProgress })}
                             </div>
                             <span className="mx-1">•</span>
                             <div className="flex items-center gap-1">
                               <Lock className="w-3 h-3" /> 
-                              未开始 {progress.notStarted}
+                              {t('skillDetail.notStarted', { count: progress.notStarted })}
                             </div>
                         </div>
                       </>
@@ -629,11 +633,10 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
 
                 {/* Community Widget */}
                 <div className="bg-[#5865F2] rounded-3xl p-6 text-white text-center shadow-lg shadow-[#5865F2]/20">
-                    <h4 className="font-bold mb-2">加入学习社区</h4>
-                    <p className="text-sm text-white/80 mb-4">与其他学习者一起交流讨论</p>
+                    <h4 className="font-bold mb-2">{t('skillDetail.community')}</h4><p className="text-sm text-white/80 mb-4">{t('skillDetail.communityDesc')}</p>
                     <button className="w-full py-2.5 bg-white text-[#5865F2] rounded-xl text-sm font-bold hover:bg-opacity-90 transition-opacity flex items-center justify-center gap-2">
                         <MessageSquare className="w-4 h-4" />
-                        加入讨论
+                        {t('skillDetail.join')}
                     </button>
                 </div>
 

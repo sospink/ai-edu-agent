@@ -13,6 +13,9 @@ import type { Course } from '@/services/course';
 import { teacherProjectApi } from '@/services/teacherProject';
 import type { Project } from '@/services/project';
 import { teacherManualApi, type TeacherManualListItem } from '@/services/teacherManual';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import { getCurrentLocale } from '@/i18n';
 
 type ResourceOption = { id: number; title: string; status?: number };
 
@@ -31,7 +34,7 @@ interface FormState {
   rubricMaxScore: string;
 }
 
-const defaultForm: FormState = {
+const createDefaultForm = (t: TFunction): FormState => ({
   title: '',
   description: '',
   dueAt: '',
@@ -42,30 +45,21 @@ const defaultForm: FormState = {
   allowLate: false,
   allowReturn: true,
   allowResubmit: false,
-  rubricTitle: '完成质量',
+  rubricTitle: t('defaultRubric'),
   rubricMaxScore: '100',
-};
+});
 
-const statusMeta: Record<number, { label: string; className: string }> = {
-  0: { label: '草稿', className: 'bg-slate-100 text-slate-600' },
-  1: { label: '已发布', className: 'bg-emerald-50 text-emerald-700' },
-  2: { label: '已关闭', className: 'bg-amber-50 text-amber-700' },
-  3: { label: '已归档', className: 'bg-zinc-100 text-zinc-500' },
-};
+const getStatusMeta = (t: TFunction): Record<number, { label: string; className: string }> => ({
+  0: { label: t('statuses.draft'), className: 'bg-slate-100 text-slate-600' },
+  1: { label: t('statuses.published'), className: 'bg-emerald-50 text-emerald-700' },
+  2: { label: t('statuses.closed'), className: 'bg-amber-50 text-amber-700' },
+  3: { label: t('statuses.archived'), className: 'bg-zinc-100 text-zinc-500' },
+});
 
-const resourceTypeLabels: Record<AssignmentResourceType, string> = {
-  course: '课程',
-  course_lesson: '课时',
-  project: '项目',
-  project_unit: '项目单元',
-  manual: 'Agent 手册',
-  classic_lab: 'Classic Lab',
-  openclaw_project: 'OpenClaw 项目',
-};
-
-const formatDateTime = (value?: string | null) => (value ? new Date(value).toLocaleString('zh-CN') : '未设置');
+const resourceTypeKey = (value: AssignmentResourceType) => value.replace(/_([a-z])/g, (_, char: string) => char.toUpperCase());
 
 const TeacherAssignmentsPage: React.FC = () => {
+  const { t } = useTranslation('teacherAssignments');
   const [assignments, setAssignments] = useState<AssignmentListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -74,7 +68,7 @@ const TeacherAssignmentsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AssignmentDetail | null>(null);
-  const [form, setForm] = useState<FormState>(defaultForm);
+  const [form, setForm] = useState<FormState>(() => createDefaultForm(t));
   const [submitting, setSubmitting] = useState(false);
   const [selected, setSelected] = useState<AssignmentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -86,7 +80,7 @@ const TeacherAssignmentsPage: React.FC = () => {
 
   const resourceOptions = useMemo<ResourceOption[]>(() => {
     if (form.resourceType === 'manual') {
-      return manuals.map((manual) => ({ id: manual.id, title: manual.title || `手册 #${manual.id}`, status: manual.isPublished }));
+      return manuals.map((manual) => ({ id: manual.id, title: manual.title || t('manualFallback', { id: manual.id }), status: manual.isPublished }));
     }
     if (form.resourceType === 'project' || form.resourceType === 'openclaw_project') {
       return projects.map((project) => ({ id: project.id, title: project.title, status: project.status }));
@@ -122,7 +116,7 @@ const TeacherAssignmentsPage: React.FC = () => {
     } else {
       setAssignments([]);
       setTotal(0);
-      setError(response.error || '获取作业列表失败');
+      setError(response.error || t('loadFailed'));
     }
     setLoading(false);
   };
@@ -134,7 +128,7 @@ const TeacherAssignmentsPage: React.FC = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(defaultForm);
+    setForm(createDefaultForm(t));
     setFormOpen(true);
   };
 
@@ -143,7 +137,7 @@ const TeacherAssignmentsPage: React.FC = () => {
     const response = await teacherAssignmentApi.getById(item.id);
     setDetailLoading(false);
     if (!response.success || !response.data) {
-      showError(response.error || '获取作业详情失败');
+      showError(response.error || t('detailFailed'));
       return;
     }
     const detail = response.data;
@@ -160,7 +154,7 @@ const TeacherAssignmentsPage: React.FC = () => {
       allowLate: Boolean(detail.rule?.allowLate),
       allowReturn: detail.rule?.allowReturn !== false,
       allowResubmit: Boolean(detail.rule?.allowResubmit),
-      rubricTitle: detail.rubric?.items?.[0]?.title || '完成质量',
+      rubricTitle: detail.rubric?.items?.[0]?.title || t('defaultRubric'),
       rubricMaxScore: String(detail.rubric?.items?.[0]?.maxScore || 100),
     });
     setFormOpen(true);
@@ -172,18 +166,18 @@ const TeacherAssignmentsPage: React.FC = () => {
     if (response.success && response.data) {
       setSelected(response.data);
     } else {
-      showError(response.error || '获取作业详情失败');
+      showError(response.error || t('detailFailed'));
     }
     setDetailLoading(false);
   };
 
   const submitForm = async () => {
     if (!form.title.trim()) {
-      showError('请填写作业标题');
+      showError(t('titleRequired'));
       return;
     }
     if (!form.resourceId) {
-      showError('请选择一个发布资源');
+      showError(t('resourceRequired'));
       return;
     }
     setSubmitting(true);
@@ -207,7 +201,7 @@ const TeacherAssignmentsPage: React.FC = () => {
         scoreMode: 'completion',
       },
       rubricItems: [{
-        title: form.rubricTitle.trim() || '完成质量',
+        title: form.rubricTitle.trim() || t('defaultRubric'),
         maxScore: Number(form.rubricMaxScore) || 100,
         sortOrder: 1,
       }],
@@ -217,11 +211,11 @@ const TeacherAssignmentsPage: React.FC = () => {
       : await teacherAssignmentApi.create(payload);
     setSubmitting(false);
     if (response.success) {
-      success(editing ? '作业已更新' : '作业已创建');
+      success(editing ? t('updated') : t('created'));
       setFormOpen(false);
       void loadAssignments();
     } else {
-      showError(response.error || '保存作业失败');
+      showError(response.error || t('saveFailed'));
     }
   };
 
@@ -232,13 +226,13 @@ const TeacherAssignmentsPage: React.FC = () => {
         ? await teacherAssignmentApi.close(item.id)
         : await teacherAssignmentApi.draft(item.id);
     if (response.success) {
-      success(action === 'publish' ? '作业已发布' : action === 'close' ? '作业已关闭' : '作业已设为草稿');
+      success(action === 'publish' ? t('published') : action === 'close' ? t('closed') : t('drafted'));
       void loadAssignments();
       return;
     }
     const check = response.data as unknown as { errors?: Array<{ message: string }> } | undefined;
     const firstError = check?.errors?.[0]?.message;
-    showError(firstError || response.error || '操作失败');
+    showError(firstError || response.error || t('actionFailed'));
   };
 
   return (
@@ -250,14 +244,14 @@ const TeacherAssignmentsPage: React.FC = () => {
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-cyan-100">
                 <ClipboardList className="h-3.5 w-3.5" />
-                M3 任务层首版
+                {t('badge')}
               </div>
-              <h1 className="text-2xl font-bold">作业任务</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-300">把已发布内容绑定到班级，形成学生端“我的任务”可见链路。</p>
+              <h1 className="text-2xl font-bold">{t('title')}</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">{t('subtitle')}</p>
             </div>
             <button onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-950/20">
               <Plus className="h-4 w-4" />
-              创建作业
+              {t('create')}
             </button>
           </div>
         </div>
@@ -267,37 +261,38 @@ const TeacherAssignmentsPage: React.FC = () => {
             value={keyword}
             onChange={setKeyword}
             onEnter={() => void loadAssignments()}
-            placeholder="搜索作业标题或说明"
+            placeholder={t('searchPlaceholder')}
             className="flex-1"
           />
           <ToolbarSelect
-            ariaLabel="按作业状态筛选"
+            ariaLabel={t('statusFilter')}
             value={statusFilter || 'all'}
             onChange={(value) => setStatusFilter(value === 'all' ? '' : value)}
             options={[
-              { key: 'all', label: '全部状态' },
-              { key: '0', label: '草稿' },
-              { key: '1', label: '已发布' },
-              { key: '2', label: '已关闭' },
+              { key: 'all', label: t('allStatuses') },
+              { key: '0', label: t('statuses.draft') },
+              { key: '1', label: t('statuses.published') },
+              { key: '2', label: t('statuses.closed') },
             ]}
             className="md:w-52"
           />
           <button onClick={() => void loadAssignments()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <RefreshCw className="h-4 w-4" />
-            刷新
+            {t('refresh')}
           </button>
         </div>
 
         <div className="p-4">
           {loading ? (
-            <div className="flex h-48 items-center justify-center text-slate-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" />加载作业中...</div>
+            <div className="flex h-48 items-center justify-center text-slate-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" />{t('loading')}</div>
           ) : error ? (
             <div className="rounded-2xl bg-rose-50 p-5 text-sm font-medium text-rose-700">{error}</div>
           ) : assignments.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center text-slate-500">还没有作业。先创建一个草稿，再发布给班级。</div>
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center text-slate-500">{t('empty')}</div>
           ) : (
             <div className="space-y-3">
               {assignments.map((item) => {
+                const statusMeta = getStatusMeta(t);
                 const meta = statusMeta[item.status] || statusMeta[0];
                 return (
                   <div key={item.id} className="card-surface grid gap-4 rounded-2xl p-4 md:grid-cols-[1fr_auto]">
@@ -306,63 +301,63 @@ const TeacherAssignmentsPage: React.FC = () => {
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${meta.className}`}>{meta.label}</span>
                         <h3 className="truncate text-base font-bold text-slate-900">{item.title}</h3>
                       </div>
-                      <p className="mt-2 line-clamp-2 text-sm text-slate-500">{item.description || '暂无说明'}</p>
+                      <p className="mt-2 line-clamp-2 text-sm text-slate-500">{item.description || t('noDescription')}</p>
                       <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-slate-500">
-                        <span>班级 {item.classCount}</span>
-                        <span>资源 {item.resourceCount}</span>
-                        <span>学生 {item.studentCount}</span>
-                        <span>截止 {formatDateTime(item.dueAt)}</span>
+                        <span>{t('classCount', { count: item.classCount })}</span>
+                        <span>{t('resourceCount', { count: item.resourceCount })}</span>
+                        <span>{t('studentCount', { count: item.studentCount })}</span>
+                        <span>{t('due', { value: item.dueAt ? new Date(item.dueAt).toLocaleString(getCurrentLocale()) : t('notSet') })}</span>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button onClick={() => void openDetail(item)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><Eye className="mr-1 inline h-3.5 w-3.5" />详情</button>
-                      <button onClick={() => void openEdit(item)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">编辑</button>
-                      {item.status !== 1 && <button onClick={() => void transition(item, 'publish')} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"><Rocket className="mr-1 inline h-3.5 w-3.5" />发布</button>}
-                      {item.status === 1 && <button onClick={() => void transition(item, 'close')} className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600"><XCircle className="mr-1 inline h-3.5 w-3.5" />关闭</button>}
-                      {item.status !== 0 && <button onClick={() => void transition(item, 'draft')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">草稿</button>}
+                      <button onClick={() => void openDetail(item)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><Eye className="mr-1 inline h-3.5 w-3.5" />{t('details')}</button>
+                      <button onClick={() => void openEdit(item)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">{t('edit')}</button>
+                      {item.status !== 1 && <button onClick={() => void transition(item, 'publish')} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"><Rocket className="mr-1 inline h-3.5 w-3.5" />{t('publish')}</button>}
+                      {item.status === 1 && <button onClick={() => void transition(item, 'close')} className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600"><XCircle className="mr-1 inline h-3.5 w-3.5" />{t('close')}</button>}
+                      {item.status !== 0 && <button onClick={() => void transition(item, 'draft')} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">{t('draft')}</button>}
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-          <div className="mt-4 text-xs font-medium text-slate-400">共 {total} 条作业</div>
+          <div className="mt-4 text-xs font-medium text-slate-400">{t('total', { count: total })}</div>
         </div>
       </motion.div>
 
       <PageDialog isOpen={formOpen} onClose={() => setFormOpen(false)} panelClassName="max-w-4xl">
         <div className="border-b border-slate-100 p-6">
-          <h2 className="text-xl font-bold text-slate-900">{editing ? '编辑作业' : '创建作业'}</h2>
-          <p className="mt-1 text-sm text-slate-500">按“基础信息、绑定资源、选择班级、发布确认”四步补齐首版任务链路。</p>
+          <h2 className="text-xl font-bold text-slate-900">{editing ? t('editTitle') : t('createTitle')}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t('formDescription')}</p>
         </div>
         <div className="max-h-[70vh] space-y-6 overflow-y-auto p-6">
           <section className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2 text-sm font-semibold text-slate-700">作业标题<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} className="h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-cyan-500" /></label>
-            <label className="space-y-2 text-sm font-semibold text-slate-700">截止时间<input type="datetime-local" value={form.dueAt} onChange={(event) => setForm({ ...form, dueAt: event.target.value })} className="h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-cyan-500" /></label>
-            <label className="space-y-2 text-sm font-semibold text-slate-700 md:col-span-2">说明<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-cyan-500" /></label>
+            <label className="space-y-2 text-sm font-semibold text-slate-700">{t('assignmentTitle')}<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} className="h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-cyan-500" /></label>
+            <label className="space-y-2 text-sm font-semibold text-slate-700">{t('dueAt')}<input type="datetime-local" value={form.dueAt} onChange={(event) => setForm({ ...form, dueAt: event.target.value })} className="h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-cyan-500" /></label>
+            <label className="space-y-2 text-sm font-semibold text-slate-700 md:col-span-2">{t('description')}<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-cyan-500" /></label>
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 text-sm font-semibold text-slate-700">
-              资源类型
+              {t('resourceType')}
               <ToolbarSelect
-                ariaLabel="资源类型"
+                ariaLabel={t('resourceType')}
                 value={form.resourceType}
                 onChange={(value) => setForm({ ...form, resourceType: value as AssignmentResourceType, resourceId: '' })}
                 options={[
-                  { key: 'course', label: '课程' },
-                  { key: 'project', label: '项目' },
-                  { key: 'manual', label: 'Agent 手册' },
-                  { key: 'openclaw_project', label: 'OpenClaw 项目' },
+                  { key: 'course', label: t('resourceTypes.course') },
+                  { key: 'project', label: t('resourceTypes.project') },
+                  { key: 'manual', label: t('resourceTypes.manual') },
+                  { key: 'openclaw_project', label: t('resourceTypes.openclawProject') },
                 ]}
               />
             </div>
             <div className="space-y-2 text-sm font-semibold text-slate-700">
-              发布资源
+              {t('publishedResource')}
               <ToolbarSelect
-                ariaLabel="发布资源"
+                ariaLabel={t('publishedResource')}
                 value={form.resourceId}
-                placeholder="请选择资源"
+                placeholder={t('selectResource')}
                 disallowEmptySelection={false}
                 onChange={(value) => setForm({ ...form, resourceId: value })}
                 options={resourceOptions.map((option) => ({ key: String(option.id), label: option.title }))}
@@ -371,7 +366,7 @@ const TeacherAssignmentsPage: React.FC = () => {
           </section>
 
           <section>
-            <div className="mb-3 text-sm font-semibold text-slate-700">选择班级</div>
+            <div className="mb-3 text-sm font-semibold text-slate-700">{t('selectClasses')}</div>
             <div className="grid gap-3 md:grid-cols-2">
               {classes.map((item) => (
                 <label key={item.id} className="card-surface-muted flex items-center gap-3 rounded-2xl p-3 text-sm font-semibold text-slate-700">
@@ -379,55 +374,55 @@ const TeacherAssignmentsPage: React.FC = () => {
                     ...form,
                     classIds: event.target.checked ? [...form.classIds, item.id] : form.classIds.filter((id) => id !== item.id),
                   })} />
-                  <span className="min-w-0 flex-1 truncate">{item.name} · {item.activeMemberCount} 人</span>
+                  <span className="min-w-0 flex-1 truncate">{item.name} · {t('memberCount', { count: item.activeMemberCount })}</span>
                 </label>
               ))}
-              {classes.length === 0 && <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">暂无启用班级，请先在班级管理中创建或启用班级。</div>}
+              {classes.length === 0 && <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">{t('noClasses')}</div>}
             </div>
           </section>
 
           <section className="grid gap-4 rounded-2xl bg-slate-50 p-4 md:grid-cols-3">
-            <label className="space-y-2 text-sm font-semibold text-slate-700">尝试次数<input value={form.attemptLimit} onChange={(event) => setForm({ ...form, attemptLimit: event.target.value })} className="h-10 w-full rounded-xl border border-slate-200 px-3" /></label>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.allowLate} onChange={(event) => setForm({ ...form, allowLate: event.target.checked })} />允许迟交</label>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.allowReturn} onChange={(event) => setForm({ ...form, allowReturn: event.target.checked })} />允许退回</label>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.allowResubmit} onChange={(event) => setForm({ ...form, allowResubmit: event.target.checked })} />允许重提</label>
+            <label className="space-y-2 text-sm font-semibold text-slate-700">{t('attemptLimit')}<input value={form.attemptLimit} onChange={(event) => setForm({ ...form, attemptLimit: event.target.value })} className="h-10 w-full rounded-xl border border-slate-200 px-3" /></label>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.allowLate} onChange={(event) => setForm({ ...form, allowLate: event.target.checked })} />{t('allowLate')}</label>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.allowReturn} onChange={(event) => setForm({ ...form, allowReturn: event.target.checked })} />{t('allowReturn')}</label>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.allowResubmit} onChange={(event) => setForm({ ...form, allowResubmit: event.target.checked })} />{t('allowResubmit')}</label>
           </section>
 
           <section className="grid gap-4 rounded-2xl bg-cyan-50 p-4 md:grid-cols-2">
-            <label className="space-y-2 text-sm font-semibold text-slate-700">Rubric 条目<input value={form.rubricTitle} onChange={(event) => setForm({ ...form, rubricTitle: event.target.value })} className="h-10 w-full rounded-xl border border-cyan-100 px-3 outline-none focus:border-cyan-500" /></label>
-            <label className="space-y-2 text-sm font-semibold text-slate-700">满分<input value={form.rubricMaxScore} onChange={(event) => setForm({ ...form, rubricMaxScore: event.target.value })} className="h-10 w-full rounded-xl border border-cyan-100 px-3 outline-none focus:border-cyan-500" /></label>
+            <label className="space-y-2 text-sm font-semibold text-slate-700">{t('rubricItem')}<input value={form.rubricTitle} onChange={(event) => setForm({ ...form, rubricTitle: event.target.value })} className="h-10 w-full rounded-xl border border-cyan-100 px-3 outline-none focus:border-cyan-500" /></label>
+            <label className="space-y-2 text-sm font-semibold text-slate-700">{t('maxScore')}<input value={form.rubricMaxScore} onChange={(event) => setForm({ ...form, rubricMaxScore: event.target.value })} className="h-10 w-full rounded-xl border border-cyan-100 px-3 outline-none focus:border-cyan-500" /></label>
           </section>
         </div>
         <div className="flex justify-end gap-3 border-t border-slate-100 p-5">
-          <button onClick={() => setFormOpen(false)} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600">取消</button>
+          <button onClick={() => setFormOpen(false)} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600">{t('cancel')}</button>
           <button onClick={() => void submitForm()} disabled={submitting} className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            保存草稿
+            {t('saveDraft')}
           </button>
         </div>
       </PageDialog>
 
       <PageDrawer isOpen={Boolean(selected)} onClose={() => setSelected(null)} panelClassName="max-w-2xl">
         <div className="p-6">
-          {detailLoading ? <div className="py-20 text-center text-slate-500">加载中...</div> : selected && (
+          {detailLoading ? <div className="py-20 text-center text-slate-500">{t('detailLoading')}</div> : selected && (
             <div className="space-y-6">
               <div>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusMeta[selected.status]?.className || statusMeta[0].className}`}>{statusMeta[selected.status]?.label || '未知'}</span>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${getStatusMeta(t)[selected.status]?.className || getStatusMeta(t)[0].className}`}>{getStatusMeta(t)[selected.status]?.label || t('unknown')}</span>
                 <h2 className="mt-3 text-2xl font-bold text-slate-900">{selected.title}</h2>
-                <p className="mt-2 text-sm text-slate-500">{selected.description || '暂无说明'}</p>
+                <p className="mt-2 text-sm text-slate-500">{selected.description || t('noDescription')}</p>
               </div>
-              <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">截止时间：{formatDateTime(selected.dueAt)}</div>
+              <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">{t('dueLabel', { value: selected.dueAt ? new Date(selected.dueAt).toLocaleString(getCurrentLocale()) : t('notSet') })}</div>
               {selected.submissionProgress && (
                 <section>
-                  <h3 className="mb-3 text-sm font-bold text-slate-900">批改进度</h3>
+                  <h3 className="mb-3 text-sm font-bold text-slate-900">{t('gradingProgress')}</h3>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {[
-                      ['总学生', selected.submissionProgress.totalStudents],
-                      ['已提交', selected.submissionProgress.submitted],
-                      ['待批改', selected.submissionProgress.pendingReview],
-                      ['已退回', selected.submissionProgress.returned],
-                      ['已评分', selected.submissionProgress.graded],
-                      ['已发布', selected.submissionProgress.publishedGrades],
+                      [t('totalStudents'), selected.submissionProgress.totalStudents],
+                      [t('submitted'), selected.submissionProgress.submitted],
+                      [t('pendingReview'), selected.submissionProgress.pendingReview],
+                      [t('returned'), selected.submissionProgress.returned],
+                      [t('graded'), selected.submissionProgress.graded],
+                      [t('gradesPublished'), selected.submissionProgress.publishedGrades],
                     ].map(([label, value]) => (
                       <div key={label} className="rounded-xl bg-slate-50 p-3">
                         <div className="text-xs font-bold text-slate-400">{label}</div>
@@ -438,12 +433,12 @@ const TeacherAssignmentsPage: React.FC = () => {
                 </section>
               )}
               <section>
-                <h3 className="mb-3 text-sm font-bold text-slate-900">绑定班级</h3>
-                <div className="space-y-2">{selected.classes.map((item) => <div key={item.classId} className="card-surface-muted rounded-xl p-3 text-sm text-slate-700">{item.name} · {item.activeMemberCount} 人</div>)}</div>
+                <h3 className="mb-3 text-sm font-bold text-slate-900">{t('boundClasses')}</h3>
+                <div className="space-y-2">{selected.classes.map((item) => <div key={item.classId} className="card-surface-muted rounded-xl p-3 text-sm text-slate-700">{item.name} · {t('memberCount', { count: item.activeMemberCount })}</div>)}</div>
               </section>
               <section>
-                <h3 className="mb-3 text-sm font-bold text-slate-900">任务资源</h3>
-                <div className="space-y-2">{selected.resources.map((item) => <div key={item.id} className="card-surface-muted flex items-center gap-3 rounded-xl p-3 text-sm text-slate-700"><BookOpenCheck className="h-4 w-4 text-cyan-600" />{resourceTypeLabels[item.resourceType]} · {item.title}</div>)}</div>
+                <h3 className="mb-3 text-sm font-bold text-slate-900">{t('taskResources')}</h3>
+                <div className="space-y-2">{selected.resources.map((item) => <div key={item.id} className="card-surface-muted flex items-center gap-3 rounded-xl p-3 text-sm text-slate-700"><BookOpenCheck className="h-4 w-4 text-cyan-600" />{t(`resourceTypes.${resourceTypeKey(item.resourceType)}`, { defaultValue: item.resourceType })} · {item.title}</div>)}</div>
               </section>
             </div>
           )}

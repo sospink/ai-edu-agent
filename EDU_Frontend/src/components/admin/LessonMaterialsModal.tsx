@@ -11,6 +11,8 @@ import { Toast } from '@/components/common/Toast';
 import { ConfirmDialog, useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AgentManualEditor } from './AgentManualEditor';
 import { getStaticUrl } from '@/config';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 interface LessonMaterialsModalProps {
   isOpen: boolean;
@@ -21,18 +23,18 @@ interface LessonMaterialsModalProps {
 }
 
 // 资料类型图标和样式
-const getMaterialTypeInfo = (type: number) => {
+const getMaterialTypeInfo = (type: number, t: TFunction) => {
   switch (type) {
     case 1: // Markdown
       return { icon: FileText, label: 'Markdown', color: 'text-blue-500', bg: 'bg-blue-50' };
     case 2: // PDF
       return { icon: FileType, label: 'PDF', color: 'text-red-500', bg: 'bg-red-50' };
     case 3: // 思维导图
-      return { icon: Brain, label: '思维导图', color: 'text-purple-500', bg: 'bg-purple-50' };
+      return { icon: Brain, label: t('mindMap'), color: 'text-purple-500', bg: 'bg-purple-50' };
     case 4: // Word
       return { icon: FileText, label: 'Word', color: 'text-indigo-500', bg: 'bg-indigo-50' };
     default:
-      return { icon: File, label: '文件', color: 'text-slate-500', bg: 'bg-slate-50' };
+      return { icon: File, label: t('file'), color: 'text-slate-500', bg: 'bg-slate-50' };
   }
 };
 
@@ -52,6 +54,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
   lessonType = 4,  // 默认为文本课时
   onClose,
 }) => {
+  const { t } = useTranslation('lessonMaterials');
   const [materials, setMaterials] = useState<LessonMaterial[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -79,11 +82,11 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
       if (response.success) {
         setMaterials(response.data || []);
       } else {
-        showToast(response.error || '加载资料失败', 'error');
+        showToast(response.error || t('loadFailed'), 'error');
       }
     } catch (error) {
       console.error('加载资料失败:', error);
-      showToast('加载资料失败', 'error');
+      showToast(t('loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -105,15 +108,15 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
       for (const file of Array.from(files)) {
         const response = await materialApi.upload(lessonId, file);
         if (response.success) {
-          showToast(`${file.name} 上传成功`, 'success');
+          showToast(t('uploadSuccess', { name: file.name }), 'success');
         } else {
-          showToast(response.error || `${file.name} 上传失败`, 'error');
+          showToast(response.error || t('uploadFailed', { name: file.name }), 'error');
         }
       }
       await loadMaterials();
     } catch (error) {
       console.error('上传失败:', error);
-      showToast('上传失败', 'error');
+      showToast(t('uploadGenericFailed'), 'error');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -125,21 +128,21 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
   // 删除资料
   const handleDelete = (material: LessonMaterial) => {
     confirmDialog.showConfirm({
-      title: '删除学习资料',
-      message: `确定要删除 "${material.title}" 吗？此操作不可恢复。`,
+      title: t('deleteTitle'),
+      message: t('deleteMessage', { title: material.title }),
       type: 'danger',
       onConfirm: async () => {
         try {
           const response = await materialApi.delete(material.id);
           if (response.success) {
-            showToast('删除成功', 'success');
+            showToast(t('deleteSuccess'), 'success');
             await loadMaterials();
           } else {
-            showToast(response.error || '删除失败', 'error');
+            showToast(response.error || t('deleteFailed'), 'error');
           }
         } catch (error) {
           console.error('删除失败:', error);
-          showToast('删除失败', 'error');
+          showToast(t('deleteFailed'), 'error');
         }
       },
     });
@@ -155,11 +158,11 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
           m.id === material.id ? { ...m, title: newTitle } : m
         ));
       } else {
-        showToast(response.error || '更新失败', 'error');
+        showToast(response.error || t('updateFailed'), 'error');
       }
     } catch (error) {
       console.error('更新失败:', error);
-      showToast('更新失败', 'error');
+      showToast(t('updateFailed'), 'error');
     }
   };
 
@@ -198,7 +201,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
               {/* Header */}
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">课时配置</h2>
+                  <h2 className="text-lg font-bold text-slate-800">{t('title')}</h2>
                   <p className="text-sm text-slate-500 mt-0.5">{lessonTitle}</p>
                 </div>
                 <button
@@ -221,7 +224,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                     }`}
                   >
                     <FileText className="w-4 h-4 inline-block mr-1.5" />
-                    学习资料
+                    {t('materials')}
                   </button>
                 )}
                 <button
@@ -233,7 +236,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                   }`}
                 >
                   <Bot className="w-4 h-4 inline-block mr-1.5" />
-                  Agent 手册
+                  {t('agentManual')}
                 </button>
               </div>
 
@@ -259,13 +262,13 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                     {uploading ? (
                       <>
                         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                        <span className="text-sm font-medium text-slate-600">上传中...</span>
+                        <span className="text-sm font-medium text-slate-600">{t('uploading')}</span>
                       </>
                     ) : (
                       <>
                         <Upload className="w-8 h-8 text-slate-400" />
-                        <span className="text-sm font-medium text-slate-600">点击或拖拽文件到此处上传</span>
-                        <span className="text-xs text-slate-400">支持 Markdown (.md)、PDF、Word (.docx)、思维导图 (.xmind, .mm)</span>
+                        <span className="text-sm font-medium text-slate-600">{t('uploadPrompt')}</span>
+                        <span className="text-xs text-slate-400">{t('uploadSupport')}</span>
                       </>
                     )}
                   </button>
@@ -279,13 +282,13 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                 ) : materials.length === 0 ? (
                   <div className="text-center py-12 text-slate-400">
                     <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p className="font-medium">暂无学习资料</p>
-                    <p className="text-sm mt-1">上传文件开始配置</p>
+                    <p className="font-medium">{t('empty')}</p>
+                    <p className="text-sm mt-1">{t('emptyHint')}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {materials.map((material) => {
-                      const typeInfo = getMaterialTypeInfo(material.type);
+                      const typeInfo = getMaterialTypeInfo(material.type, t);
                       const TypeIcon = typeInfo.icon;
                       
                       return (
@@ -321,7 +324,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-2 rounded-lg hover:bg-white text-slate-400 hover:text-blue-500 transition-colors"
-                              title="预览"
+                              title={t('preview')}
                             >
                               <Eye className="w-4 h-4" />
                             </a>
@@ -329,14 +332,14 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                               href={getFileUrl(material.fileUrl)}
                               download={material.fileName}
                               className="p-2 rounded-lg hover:bg-white text-slate-400 hover:text-emerald-500 transition-colors"
-                              title="下载"
+                              title={t('download')}
                             >
                               <Download className="w-4 h-4" />
                             </a>
                             <button
                               onClick={() => handleDelete(material)}
                               className="p-2 rounded-lg hover:bg-white text-slate-400 hover:text-rose-500 transition-colors"
-                              title="删除"
+                              title={t('delete')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -363,7 +366,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
                   onClick={onClose}
                   className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors"
                 >
-                  完成
+                  {t('done')}
                 </button>
               </div>
               </div>
@@ -387,7 +390,7 @@ const LessonMaterialsModal: React.FC<LessonMaterialsModalProps> = ({
         title={confirmDialog.title}
         message={confirmDialog.message}
         type={confirmDialog.type}
-        confirmText="删除"
+        confirmText={t('delete')}
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.hideConfirm}
       />

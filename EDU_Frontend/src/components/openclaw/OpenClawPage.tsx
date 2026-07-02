@@ -4,7 +4,6 @@ import { ArrowLeft, CheckCircle2, ChevronRight, ChevronUp, FolderOpen, Loader2 }
 import CompleteLessonDialog from '@/components/study/CompleteLessonDialog';
 import { courseApi } from '@/services/course';
 import AILogoGif from '@/images/AI logo Foriday.gif';
-import { SESSION_META } from './constants';
 import { MetricBlock, MetricLite, IdleProcessPanel, RunningProcessPanel } from './OpenClawPanels';
 import {
   ApprovalObservabilityWorkspace,
@@ -20,6 +19,7 @@ import {
   useOpenClawSession,
   useOpenClawSessionProvider,
 } from './useOpenClawSession';
+import { useTranslation } from 'react-i18next';
 
 /** 从 pathname 解析当前 Tab（纯 UI 路由，不影响 sessionPhase） */
 function pathToTab(pathname: string): SessionState {
@@ -45,6 +45,7 @@ interface OpenClawPageProps {
 
 /** 外层 Provider 包裹 */
 const OpenClawPage: React.FC<OpenClawPageProps> = ({ onLoginRequired }) => {
+  const { t } = useTranslation('openclaw');
   const location = useLocation();
   const authToken = typeof window === 'undefined' ? '' : localStorage.getItem('authToken') || '';
 
@@ -72,14 +73,14 @@ const OpenClawPage: React.FC<OpenClawPageProps> = ({ onLoginRequired }) => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
         <div className="max-w-md text-center">
-          <div className="text-lg font-semibold">需要登录后进入 OpenClaw</div>
-          <p className="mt-2 text-sm text-slate-400">请使用学生账号登录，登录后会回到当前 OpenClaw 页面。</p>
+          <div className="text-lg font-semibold">{t('loginTitle')}</div>
+          <p className="mt-2 text-sm text-slate-400">{t('loginDesc')}</p>
           <button
             type="button"
             onClick={onLoginRequired}
             className="mt-6 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary-700"
           >
-            打开登录弹窗
+            {t('openLogin')}
           </button>
         </div>
       </div>
@@ -114,6 +115,7 @@ const OpenClawSessionBridge: React.FC<{ activeSessionId: string; activeScope: 'a
 
 /** 内层页面组件 — 从 Context 读取所有状态 */
 const OpenClawPageInner: React.FC = () => {
+  const { t } = useTranslation('openclaw');
   const navigate = useNavigate();
   const location = useLocation();
   const session = useOpenClawSession();
@@ -172,7 +174,7 @@ const OpenClawPageInner: React.FC = () => {
       const elapsed = Math.round((Date.now() - experimentStartRef.current) / 1000);
       const mins = Math.floor(elapsed / 60);
       const secs = elapsed % 60;
-      setExperimentDuration(mins > 0 ? `${mins}分 ${secs}秒` : `${secs}秒`);
+      setExperimentDuration(mins > 0 ? t('durationMinutes', { minutes: mins, seconds: secs }) : t('durationSeconds', { seconds: secs }));
       setShowCompleteDialog(true);
     } catch (err) {
       console.error('[OpenClaw] 完成实验失败:', err);
@@ -180,7 +182,7 @@ const OpenClawPageInner: React.FC = () => {
       const elapsed = Math.round((Date.now() - experimentStartRef.current) / 1000);
       const mins = Math.floor(elapsed / 60);
       const secs = elapsed % 60;
-      setExperimentDuration(mins > 0 ? `${mins}分 ${secs}秒` : `${secs}秒`);
+      setExperimentDuration(mins > 0 ? t('durationMinutes', { minutes: mins, seconds: secs }) : t('durationSeconds', { seconds: secs }));
       setShowCompleteDialog(true);
     } finally {
       setCompleting(false);
@@ -217,7 +219,7 @@ const OpenClawPageInner: React.FC = () => {
               type="button"
               onClick={() => navigate(returnTo)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-              title="返回"
+              title={t('back')}
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -225,17 +227,17 @@ const OpenClawPageInner: React.FC = () => {
               <img src={AILogoGif} alt="Agent EDU" className="h-8 w-8 object-contain" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-slate-900">OpenClaw 工作台</h2>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900">{t('workspace')}</h2>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             {/* Tab 切换 */}
             <div className="inline-flex items-center gap-1 rounded-lg bg-slate-100 p-1">
-              <TabButton state="idle" label="场景选择" />
-              <TabButton state="running" label="思考中" />
-              <TabButton state="approval" label="执行中" />
-              <TabButton state="completed" label="完成态" />
+              <TabButton state="idle" label={t('sceneSelection')} />
+              <TabButton state="running" label={t('thinking')} />
+              <TabButton state="approval" label={t('executing')} />
+              <TabButton state="completed" label={t('completed')} />
             </div>
 
             {/* 完成实验 */}
@@ -248,12 +250,12 @@ const OpenClawPageInner: React.FC = () => {
               {completing ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>提交中...</span>
+                  <span>{t('submitting')}</span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>完成实验</span>
+                  <span>{t('completeLab')}</span>
                 </>
               )}
             </button>
@@ -278,15 +280,15 @@ const OpenClawPageInner: React.FC = () => {
 
               <footer className="shrink-0 flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-2.5 md:px-6 md:py-3">
                 <div className="flex items-center gap-6 overflow-x-auto text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <MetricLite label="CPU 占用" value="0%" />
-                  <MetricLite label="内存" value="0%" />
-                  <MetricLite label="网络" value="0 KB/s" />
+                  <MetricLite label={t('cpu')} value="0%" />
+                  <MetricLite label={t('memory')} value="0%" />
+                  <MetricLite label={t('network')} value="0 KB/s" />
                 </div>
                 <button
                   type="button"
                   className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500 transition hover:text-primary-600"
                 >
-                  查看详情
+                  {t('details')}
                   <ChevronUp className="h-4 w-4" />
                 </button>
               </footer>
@@ -320,8 +322,8 @@ const OpenClawPageInner: React.FC = () => {
 
               <footer className="shrink-0 flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-2.5 md:px-6 md:py-3">
                 <div className="flex items-center gap-6 overflow-x-auto text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <MetricLite label="已处理令牌" value={tokenCount} />
-                  <MetricLite label="当前耗时" value={(() => {
+                  <MetricLite label={t('processedTokens')} value={tokenCount} />
+                  <MetricLite label={t('elapsed')} value={(() => {
                     const msgs = session.thinkingView?.messages || [];
                     if (msgs.length === 0) return '—';
                     const firstTs = msgs[0]?.ts || 0;
@@ -330,14 +332,14 @@ const OpenClawPageInner: React.FC = () => {
                     if (elapsed <= 0) return '—';
                     const m = Math.floor(elapsed / 60);
                     const s = elapsed % 60;
-                    return `${m}分 ${String(s).padStart(2, '0')}秒`;
+                    return t('durationMinutes', { minutes: m, seconds: String(s).padStart(2, '0') });
                   })()} />
                 </div>
                 <button
                   type="button"
                   className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500 transition hover:text-primary-600"
                 >
-                  查看详情
+                  {t('details')}
                   <ChevronUp className="h-4 w-4" />
                 </button>
               </footer>
@@ -370,15 +372,15 @@ const OpenClawPageInner: React.FC = () => {
 
               <footer className="shrink-0 flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-2.5 md:px-6 md:py-3">
                 <div className="flex items-center gap-6 overflow-x-auto text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <MetricLite label="成功率" value={`${successRate}%`} />
-                  <MetricLite label="事件" value={`${session.executingView?.events?.length || 0} 条`} />
-                  <MetricLite label="已处理令牌" value={tokenCount} />
+                  <MetricLite label={t('successRate')} value={`${successRate}%`} />
+                  <MetricLite label={t('events')} value={t('eventCount', { count: session.executingView?.events?.length || 0 })} />
+                  <MetricLite label={t('processedTokens')} value={tokenCount} />
                 </div>
                 <button
                   type="button"
                   className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500 transition hover:text-primary-600"
                 >
-                  查看详情
+                  {t('details')}
                   <ChevronUp className="h-4 w-4" />
                 </button>
               </footer>
@@ -391,15 +393,15 @@ const OpenClawPageInner: React.FC = () => {
               <CompletedWorkspace data={session.completedView} isLoading={session.completedLoading} error={session.completedError} />
               <footer className="shrink-0 flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-2.5 md:px-6 md:py-3">
                 <div className="flex items-center gap-6 overflow-x-auto text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <MetricLite label="CPU 占用" value="0%" />
-                  <MetricLite label="内存" value="0%" />
-                  <MetricLite label="网络" value="0 KB/s" />
+                  <MetricLite label={t('cpu')} value="0%" />
+                  <MetricLite label={t('memory')} value="0%" />
+                  <MetricLite label={t('network')} value="0 KB/s" />
                 </div>
                 <button
                   type="button"
                   className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500 transition hover:text-primary-600"
                 >
-                  查看详情
+                  {t('details')}
                   <ChevronUp className="h-4 w-4" />
                 </button>
               </footer>
@@ -418,9 +420,9 @@ const OpenClawPageInner: React.FC = () => {
       <CompleteLessonDialog
         isOpen={showCompleteDialog}
         onClose={handleCompleteDialogClose}
-        lessonName="OpenClaw 工作台"
+        lessonName={t('workspace')}
         earnedXP={earnedXP}
-        actionText="返回项目"
+        actionText={t('backProjects')}
         duration={experimentDuration}
       />
     </div>
@@ -439,6 +441,7 @@ const PageTransition: React.FC<{ viewKey: string; children: React.ReactNode }> =
 
 const OpenClawProjectEntryGuide: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('openclaw');
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16">
@@ -446,9 +449,9 @@ const OpenClawProjectEntryGuide: React.FC = () => {
         <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
           <FolderOpen className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-black tracking-tight text-slate-900">选择 OpenClaw 项目进入</h1>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900">{t('entryTitle')}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          OpenClaw 是项目实战中的独立场景演示，需要从带有 OpenClaw 标签的项目进入，才能为当前项目建立专属观察会话。
+          {t('entryDesc')}
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <button
@@ -456,7 +459,7 @@ const OpenClawProjectEntryGuide: React.FC = () => {
             onClick={() => navigate('/projects')}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary-600 px-4 text-sm font-bold text-white transition hover:bg-primary-700"
           >
-            前往项目实战
+            {t('goProjects')}
             <ChevronRight className="h-4 w-4" />
           </button>
           <button
@@ -464,7 +467,7 @@ const OpenClawProjectEntryGuide: React.FC = () => {
             onClick={() => navigate(-1)}
             className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
           >
-            返回上一页
+            {t('previous')}
           </button>
         </div>
       </div>

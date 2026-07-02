@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { ChevronDown, LogOut, Menu, User as UserIcon, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import AILogoGif from '@/images/AI logo Foriday.gif';
 import type { User, ViewState } from '@/types';
 import { RoleType } from '@/types';
@@ -14,6 +16,7 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, onLogout }) => {
+  const { t } = useTranslation(['common', 'nav']);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -21,10 +24,10 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
   const location = useLocation();
 
   const navItems = [
-    { view: 'study' as ViewState, path: '/study', label: '学习中心' },
-    { view: 'projects' as ViewState, path: '/projects', label: '项目实战' },
-    { view: 'ai-square' as ViewState, path: '/ai-square', label: 'AI 广场' },
-    { view: 'docs' as ViewState, path: '/docs', label: '文档' },
+    { view: 'study' as ViewState, path: '/study', label: t('nav:study') },
+    { view: 'projects' as ViewState, path: '/projects', label: t('nav:projects') },
+    { view: 'ai-square' as ViewState, path: '/ai-square', label: t('nav:aiSquare') },
+    { view: 'docs' as ViewState, path: '/docs', label: t('nav:docs') },
   ];
 
   const isActive = (path: string) => {
@@ -53,13 +56,13 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
   const getRoleName = (roleType: RoleType) => {
     switch (roleType) {
       case RoleType.ADMIN:
-        return '管理员';
+        return t('roles.admin');
       case RoleType.TEACHER:
-        return '教师';
+        return t('roles.teacher');
       case RoleType.STUDENT:
-        return '学生';
+        return t('roles.student');
       default:
-        return '用户';
+        return t('roles.user');
     }
   };
 
@@ -157,7 +160,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
                     >
                       <UserIcon className="h-4 w-4" />
-                      个人中心
+                      {t('actions.profile')}
                     </button>
                     {currentUser.roleType >= RoleType.TEACHER && (
                       <button
@@ -169,7 +172,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                         className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
                       >
                         <UserIcon className="h-4 w-4" />
-                        进入教务端
+                        {t('actions.teacherPortal')}
                       </button>
                     )}
                     {currentUser.roleType === RoleType.ADMIN && (
@@ -182,7 +185,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                         className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-900"
                       >
                         <UserIcon className="h-4 w-4" />
-                        进入管理端
+                        {t('actions.adminPortal')}
                       </button>
                     )}
                     <button type="button"
@@ -193,7 +196,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50/75"
                     >
                       <LogOut className="h-4 w-4" />
-                      退出登录
+                      {t('actions.logout')}
                     </button>
                   </motion.div>
                 )}
@@ -205,16 +208,18 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                 onClick={onLoginClick}
                 className="rounded-full px-3 py-1.5 text-sm text-slate-600 transition hover:bg-white hover:text-slate-900"
               >
-                登录
+                {t('actions.login')}
               </button>
+              <LanguageSwitcher compact />
               <button type="button"
                 onClick={() => onNavClick?.('study')}
                 className="shimmer-btn rounded-full bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
-                开始学习
+                {t('actions.startLearning')}
               </button>
             </>
           )}
+          {currentUser && <LanguageSwitcher compact />}
         </div>
 
         <button type="button"
@@ -223,7 +228,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
             setMobileMenuOpen((prev) => !prev);
             setShowUserMenu(false);
           }}
-          aria-label="Toggle menu"
+          aria-label={t('toggleMenu', { ns: 'uiReview' })}
         >
           {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -264,7 +269,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                     className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
                   >
                     <UserIcon className="h-4 w-4" />
-                    个人中心
+                    {t('common:actions.profile')}
                   </button>
                   {currentUser.roleType >= RoleType.TEACHER && (
                     <button
@@ -276,7 +281,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                       className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
                     >
                       <UserIcon className="h-4 w-4" />
-                      进入教务端
+                      {t('common:actions.teacherPortal')}
                     </button>
                   )}
                   {currentUser.roleType === RoleType.ADMIN && (
@@ -289,7 +294,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                       className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
                     >
                       <UserIcon className="h-4 w-4" />
-                      进入管理端
+                      {t('common:actions.adminPortal')}
                     </button>
                   )}
                   <button type="button"
@@ -300,7 +305,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                     className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm text-rose-600 transition hover:bg-rose-50"
                   >
                     <LogOut className="h-4 w-4" />
-                    退出登录
+                    {t('common:actions.logout')}
                   </button>
                 </>
               ) : (
@@ -312,7 +317,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                     }}
                     className="rounded-lg px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
                   >
-                    登录
+                    {t('common:actions.login')}
                   </button>
                   <button type="button"
                     onClick={() => {
@@ -321,7 +326,7 @@ const Navbar: React.FC<NavbarProps> = ({ onLoginClick, onNavClick, currentUser, 
                     }}
                     className="shimmer-btn rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
                   >
-                    开始学习
+                    {t('common:actions.startLearning')}
                   </button>
                 </>
               )}

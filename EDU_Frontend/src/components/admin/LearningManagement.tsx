@@ -18,6 +18,8 @@ import { ConfirmDialog, useConfirmDialog } from '@/components/common/ConfirmDial
 import { ToolbarSearchField, ToolbarSelect } from '@/components/common/ToolbarControls';
 import PublishCheckDrawer from '@/components/teacher/PublishCheckDrawer';
 import LessonMaterialsModal from './LessonMaterialsModal';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 // --- Types ---
 
@@ -86,12 +88,12 @@ const colorHexMap: Record<string, string> = {
   'cyan': '#06b6d4',
 };
 
-const labTemplatePortSummary = (template: LabTemplate) => {
+const labTemplatePortSummary = (template: LabTemplate, t: TFunction) => {
   const ports = Array.isArray(template.exposedPorts) && template.exposedPorts.length > 0
     ? template.exposedPorts
     : (Array.isArray(template.appPorts) ? template.appPorts.map((port) => ({ ...port, type: 'web' })) : []);
   if (ports.length === 0) return '';
-  return ` · 端口 ${ports.map((port) => `${port.type === 'novnc' ? 'Desktop' : (port.label || port.name)}:${port.containerPort}`).join('/')}`;
+  return t('ports', { ports: ports.map((port) => `${port.type === 'novnc' ? 'Desktop' : (port.label || port.name)}:${port.containerPort}`).join('/') });
 };
 
 const getColorName = (hex: string): string => colorMap[hex] || 'blue';
@@ -126,6 +128,7 @@ interface CourseEditorProps {
 }
 
 const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, loading }) => {
+  const { t } = useTranslation('courseManagement');
   const [formData, setFormData] = useState<LocalCourse>(course);
   const [saving, setSaving] = useState(false);
   
@@ -190,7 +193,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
   const handleAddStage = () => {
     const newStage: LocalStage = {
       id: -Date.now(),
-      title: '新阶段',
+      title: t('newStage'),
       description: '',
       levelLabel: 'LEVEL',
       sortOrder: formData.stages.length,
@@ -209,7 +212,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
     const newStages = [...formData.stages];
     newStages[stageIndex].lessons.push({
       id: -Date.now(),
-      title: '新课时',
+      title: t('newLesson'),
       type: 1,
       durationMinutes: 15,
       points: 10,
@@ -280,21 +283,21 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-slate-800">
-                {formData.id ? '编辑课程' : '创建新课程'}
+                {formData.id ? t('editCourse') : t('createCourse')}
               </h2>
               <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
                 formData.status === 1 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                 formData.status === 0 ? 'bg-amber-50 text-amber-600 border-amber-100' : 
                 'bg-slate-50 text-slate-500 border-slate-100'
               }`}>
-                {formData.status === 1 ? '已发布' : formData.status === 0 ? '草稿' : '已下架'}
+                {formData.status === 1 ? t('statuses.published') : formData.status === 0 ? t('statuses.draft') : t('statuses.archived')}
               </span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={onCancel} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-colors">
-            取消
+            {t('cancel')}
           </button>
           <button 
             onClick={handleSave} 
@@ -302,7 +305,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
             className="px-6 py-2.5 rounded-xl text-sm font-bold bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            保存更改
+            {t('saveChanges')}
           </button>
         </div>
       </div>
@@ -315,10 +318,10 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
           <div className="space-y-8">
             {/* Visual Identity */}
             <section className="card-surface p-6 rounded-2xl">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">视觉风格</h3>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">{t('visualStyle')}</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-2 block">主题色</label>
+                  <label className="text-sm font-bold text-slate-700 mb-2 block">{t('themeColor')}</label>
                   <div className="flex flex-wrap gap-2">
                     {colors.map(c => (
                       <button 
@@ -335,7 +338,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-2 block">图标</label>
+                  <label className="text-sm font-bold text-slate-700 mb-2 block">{t('icon')}</label>
                   <div className="grid grid-cols-4 gap-2">
                     {icons.map(({ name, Icon }) => (
                       <button 
@@ -358,13 +361,13 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
             {/* Basic Info */}
             <section className="space-y-4">
               <div>
-                <label className="text-sm font-bold text-slate-700 mb-1.5 block">课程名称</label>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 block">{t('courseName')}</label>
                 <input 
                   type="text" 
                   value={formData.title} 
                   onChange={e => setFormData({...formData, title: e.target.value})}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  placeholder="如: Shell Programming"
+                  placeholder={t('titlePlaceholder')}
                 />
               </div>
               <div>
@@ -374,20 +377,20 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                   value={formData.slug} 
                   onChange={e => setFormData({...formData, slug: e.target.value})}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-mono text-slate-600 focus:outline-none focus:border-blue-500 transition-all"
-                  placeholder="如: shell-programming"
+                  placeholder={t('slugPlaceholder')}
                 />
               </div>
               <div>
-                <label className="text-sm font-bold text-slate-700 mb-1.5 block">简介</label>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 block">{t('description')}</label>
                 <textarea 
                   value={formData.description} 
                   onChange={e => setFormData({...formData, description: e.target.value})}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:border-blue-500 transition-all h-24 resize-none"
-                  placeholder="课程简介..."
+                  placeholder={t('descriptionPlaceholder')}
                 />
               </div>
               <div>
-                <label className="text-sm font-bold text-slate-700 mb-1.5 block">难度</label>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 block">{t('difficulty')}</label>
                 <Select
                   selectedKeys={[String(formData.difficulty)]}
                   onSelectionChange={(keys) => {
@@ -406,9 +409,9 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                     listbox: 'bg-white',
                   }}
                 >
-                  <SelectItem key="1">初级 (Beginner)</SelectItem>
-                  <SelectItem key="2">中级 (Intermediate)</SelectItem>
-                  <SelectItem key="3">高级 (Advanced)</SelectItem>
+                  <SelectItem key="1">{t('difficulties.beginner')}</SelectItem>
+                  <SelectItem key="2">{t('difficulties.intermediate')}</SelectItem>
+                  <SelectItem key="3">{t('difficulties.advanced')}</SelectItem>
                 </Select>
               </div>
             </section>
@@ -417,8 +420,8 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
             <section className="card-surface p-6 rounded-2xl">
               <div className="space-y-3">
                 <div>
-                  <div className="text-sm font-bold text-slate-800">发布状态</div>
-                  <div className="text-xs text-slate-400 mb-3">控制课程可见性</div>
+                  <div className="text-sm font-bold text-slate-800">{t('publishStatus')}</div>
+                  <div className="text-xs text-slate-400 mb-3">{t('visibilityHelp')}</div>
                 </div>
                 <Select
                   selectedKeys={[String(formData.status)]}
@@ -438,9 +441,9 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                     listbox: 'bg-white',
                   }}
                 >
-                  <SelectItem key="0">草稿</SelectItem>
-                  <SelectItem key="1">已发布</SelectItem>
-                  <SelectItem key="2">已下架</SelectItem>
+                  <SelectItem key="0">{t('statuses.draft')}</SelectItem>
+                  <SelectItem key="1">{t('statuses.published')}</SelectItem>
+                  <SelectItem key="2">{t('statuses.archived')}</SelectItem>
                 </Select>
               </div>
             </section>
@@ -449,35 +452,35 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
             <section className="card-surface p-6 rounded-2xl">
               <div className="flex items-center gap-2 mb-4">
                 <Monitor className="w-4 h-4 text-blue-500" />
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">实验环境</h3>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('labEnvironment')}</h3>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">Lab 模板</label>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">{t('labTemplate')}</label>
                   <ToolbarSelect
-                    ariaLabel="Lab 模板"
+                    ariaLabel={t('labTemplate')}
                     value={String(formData.labTemplateId || 0)}
                     onChange={(value) => setFormData({...formData, labTemplateId: Number(value)})}
                     options={[
-                      { key: '0', label: '不绑定模板，使用下方镜像配置' },
+                      { key: '0', label: t('noTemplate') },
                       ...labTemplates.map(template => ({
                         key: String(template.id),
-                        label: `${template.name} · ${template.envImage}${labTemplatePortSummary(template)}`,
+                        label: `${template.name} · ${template.envImage}${labTemplatePortSummary(template, t)}`,
                       })),
                     ]}
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">发布检查会优先校验启用中的模板；绑定模板后 Lab 创建优先使用模板镜像和资源。</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{t('templateHelp')}</p>
                 </div>
 
                 {/* Ubuntu 桌面镜像 */}
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">Ubuntu 桌面镜像</label>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">{t('desktopImage')}</label>
                   <div className="flex items-center gap-2">
                     <Monitor className="w-4 h-4 text-slate-400" />
                     <ToolbarSelect
-                      ariaLabel="Ubuntu 桌面镜像"
+                      ariaLabel={t('desktopImage')}
                       value={formData.envImage}
-                      placeholder="选择镜像"
+                      placeholder={t('selectImage')}
                       isDisabled={loadingImages}
                       disallowEmptySelection={false}
                       onChange={(value) => setFormData({...formData, envImage: value})}
@@ -488,18 +491,18 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                       className="flex-1"
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">提供 Ubuntu 桌面环境 (noVNC)</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{t('desktopHelp')}</p>
                 </div>
                 
                 {/* WebIDE 镜像 */}
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">WebIDE 镜像</label>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">{t('webIdeImage')}</label>
                   <div className="flex items-center gap-2">
                     <Box className="w-4 h-4 text-slate-400" />
                     <ToolbarSelect
-                      ariaLabel="WebIDE 镜像"
+                      ariaLabel={t('webIdeImage')}
                       value={formData.ideImage}
-                      placeholder="选择镜像"
+                      placeholder={t('selectImage')}
                       isDisabled={loadingImages}
                       disallowEmptySelection={false}
                       onChange={(value) => setFormData({...formData, ideImage: value})}
@@ -511,7 +514,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                     />
                     {loadingImages && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">提供在线代码编辑器环境</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{t('webIdeHelp')}</p>
                 </div>
               </div>
             </section>
@@ -526,16 +529,16 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
               <div>
                 <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                   <Layers className="w-6 h-6 text-blue-500" />
-                  课程大纲
+                  {t('outline')}
                 </h3>
-                <p className="text-slate-400 text-sm mt-1">编排课程阶段与具体的学习单元。</p>
+                <p className="text-slate-400 text-sm mt-1">{t('outlineDesc')}</p>
               </div>
               <button 
                 onClick={handleAddStage}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                新增阶段
+                {t('addStage')}
               </button>
             </div>
 
@@ -564,7 +567,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                           value={stage.title}
                           onChange={(e) => handleStageUpdate(sIdx, 'title', e.target.value)}
                           className="bg-transparent font-bold text-slate-800 focus:outline-none focus:bg-slate-50 px-2 py-1 rounded transition-colors flex-1"
-                          placeholder="阶段名称"
+                          placeholder={t('stageName')}
                         />
                       </div>
                       <div className="flex items-center gap-2">
@@ -600,17 +603,17 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                               value={lesson.title}
                               onChange={(e) => handleLessonUpdate(sIdx, lIdx, 'title', e.target.value)}
                               className="col-span-4 text-sm font-bold text-slate-700 bg-transparent focus:outline-none focus:bg-slate-50 px-1 rounded truncate"
-                              placeholder="课时标题"
+                              placeholder={t('lessonTitle')}
                             />
                             <ToolbarSelect
-                              ariaLabel="课时类型"
+                              ariaLabel={t('lessonType')}
                               value={String(lesson.type)}
                               onChange={(value) => handleLessonUpdate(sIdx, lIdx, 'type', parseInt(value))}
                               options={[
-                                { key: '1', label: '实验' },
-                                { key: '2', label: '挑战' },
-                                { key: '3', label: '测验' },
-                                { key: '4', label: '文本' },
+                                { key: '1', label: t('lessonTypes.lab') },
+                                { key: '2', label: t('lessonTypes.challenge') },
+                                { key: '3', label: t('lessonTypes.quiz') },
+                                { key: '4', label: t('lessonTypes.text') },
                               ]}
                               className="col-span-2"
                             />
@@ -622,7 +625,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                                 onChange={(e) => handleLessonUpdate(sIdx, lIdx, 'durationMinutes', parseInt(e.target.value) || 0)}
                                 className="w-12 text-xs bg-slate-50 border border-slate-200 rounded px-1 py-1 text-center"
                               />
-                              <span className="text-xs text-slate-400">分</span>
+                              <span className="text-xs text-slate-400">{t('minutes')}</span>
                             </div>
                             <div className="col-span-2 flex items-center gap-1">
                               <Zap className="w-3 h-3 text-slate-400" />
@@ -644,7 +647,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                                     setMaterialModalOpen(true);
                                   }}
                                   className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
-                                  title="配置课时资料"
+                                  title={t('configureMaterials')}
                                 >
                                   <Settings2 className="w-3.5 h-3.5" />
                                 </button>
@@ -665,7 +668,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
                         className="w-full py-3 border border-dashed border-slate-200 rounded-xl text-xs font-bold text-slate-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        添加课时
+                        {t('addLesson')}
                       </button>
                     </div>
                   </div>
@@ -675,8 +678,8 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ course, onSave, onCancel, l
               {formData.stages.length === 0 && (
                 <div className="text-center py-16 text-slate-400">
                   <Layers className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p className="font-medium">暂无阶段</p>
-                  <p className="text-sm mt-1">点击上方按钮添加第一个阶段</p>
+                  <p className="font-medium">{t('noStages')}</p>
+                  <p className="text-sm mt-1">{t('noStagesHint')}</p>
                 </div>
               )}
             </div>
@@ -719,6 +722,7 @@ interface CourseListProps {
 }
 
 const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onEdit, onDelete, onSearch, onCheck, onPreview, onPublish, onArchive, onDraft }) => {
+  const { t } = useTranslation('courseManagement');
   const [searchKeyword, setSearchKeyword] = useState('');
 
   const handleSearch = () => {
@@ -735,18 +739,18 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
 
   const getStatusText = (status: number) => {
     switch (status) {
-      case 1: return '已发布';
-      case 0: return '草稿';
-      default: return '已下架';
+      case 1: return t('statuses.published');
+      case 0: return t('statuses.draft');
+      default: return t('statuses.archived');
     }
   };
 
   const getDifficultyText = (difficulty: number) => {
     switch (difficulty) {
-      case 1: return '初级';
-      case 2: return '中级';
-      case 3: return '高级';
-      default: return '未知';
+      case 1: return t('difficulties.beginnerShort');
+      case 2: return t('difficulties.intermediateShort');
+      case 3: return t('difficulties.advancedShort');
+      default: return t('difficulties.unknown');
     }
   };
 
@@ -755,15 +759,15 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">学习路径管理</h1>
-          <p className="text-slate-500 mt-2">管理技能树架构、课程阶段及学习单元内容。</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">{t('title')}</h1>
+          <p className="text-slate-500 mt-2">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-4">
           <ToolbarSearchField
             value={searchKeyword}
             onChange={setSearchKeyword}
             onEnter={handleSearch}
-            placeholder="搜索课程..."
+            placeholder={t('searchPlaceholder')}
             className="w-64"
           />
           <button 
@@ -771,7 +775,7 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
             className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
-            创建课程
+            {t('create')}
           </button>
         </div>
       </div>
@@ -826,21 +830,21 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
                 {/* Content */}
                 <div className="relative z-10 mb-8">
                   <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">{course.title}</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed line-clamp-2">{course.description || '暂无简介'}</p>
+                  <p className="text-slate-500 text-sm leading-relaxed line-clamp-2">{course.description || t('noDescription')}</p>
                 </div>
 
                 {/* Stats Grid */}
                 <div className="relative z-10 grid grid-cols-3 gap-2 border-t border-slate-100 pt-6">
                   <div>
-                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">技能</div>
+                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('skills')}</div>
                     <div className="text-lg font-black text-slate-700">{course.totalSkills}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">课时</div>
+                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('lessons')}</div>
                     <div className="text-lg font-black text-slate-700">{course.totalLessons}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">时长</div>
+                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('duration')}</div>
                     <div className="text-lg font-black text-slate-700">{course.estimatedHours}h</div>
                   </div>
                 </div>
@@ -851,19 +855,19 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
                     className="flex-1 min-w-[90px] py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800"
                     onClick={(e) => { e.stopPropagation(); onEdit(course); }}
                   >
-                    编辑内容
+                    {t('editContent')}
                   </button>
                   <button
                     className="px-3 py-2.5 bg-primary-50 text-primary-600 rounded-xl hover:bg-primary-100"
                     onClick={(e) => { e.stopPropagation(); onCheck(course); }}
-                    title="发布检查"
+                    title={t('publishCheck')}
                   >
                     <ShieldCheck className="w-4 h-4" />
                   </button>
                   <button
                     className="px-3 py-2.5 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100"
                     onClick={(e) => { e.stopPropagation(); onPreview(course); }}
-                    title="学生视角预览"
+                    title={t('studentPreview')}
                   >
                     <Eye className="w-4 h-4" />
                   </button>
@@ -871,7 +875,7 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
                     <button
                       className="px-3 py-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100"
                       onClick={(e) => { e.stopPropagation(); onArchive(course); }}
-                      title="下架"
+                      title={t('archive')}
                     >
                       <Archive className="w-4 h-4" />
                     </button>
@@ -879,7 +883,7 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
                     <button
                       className="px-3 py-2.5 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100"
                       onClick={(e) => { e.stopPropagation(); onDraft(course); }}
-                      title="设为草稿"
+                      title={t('setDraft')}
                     >
                       <FileText className="w-4 h-4" />
                     </button>
@@ -887,7 +891,7 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
                     <button
                       className="px-3 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100"
                       onClick={(e) => { e.stopPropagation(); onPublish(course); }}
-                      title="检查后发布"
+                      title={t('publishAfterCheck')}
                     >
                       <Rocket className="w-4 h-4" />
                     </button>
@@ -911,7 +915,7 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
             <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center group-hover:scale-110 transition-transform group-hover:bg-blue-100 group-hover:text-blue-600 text-slate-400">
               <Plus className="w-8 h-8" />
             </div>
-            <span className="font-bold text-slate-500 group-hover:text-blue-600">创建新课程</span>
+            <span className="font-bold text-slate-500 group-hover:text-blue-600">{t('createCourse')}</span>
           </button>
         </div>
       )}
@@ -920,8 +924,8 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
       {!loading && courses.length === 0 && (
         <div className="text-center py-20">
           <BookOpen className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-          <h3 className="text-lg font-bold text-slate-600 mb-2">暂无课程</h3>
-          <p className="text-slate-400 mb-6">点击上方按钮创建第一个课程</p>
+          <h3 className="text-lg font-bold text-slate-600 mb-2">{t('empty')}</h3>
+          <p className="text-slate-400 mb-6">{t('emptyHint')}</p>
         </div>
       )}
     </div>
@@ -932,6 +936,7 @@ const CourseList: React.FC<CourseListProps> = ({ courses, loading, onCreate, onE
 // --- Main Container Component ---
 
 const LearningManagement: React.FC = () => {
+  const { t } = useTranslation('courseManagement');
   const [view, setView] = useState<'list' | 'editor'>('list');
   const [courses, setCourses] = useState<Course[]>([]);
   const [currentCourse, setCurrentCourse] = useState<LocalCourse | null>(null);
@@ -941,7 +946,7 @@ const LearningManagement: React.FC = () => {
   const [checkDrawerOpen, setCheckDrawerOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<PublishCheckResult | null>(null);
-  const [checkTitle, setCheckTitle] = useState('发布检查');
+  const [checkTitle, setCheckTitle] = useState(() => t('checkTitle'));
   const [previewCourse, setPreviewCourse] = useState<Course | null>(null);
   
   // Toast 状态
@@ -966,11 +971,11 @@ const LearningManagement: React.FC = () => {
       if (response.success && response.data) {
         setCourses(response.data.list);
       } else {
-        showToast(response.error || '加载课程列表失败', 'error');
+        showToast(response.error || t('loadFailed'), 'error');
       }
     } catch (error) {
       console.error('加载课程列表失败:', error);
-      showToast('加载课程列表失败', 'error');
+      showToast(t('loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -1050,11 +1055,11 @@ const LearningManagement: React.FC = () => {
         });
         setView('editor');
       } else {
-        showToast(response.error || '加载课程详情失败', 'error');
+        showToast(response.error || t('detailFailed'), 'error');
       }
     } catch (error) {
       console.error('加载课程详情失败:', error);
-      showToast('加载课程详情失败', 'error');
+      showToast(t('detailFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -1063,28 +1068,28 @@ const LearningManagement: React.FC = () => {
   // 删除课程
   const handleDelete = (id: number) => {
     confirmDialog.showConfirm({
-      title: '删除课程',
-      message: '确定要删除这个课程吗？此操作不可恢复，课程下的所有阶段和课时都将被删除。',
+      title: t('deleteTitle'),
+      message: t('deleteMessage'),
       type: 'danger',
       onConfirm: async () => {
         try {
           const response = await courseApi.delete(id);
           if (response.success) {
-            showToast('课程删除成功', 'success');
+            showToast(t('deleted'), 'success');
             loadCourses(searchKeyword);
           } else {
-            showToast(response.error || '删除失败', 'error');
+            showToast(response.error || t('deleteFailed'), 'error');
           }
         } catch (error) {
           console.error('删除课程失败:', error);
-          showToast('删除失败', 'error');
+          showToast(t('deleteFailed'), 'error');
         }
       },
     });
   };
 
   const openCoursePreview = (course: Course, result: PublishCheckResult | null = null) => {
-    setCheckTitle(`${course.title} · 学生视角预览`);
+    setCheckTitle(t('previewSuffix', { title: course.title }));
     setPreviewCourse(course);
     setCheckResult(result);
     setCheckDrawerOpen(true);
@@ -1092,7 +1097,7 @@ const LearningManagement: React.FC = () => {
 
   const handlePublishCheck = async (course: Course, withPreview = false): Promise<PublishCheckResult | null> => {
     setChecking(true);
-    setCheckTitle(`${course.title} · 发布检查`);
+    setCheckTitle(t('checkSuffix', { title: course.title }));
     setPreviewCourse(withPreview ? course : null);
     setCheckResult(null);
     setCheckDrawerOpen(true);
@@ -1102,11 +1107,11 @@ const LearningManagement: React.FC = () => {
         setCheckResult(response.data);
         return response.data;
       }
-      showToast(response.error || '发布检查失败', 'error');
+      showToast(response.error || t('checkFailed'), 'error');
       return null;
     } catch (error) {
       console.error('课程发布检查失败:', error);
-      showToast('发布检查失败', 'error');
+      showToast(t('checkFailed'), 'error');
       return null;
     } finally {
       setChecking(false);
@@ -1118,7 +1123,7 @@ const LearningManagement: React.FC = () => {
     if (!check?.canPublish) return;
     const response = await courseApi.publish(course.id);
     if (response.success) {
-      showToast('课程发布成功', 'success');
+      showToast(t('published'), 'success');
       await loadCourses(searchKeyword);
       setCheckDrawerOpen(false);
       return;
@@ -1128,26 +1133,26 @@ const LearningManagement: React.FC = () => {
       setCheckResult(blocked);
       setCheckDrawerOpen(true);
     }
-    showToast(response.error || '课程发布失败', 'error');
+    showToast(response.error || t('publishFailed'), 'error');
   };
 
   const handleArchiveCourse = async (course: Course) => {
     const response = await courseApi.archive(course.id);
     if (response.success) {
-      showToast('课程已下架', 'success');
+      showToast(t('archived'), 'success');
       await loadCourses(searchKeyword);
     } else {
-      showToast(response.error || '课程下架失败', 'error');
+      showToast(response.error || t('archiveFailed'), 'error');
     }
   };
 
   const handleDraftCourse = async (course: Course) => {
     const response = await courseApi.draft(course.id);
     if (response.success) {
-      showToast('课程已设为草稿', 'success');
+      showToast(t('drafted'), 'success');
       await loadCourses(searchKeyword);
     } else {
-      showToast(response.error || '设置草稿失败', 'error');
+      showToast(response.error || t('draftFailed'), 'error');
     }
   };
 
@@ -1177,7 +1182,7 @@ const LearningManagement: React.FC = () => {
         });
         
         if (!createResponse.success || !createResponse.data) {
-          showToast(createResponse.error || '创建课程失败', 'error');
+          showToast(createResponse.error || t('createFailed'), 'error');
           return;
         }
         courseId = createResponse.data.id;
@@ -1189,7 +1194,7 @@ const LearningManagement: React.FC = () => {
         const updateResponse = await courseApi.update(courseId, updatePayload);
         
         if (!updateResponse.success) {
-          showToast(updateResponse.error || '更新课程失败', 'error');
+          showToast(updateResponse.error || t('updateFailed'), 'error');
           return;
         }
       }
@@ -1281,13 +1286,13 @@ const LearningManagement: React.FC = () => {
       }
 
       // 刷新列表并返回
-      showToast('课程保存成功', 'success');
+      showToast(t('saved'), 'success');
       await loadCourses(searchKeyword);
       setView('list');
       setCurrentCourse(null);
     } catch (error) {
       console.error('保存课程失败:', error);
-      showToast('保存失败，请重试', 'error');
+      showToast(t('saveFailed'), 'error');
     }
   };
 
@@ -1341,7 +1346,7 @@ const LearningManagement: React.FC = () => {
         title={confirmDialog.title}
         message={confirmDialog.message}
         type={confirmDialog.type}
-        confirmText="删除"
+        confirmText={t('delete')}
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.hideConfirm}
       />
@@ -1355,26 +1360,26 @@ const LearningManagement: React.FC = () => {
         preview={previewCourse ? (
           <div className="space-y-4">
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">课程</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">{t('previewLabel')}</div>
               <div className="mt-1 text-xl font-black text-slate-900">{previewCourse.title}</div>
-              <div className="mt-2 text-sm leading-relaxed text-slate-600">{previewCourse.description || '暂无简介'}</div>
+              <div className="mt-2 text-sm leading-relaxed text-slate-600">{previewCourse.description || t('noDescription')}</div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-2xl bg-slate-50 p-3">
-                <div className="text-xs text-slate-400">课时</div>
+                <div className="text-xs text-slate-400">{t('lessons')}</div>
                 <div className="text-lg font-black text-slate-800">{previewCourse.totalLessons}</div>
               </div>
               <div className="rounded-2xl bg-slate-50 p-3">
-                <div className="text-xs text-slate-400">技能</div>
+                <div className="text-xs text-slate-400">{t('skills')}</div>
                 <div className="text-lg font-black text-slate-800">{previewCourse.totalSkills}</div>
               </div>
               <div className="rounded-2xl bg-slate-50 p-3">
-                <div className="text-xs text-slate-400">时长</div>
+                <div className="text-xs text-slate-400">{t('duration')}</div>
                 <div className="text-lg font-black text-slate-800">{previewCourse.estimatedHours}h</div>
               </div>
             </div>
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-              学生端只会看到已发布课程；发布前请确认 Lab 模板、Agent 手册和验证规则均已通过检查。
+              {t('previewNotice')}
             </div>
           </div>
         ) : undefined}

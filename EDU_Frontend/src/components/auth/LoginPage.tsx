@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Code2, Cpu, GraduationCap, Loader2, Lock, Networ
 import { authService } from '@/services/auth';
 import AILogoGif from '@/images/AI logo Foriday.gif';
 import { RoleType, UserStatus, type User as UserType } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 type LoginMode = 'student' | 'staff';
 type StaffLoginTab = 'teacher' | 'admin';
@@ -15,21 +16,6 @@ interface LoginPageProps {
   defaultStaffTab?: StaffLoginTab;
   onLoginSuccess?: (user: UserType, context?: { loginMode: LoginMode; staffTab?: StaffLoginTab }) => void;
 }
-
-const staffTabMeta: Record<StaffLoginTab, { label: string; title: string; subtitle: string; button: string }> = {
-  teacher: {
-    label: '教务登录',
-    title: '教务端登录',
-    subtitle: '教师与管理员可进入教务工作台',
-    button: '进入教务端',
-  },
-  admin: {
-    label: '管理登录',
-    title: '管理员登录',
-    subtitle: '仅管理员可进入系统管理台',
-    button: '进入管理端',
-  },
-};
 
 const TypingEffect = ({ words }: { words: string[] }) => {
   const [index, setIndex] = useState(0);
@@ -88,6 +74,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   defaultStaffTab,
   onLoginSuccess,
 }) => {
+  const { t } = useTranslation('auth');
   const loginMode: LoginMode = mode || (isAdmin ? 'staff' : 'student');
   const [staffTab, setStaffTab] = useState<StaffLoginTab>(defaultStaffTab || (isAdmin ? 'admin' : 'teacher'));
   const [username, setUsername] = useState(() => getSavedUsername());
@@ -103,22 +90,22 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
   const validateUser = (user: UserType): string => {
     if (user.status === UserStatus.FROZEN) {
-      return '账号已被冻结，请联系管理员';
+      return t('frozen');
     }
 
     if (user.status === UserStatus.DELETED) {
-      return '账号已注销，无法继续登录';
+      return t('deleted');
     }
 
     if (loginMode === 'student') {
-      return user.roleType === RoleType.STUDENT ? '' : '请使用教务/管理入口登录';
+      return user.roleType === RoleType.STUDENT ? '' : t('useStaffEntry');
     }
 
     if (staffTab === 'teacher') {
-      return user.roleType >= RoleType.TEACHER ? '' : '该账号没有教务端权限';
+      return user.roleType >= RoleType.TEACHER ? '' : t('teacherForbidden');
     }
 
-    return user.roleType === RoleType.ADMIN ? '' : '该账号没有管理员权限';
+    return user.roleType === RoleType.ADMIN ? '' : t('adminForbidden');
   };
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -127,7 +114,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
     const normalizedUsername = username.trim();
     if (!normalizedUsername || !password.trim()) {
-      setError('请输入账号和密码');
+      setError(t('required'));
       return;
     }
 
@@ -137,7 +124,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
       const response = await authService.login({ username: normalizedUsername, password });
 
       if (!response.success || !response.data?.user || !response.data.token) {
-        setError(response.error || '登录失败，请检查账号和密码');
+        setError(response.error || t('failed'));
         return;
       }
 
@@ -154,7 +141,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
         staffTab: isStaff ? staffTab : undefined,
       });
     } catch (err) {
-      setError('网络错误，请稍后重试');
+      setError(t('network'));
       console.error('登录失败:', err);
     } finally {
       setIsLoading(false);
@@ -163,11 +150,15 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
   const isStaff = loginMode === 'staff';
   const isAdminTab = isStaff && staffTab === 'admin';
+  const staffTabMeta: Record<StaffLoginTab, { label: string; title: string; subtitle: string; button: string }> = {
+    teacher: { label: t('teacherTab'), title: t('teacherTitle'), subtitle: t('teacherSubtitle'), button: t('teacherAction') },
+    admin: { label: t('adminTab'), title: t('adminTitle'), subtitle: t('adminSubtitle'), button: t('adminAction') },
+  };
   const staffMeta = staffTabMeta[staffTab];
-  const accountLabel = isStaff ? (isAdminTab ? '管理员账号' : '教务账号') : 'Account';
-  const passwordLabel = isStaff ? (isAdminTab ? '安全密钥' : '登录密码') : 'Password';
-  const accountPlaceholder = isStaff ? '请输入工号、用户名或邮箱' : '请输入学号、用户名或邮箱';
-  const buttonText = isStaff ? staffMeta.button : '进入学习';
+  const accountLabel = isStaff ? (isAdminTab ? t('adminAccount') : t('teacherAccount')) : t('studentAccount');
+  const passwordLabel = isStaff ? (isAdminTab ? t('securityKey') : t('password')) : t('password');
+  const accountPlaceholder = isStaff ? t('staffAccountPlaceholder') : t('studentAccountPlaceholder');
+  const buttonText = isStaff ? staffMeta.button : t('studentAction');
   const primaryButtonClass = isAdminTab ? 'bg-slate-800 hover:bg-slate-900' : 'bg-primary-600 hover:bg-primary-700';
   const formSpacingClass = isStaff ? 'space-y-5' : 'space-y-4';
   const inputPaddingClass = isStaff ? 'py-4' : 'py-3';
@@ -219,7 +210,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="请输入登录密码"
+            placeholder={t('passwordPlaceholder')}
             className={`block w-full rounded-xl border border-slate-200 bg-slate-50/50 ${inputPaddingClass} pl-12 pr-4 font-mono text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-300 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 disabled:cursor-not-allowed disabled:opacity-70`}
             disabled={isLoading}
           />
@@ -242,9 +233,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
               </svg>
             )}
           </div>
-          <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700">Remember me</span>
+          <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700">{t('rememberMe')}</span>
         </label>
-        <span className="text-xs font-semibold text-slate-400">忘记密码请联系管理员</span>
+        <span className="text-xs font-semibold text-slate-400">{t('forgotPassword')}</span>
       </div>
 
       <button
@@ -255,7 +246,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
         {isLoading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            登录中...
+            {t('loggingIn')}
           </>
         ) : (
           <>
@@ -288,7 +279,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             type="button"
             onClick={onClose}
             className="absolute right-5 top-5 rounded-full bg-slate-50 p-2.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            aria-label="关闭登录弹窗"
+            aria-label={t('closeDialog')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -298,7 +289,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
               <img src={AILogoGif} alt="Agent EDU" className="h-9 w-9 object-contain" />
             </div>
             <h1 className="text-3xl font-black tracking-tight text-slate-950">Agent EDU Lab</h1>
-            <p className="mt-2 text-xs font-semibold text-slate-500">学生登录入口</p>
+            <p className="mt-2 text-xs font-semibold text-slate-500">{t('studentEntry')}</p>
           </div>
 
           {loginForm}
@@ -306,7 +297,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           <div className="mt-6 border-t border-slate-100 pt-5 text-center">
             <p className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-              学生账号专属入口
+              {t('studentOnly')}
             </p>
           </div>
         </motion.div>
@@ -330,12 +321,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
         <motion.div animate={{ y: [-15, 15, -15] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} className="pointer-events-none absolute left-[10%] top-[20%] z-10 hidden flex-col items-center gap-3 md:flex">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/60 bg-white/60 shadow-lg backdrop-blur-xl"><Network className="h-8 w-8 text-purple-600 drop-shadow-sm" /></div>
-          <div className="rounded-full border border-white/50 bg-white/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 backdrop-blur-md">神经网络</div>
+          <div className="rounded-full border border-white/50 bg-white/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 backdrop-blur-md">{t('neuralNetwork')}</div>
         </motion.div>
 
         <motion.div animate={{ y: [15, -15, 15] }} transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 1 }} className="pointer-events-none absolute bottom-[25%] right-[10%] z-10 hidden flex-col items-center gap-3 md:flex">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/60 bg-white/60 shadow-lg backdrop-blur-xl"><Code2 className="h-7 w-7 text-blue-600 drop-shadow-sm" /></div>
-          <div className="rounded-full border border-white/50 bg-white/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 backdrop-blur-md">代码生成</div>
+          <div className="rounded-full border border-white/50 bg-white/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 backdrop-blur-md">{t('codeGeneration')}</div>
         </motion.div>
 
         <div className="transform-style-3d rotate-x-12 relative z-20 flex h-[50vh] w-full items-center justify-center">
@@ -349,7 +340,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                 <div className={`mb-1 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${isAdminTab ? 'from-slate-700 to-slate-900' : 'from-primary-500 to-blue-600'} text-white shadow-lg`}>
                   {isAdminTab ? <ShieldAlert className="h-8 w-8" /> : <Cpu className="h-8 w-8" />}
                 </div>
-                <div className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">{isAdminTab ? '系统管理' : '教务引擎'}</div>
+                <div className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">{isAdminTab ? t('systemManagement') : t('teacherEngine')}</div>
               </div>
             </div>
           </motion.div>
@@ -358,23 +349,23 @@ const LoginPage: React.FC<LoginPageProps> = ({
         <div className="relative z-20 mt-[-20px] text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/60 px-4 py-1.5 shadow-sm backdrop-blur-sm">
             <Sparkles className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">{isAdminTab ? '管理员专属通道' : '教务工作台入口'}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">{isAdminTab ? t('adminChannel') : t('teacherChannel')}</span>
           </motion.div>
           <motion.h1 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }} className="mb-4 text-5xl font-black tracking-tight text-slate-900 drop-shadow-sm md:text-7xl">
-            {isAdminTab ? (<>管理<span className="bg-gradient-to-br from-slate-600 to-slate-900 bg-clip-text text-transparent">控制台</span></>) : (<>Agent EDU <span className="bg-gradient-to-br from-primary-600 to-violet-600 bg-clip-text text-transparent">Lab</span></>)}
+            {isAdminTab ? (<>{t('management')}<span className="bg-gradient-to-br from-slate-600 to-slate-900 bg-clip-text text-transparent">{t('console')}</span></>) : (<>Agent EDU <span className="bg-gradient-to-br from-primary-600 to-violet-600 bg-clip-text text-transparent">Lab</span></>)}
           </motion.h1>
           <div className="flex h-8 items-center justify-center">
             <p className="flex items-center gap-2 text-lg font-medium text-slate-600">
               <Terminal className="h-4 w-4 text-slate-400" />
-              <span className="mr-2 text-slate-400">系统状态:</span>
-              <TypingEffect words={isAdminTab ? ['正在验证权限...', '建立安全连接...', '审计日志已启用'] : ['正在加载教务数据...', '同步课程资源...', '准备工作台...']} />
+              <span className="mr-2 text-slate-400">{t('systemStatus')}</span>
+              <TypingEffect words={t(isAdminTab ? 'statusAdmin' : 'statusTeacher', { returnObjects: true }) as unknown as string[]} />
             </p>
           </div>
         </div>
       </div>
 
       <div className="relative z-50 flex w-full flex-col items-center justify-center border-l border-white/50 bg-white/80 p-8 shadow-[-20px_0_60px_rgba(0,0,0,0.03)] backdrop-blur-2xl md:w-[40%] md:p-12">
-        <button onClick={onClose} className="group absolute right-8 top-8 rounded-full border border-slate-100 bg-slate-50 p-2.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800" title="返回首页">
+        <button onClick={onClose} className="group absolute right-8 top-8 rounded-full border border-slate-100 bg-slate-50 p-2.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800" title={t('backHome')}>
           <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
         </button>
 
@@ -415,7 +406,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           <div className="mt-8 border-t border-slate-100 pt-8 text-center">
             <p className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-              按入口校验角色权限
+              {t('roleCheck')}
             </p>
           </div>
         </div>

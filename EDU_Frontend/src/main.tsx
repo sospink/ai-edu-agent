@@ -1,7 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HeroUIProvider, ToastProvider } from '@heroui/react';
+import { I18nextProvider } from 'react-i18next';
 import App from './App';
+import i18n from './i18n';
 import './styles/index.css';
 
 // Polyfill for crypto.randomUUID (needed for non-HTTPS environments)
@@ -24,21 +26,24 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <HeroUIProvider>
-      <App />
-      <ToastProvider
-        placement="top-right"
-        toastOffset={16}
-        regionProps={{ className: 'z-[10050]' }}
-        toastProps={{
-          classNames: {
-            base: 'w-auto min-w-[240px] max-w-[360px]',
-            title: 'truncate',
-            description: 'line-clamp-2',
-            content: 'min-w-0',
-          },
-        }}
-      />
-    </HeroUIProvider>
+    <I18nextProvider i18n={i18n}>
+      <HeroUIProvider>
+        <App />
+        <ToastProvider
+          placement="top-right"
+          toastOffset={16}
+          regionProps={{ className: 'z-[10050]' }}
+          toastProps={{
+            classNames: {
+              // 固定宽度，避免 toast 随内容长短在 240~360px 之间忽宽忽窄；三端统一
+              base: 'w-[360px]',
+              title: 'truncate',
+              description: 'line-clamp-2',
+              content: 'min-w-0',
+            },
+          }}
+        />
+      </HeroUIProvider>
+    </I18nextProvider>
   </React.StrictMode>
 );

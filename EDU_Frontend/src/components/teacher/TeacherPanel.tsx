@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Award, BookOpen, Bot, ClipboardCheck, ClipboardList, FolderGit, GraduationCap, LayoutDashboard, LogOut, ScrollText, ChevronLeft, ChevronRight, School2, Users2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import type { User } from '@/types';
 import LearningManagement from '@/components/admin/LearningManagement';
 import ProjectManagement from '@/components/admin/ProjectManagement';
@@ -21,21 +23,22 @@ interface TeacherPanelProps {
 }
 
 const TeacherPanel: React.FC<TeacherPanelProps> = ({ currentUser, onLogout }) => {
+  const { t } = useTranslation(['common', 'teacher']);
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const navItems = [
-    { id: 'dashboard', path: '/teacher/dashboard', label: '仪表盘', icon: LayoutDashboard },
-    { id: 'classes', path: '/teacher/classes', label: '班级管理', icon: Users2 },
-    { id: 'assignments', path: '/teacher/assignments', label: '作业任务', icon: ClipboardList },
-    { id: 'submissions', path: '/teacher/submissions', label: '批改队列', icon: ClipboardCheck },
-    { id: 'grades', path: '/teacher/grades', label: '成绩簿', icon: Award },
-    { id: 'agent-observatory', path: '/teacher/agent-observatory', label: 'Agent 观察台', icon: Bot },
-    { id: 'courses', path: '/teacher/courses', label: '课程管理', icon: BookOpen },
-    { id: 'projects', path: '/teacher/projects', label: '项目管理', icon: FolderGit },
-    { id: 'manuals', path: '/teacher/manuals', label: '实训手册', icon: ScrollText },
-    { id: 'students', path: '/teacher/students', label: '学生进度', icon: GraduationCap },
+    { id: 'dashboard', path: '/teacher/dashboard', label: t('teacher:dashboard'), icon: LayoutDashboard },
+    { id: 'classes', path: '/teacher/classes', label: t('teacher:classes'), icon: Users2 },
+    { id: 'assignments', path: '/teacher/assignments', label: t('teacher:assignments'), icon: ClipboardList },
+    { id: 'submissions', path: '/teacher/submissions', label: t('teacher:submissions'), icon: ClipboardCheck },
+    { id: 'grades', path: '/teacher/grades', label: t('teacher:grades'), icon: Award },
+    { id: 'agent-observatory', path: '/teacher/agent-observatory', label: t('teacher:observatory'), icon: Bot },
+    { id: 'courses', path: '/teacher/courses', label: t('teacher:courses'), icon: BookOpen },
+    { id: 'projects', path: '/teacher/projects', label: t('teacher:projects'), icon: FolderGit },
+    { id: 'manuals', path: '/teacher/manuals', label: t('teacher:manuals'), icon: ScrollText },
+    { id: 'students', path: '/teacher/students', label: t('teacher:students'), icon: GraduationCap },
   ] as const;
 
   useEffect(() => {
@@ -47,8 +50,8 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ currentUser, onLogout }) =>
   const active = navItems.find(item => location.pathname.startsWith(item.path))?.id || 'dashboard';
   const sidebarWidthClass = sidebarCollapsed ? 'w-20' : 'w-60';
   const mainOffsetClass = sidebarCollapsed ? 'ml-20' : 'ml-60';
-  const displayName = currentUser?.fullName || currentUser?.username || '教师';
-  const displayEmail = currentUser?.email || 'teacher@edu.com';
+  const displayName = currentUser?.fullName || currentUser?.username || t('teacher:fallbackName');
+  const displayEmail = currentUser?.email || t('teacher:fallbackEmail');
   const initials = displayName.slice(0, 2).toUpperCase();
 
   const handleLogout = () => {
@@ -67,15 +70,15 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ currentUser, onLogout }) =>
             {!sidebarCollapsed && (
               <div>
                 <div className="font-bold text-foreground">Agent EDU</div>
-                <div className="text-[10px] uppercase tracking-widest text-default-400">Teacher Portal</div>
+                <div className="text-[10px] uppercase tracking-widest text-default-400">{t('common:app.teacherPortalEn')}</div>
               </div>
             )}
           </div>
           <button
             onClick={() => setSidebarCollapsed(value => !value)}
             className={`${sidebarCollapsed ? 'absolute -right-3 top-5 bg-white shadow-md' : ''} flex h-7 w-7 items-center justify-center rounded-lg text-default-500 transition hover:bg-default-100 hover:text-foreground`}
-            aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
-            title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            aria-label={sidebarCollapsed ? t('common:actions.expandSidebar') : t('common:actions.collapseSidebar')}
+            title={sidebarCollapsed ? t('common:actions.expandSidebar') : t('common:actions.collapseSidebar')}
           >
             {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
@@ -102,14 +105,15 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ currentUser, onLogout }) =>
       <main className={`${mainOffsetClass} min-h-screen transition-[margin] duration-300`}>
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-default-200/60 bg-white/80 px-8 backdrop-blur-md">
           <div className="flex items-center text-sm text-default-500">
-            <span className="font-medium">教务端</span>
+            <span className="font-medium">{t('common:app.teacherPortal')}</span>
             <ChevronRight className="mx-2 h-4 w-4 text-default-300" />
             <span className="rounded-md bg-default-100/60 px-2 py-1 text-foreground">
-              {navItems.find(item => item.id === active)?.label || '仪表盘'}
+              {navItems.find(item => item.id === active)?.label || t('teacher:dashboard')}
             </span>
           </div>
           <div className="flex items-center gap-4">
             <div className="h-6 w-px bg-default-200" />
+            <LanguageSwitcher compact />
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">
                 {initials}
@@ -122,10 +126,10 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ currentUser, onLogout }) =>
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-danger-500 transition hover:bg-danger-50 hover:text-danger-600"
-              title="退出登录"
+              title={t('common:actions.logout')}
             >
               <LogOut className="h-4 w-4" />
-              <span className="hidden lg:inline">退出登录</span>
+              <span className="hidden lg:inline">{t('common:actions.logout')}</span>
             </button>
           </div>
         </header>

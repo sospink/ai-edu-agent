@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"edu-platform/internal/middleware"
-	apperrors "edu-platform/pkg/errors"
 	"edu-platform/pkg/pagination"
 	"edu-platform/pkg/response"
 )
@@ -80,12 +79,12 @@ func (h *Handler) List(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     users,
 		"total":    total,
 		"page":     q.Page,
 		"pageSize": q.PageSize,
-	}, "获取用户列表成功")
+	}, "user.listLoaded", nil)
 }
 
 func (h *Handler) StudentLeaderboard(c *gin.Context) {
@@ -107,23 +106,23 @@ func (h *Handler) StudentLeaderboard(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, items, "获取学习者排行成功")
+	response.SuccessKey(c, items, "user.leaderboardLoaded", nil)
 }
 
 func (h *Handler) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的用户ID")
+		response.BadRequestKey(c, "user.invalidId", nil)
 		return
 	}
 
 	currentUserID, roleType, ok := h.currentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	if currentUserID != id && roleType != int(RoleAdmin) {
-		_ = c.Error(apperrors.Forbidden("无权查看该用户信息"))
+		response.ForbiddenKey(c, "user.viewForbidden", nil)
 		return
 	}
 
@@ -132,13 +131,13 @@ func (h *Handler) Get(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, user, "获取用户成功")
+	response.SuccessKey(c, user, "user.detailLoaded", nil)
 }
 
 func (h *Handler) Create(c *gin.Context) {
 	var req createUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	user, err := h.service.Create(CreateParams{
@@ -157,30 +156,30 @@ func (h *Handler) Create(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, user, "用户创建成功")
+	response.CreatedKey(c, user, "user.created", nil)
 }
 
 func (h *Handler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的用户ID")
+		response.BadRequestKey(c, "user.invalidId", nil)
 		return
 	}
 
 	currentUserID, roleType, ok := h.currentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	isAdmin := roleType == int(RoleAdmin)
 	if currentUserID != id && !isAdmin {
-		_ = c.Error(apperrors.Forbidden("无权更新该用户信息"))
+		response.ForbiddenKey(c, "user.updateForbidden", nil)
 		return
 	}
 
 	var req updateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 
@@ -206,26 +205,26 @@ func (h *Handler) Update(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, user, "用户更新成功")
+	response.SuccessKey(c, user, "user.updated", nil)
 }
 
 func (h *Handler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的用户ID")
+		response.BadRequestKey(c, "user.invalidId", nil)
 		return
 	}
 	if err := h.service.Delete(id); err != nil {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "用户删除成功")
+	response.SuccessKey[any](c, nil, "user.deleted", nil)
 }
 
 func (h *Handler) UpdatePassword(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的用户ID")
+		response.BadRequestKey(c, "user.invalidId", nil)
 		return
 	}
 	var req struct {
@@ -233,25 +232,25 @@ func (h *Handler) UpdatePassword(c *gin.Context) {
 		NewPassword string `json:"newPassword"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	if claims.UserID != id && claims.RoleType != int(RoleAdmin) {
-		_ = c.Error(apperrors.Forbidden("无权修改该用户密码"))
+		response.ForbiddenKey(c, "user.passwordForbidden", nil)
 		return
 	}
 	if claims.UserID == id && (req.OldPassword == "" || req.NewPassword == "") {
-		response.BadRequest(c, "旧密码和新密码为必填项")
+		response.BadRequestKey(c, "user.passwordsRequired", nil)
 		return
 	}
 	if claims.UserID != id && req.NewPassword == "" {
-		response.BadRequest(c, "新密码不能为空")
+		response.BadRequestKey(c, "user.newPasswordRequired", nil)
 		return
 	}
 
@@ -261,38 +260,38 @@ func (h *Handler) UpdatePassword(c *gin.Context) {
 		return
 	}
 	if claims.UserID == id && !h.service.ValidatePassword(user, req.OldPassword) {
-		_ = c.Error(apperrors.BadRequest("旧密码错误"))
+		response.BadRequestKey(c, "user.oldPasswordInvalid", nil)
 		return
 	}
 	if err := h.service.UpdatePassword(id, req.NewPassword); err != nil {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "密码修改成功")
+	response.SuccessKey[any](c, nil, "user.passwordUpdated", nil)
 }
 
 func (h *Handler) Freeze(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的用户ID")
+		response.BadRequestKey(c, "user.invalidId", nil)
 		return
 	}
 	if err := h.service.Freeze(id); err != nil {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "用户已冻结")
+	response.SuccessKey[any](c, nil, "user.frozen", nil)
 }
 
 func (h *Handler) Activate(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.BadRequest(c, "无效的用户ID")
+		response.BadRequestKey(c, "user.invalidId", nil)
 		return
 	}
 	if err := h.service.Activate(id); err != nil {
 		_ = c.Error(err)
 		return
 	}
-	response.Success[any](c, nil, "用户已激活")
+	response.SuccessKey[any](c, nil, "user.activated", nil)
 }

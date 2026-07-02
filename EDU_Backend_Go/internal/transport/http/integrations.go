@@ -16,6 +16,7 @@ import (
 	"edu-platform/internal/domain/openclawview"
 	"edu-platform/internal/domain/operations"
 	"edu-platform/internal/infra/authz"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/response"
 )
 
@@ -37,7 +38,7 @@ func NewIntegrationsHandler(deps app.Dependencies, labService *lab.Service) *Int
 
 func (h *IntegrationsHandler) K8SHealth(c *gin.Context) {
 	if h.deps.K8S == nil {
-		response.Error(c, http.StatusServiceUnavailable, "K8S client 未启用", "K8S_DISABLED")
+		response.ErrorKey(c, http.StatusServiceUnavailable, "K8S_DISABLED", "integrations.k8sDisabled", nil)
 		return
 	}
 
@@ -46,23 +47,23 @@ func (h *IntegrationsHandler) K8SHealth(c *gin.Context) {
 
 	version, err := h.deps.K8S.Discovery().ServerVersion()
 	if err != nil {
-		response.Error(c, http.StatusServiceUnavailable, "K8S API 不可用: "+err.Error(), "K8S_UNAVAILABLE")
+		response.ErrorKeyWithDetail(c, http.StatusServiceUnavailable, "K8S_UNAVAILABLE", "integrations.k8sUnavailable", nil, err)
 		return
 	}
 
 	nsList, err := h.deps.K8S.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		response.Error(c, http.StatusServiceUnavailable, "K8S namespace 查询失败: "+err.Error(), "K8S_NAMESPACE_QUERY_FAILED")
+		response.ErrorKeyWithDetail(c, http.StatusServiceUnavailable, "K8S_NAMESPACE_QUERY_FAILED", "integrations.namespaceQueryFailed", nil, err)
 		return
 	}
 	exposure, exposureErr := h.inspectLabExposure(ctx)
 	if exposureErr != nil {
-		exposure = newLabExposureSummary(runtimeNamespace(h.deps))
+		exposure = newLabExposureSummary(c.Request.Context(), runtimeNamespace(h.deps))
 		exposure.Status = "warning"
-		exposure.Message = "Lab 暴露面扫描失败: " + exposureErr.Error()
+		exposure.Message = i18n.Message(c.Request.Context(), "integrations.exposureScanFailed", nil)
 	}
 
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"enabled":             true,
 		"serverVersion":       version.String(),
 		"gitVersion":          version.GitVersion,
@@ -71,12 +72,12 @@ func (h *IntegrationsHandler) K8SHealth(c *gin.Context) {
 		"namespaceCount":      len(nsList.Items),
 		"apiServer":           "connected",
 		"labExposure":         exposure,
-	}, "K8S 连接正常")
+	}, "integrations.k8sHealthy", nil)
 }
 
 func (h *IntegrationsHandler) ConfigSummary(c *gin.Context) {
 	cfg := h.deps.Config
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"configSources": gin.H{
 			"envFiles": cfg.LoadedEnvFiles,
 		},
@@ -151,37 +152,37 @@ func (h *IntegrationsHandler) ConfigSummary(c *gin.Context) {
 			"chatIDSet":    cfg.Feishu.ChatID != "",
 			"botOpenIDSet": cfg.Feishu.BotOpenID != "",
 		},
-	}, "配置摘要")
+	}, "integrations.configLoaded", nil)
 }
 
 func (h *IntegrationsHandler) OpenClawHealth(c *gin.Context) {
 	if h.openclawView == nil {
-		response.Error(c, http.StatusServiceUnavailable, "OpenClaw 健康检查服务未初始化", "OPENCLAW_HEALTH_UNAVAILABLE")
+		response.ErrorKey(c, http.StatusServiceUnavailable, "OPENCLAW_HEALTH_UNAVAILABLE", "integrations.openclawUnavailable", nil)
 		return
 	}
 
 	data, err := h.openclawView.GetOpenClawHealth(c.Request.Context())
 	if err != nil {
-		response.Error(c, resolveIntegrationStatus(err), "OpenClaw 健康检查失败: "+err.Error(), "OPENCLAW_HEALTH_FAILED")
+		response.ErrorKeyWithDetail(c, resolveIntegrationStatus(err), "OPENCLAW_HEALTH_FAILED", "integrations.openclawFailed", nil, err)
 		return
 	}
 
-	response.Success(c, data, "OpenClaw 连接正常")
+	response.SuccessKey(c, data, "integrations.openclawHealthy", nil)
 }
 
 func (h *IntegrationsHandler) FeishuHealth(c *gin.Context) {
 	if h.openclawView == nil {
-		response.Error(c, http.StatusServiceUnavailable, "飞书健康检查服务未初始化", "FEISHU_HEALTH_UNAVAILABLE")
+		response.ErrorKey(c, http.StatusServiceUnavailable, "FEISHU_HEALTH_UNAVAILABLE", "integrations.feishuUnavailable", nil)
 		return
 	}
 
 	data, err := h.openclawView.GetFeishuHealth(c.Request.Context())
 	if err != nil {
-		response.Error(c, resolveIntegrationStatus(err), "飞书健康检查失败: "+err.Error(), "FEISHU_HEALTH_FAILED")
+		response.ErrorKeyWithDetail(c, resolveIntegrationStatus(err), "FEISHU_HEALTH_FAILED", "integrations.feishuFailed", nil, err)
 		return
 	}
 
-	response.Success(c, data, "飞书连接正常")
+	response.SuccessKey(c, data, "integrations.feishuHealthy", nil)
 }
 
 func resolveIntegrationStatus(err error) int {
@@ -207,7 +208,7 @@ func (h *IntegrationsHandler) RBACPolicies(c *gin.Context) {
 	policyPath := authz.ResolveConfigPath("rbac_policy.csv")
 	file, err := os.Open(policyPath)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "读取权限策略失败: "+err.Error(), "RBAC_POLICY_READ_FAILED")
+		response.ErrorKeyWithDetail(c, http.StatusInternalServerError, "RBAC_POLICY_READ_FAILED", "integrations.rbacReadFailed", nil, err)
 		return
 	}
 	defer file.Close()
@@ -217,7 +218,7 @@ func (h *IntegrationsHandler) RBACPolicies(c *gin.Context) {
 	reader.FieldsPerRecord = -1
 	records, err := reader.ReadAll()
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "解析权限策略失败: "+err.Error(), "RBAC_POLICY_PARSE_FAILED")
+		response.ErrorKeyWithDetail(c, http.StatusInternalServerError, "RBAC_POLICY_PARSE_FAILED", "integrations.rbacParseFailed", nil, err)
 		return
 	}
 
@@ -271,10 +272,10 @@ func (h *IntegrationsHandler) RBACPolicies(c *gin.Context) {
 		roles = append(roles, role)
 	}
 
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"roles":       roles,
 		"policies":    policies,
 		"inheritance": inheritance,
 		"policyPath":  policyPath,
-	}, "获取权限策略成功")
+	}, "integrations.rbacLoaded", nil)
 }

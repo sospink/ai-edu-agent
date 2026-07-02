@@ -1,5 +1,6 @@
 import { api } from './api';
 import type { ApiResponse } from '@/types';
+import i18n from '@/i18n';
 
 export type LearningMilestoneType = 'courses' | 'lessons' | 'streak';
 
@@ -43,9 +44,9 @@ export const emptyLearningOverview: LearningOverview = {
   currentStreakDays: 0,
   activeDaysLast7: 0,
   milestones: [
-    { type: 'courses', label: '完成 3 个课程', current: 0, target: 3 },
-    { type: 'lessons', label: '完成 10 个课时', current: 0, target: 10 },
-    { type: 'streak', label: '连续学习 7 天', current: 0, target: 7 },
+    { type: 'courses', label: i18n.t('student:milestones.courses', { count: 3 }), current: 0, target: 3 },
+    { type: 'lessons', label: i18n.t('student:milestones.lessons', { count: 10 }), current: 0, target: 10 },
+    { type: 'streak', label: i18n.t('student:milestones.streak', { count: 7 }), current: 0, target: 7 },
   ],
   outcomeSummary: {
     submittedAssignments: 0,

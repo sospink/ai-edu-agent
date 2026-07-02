@@ -160,18 +160,6 @@ export const getLevelBg = (level: SkillLevel): string => {
   }
 };
 
-// 获取等级中文名
-export const getLevelName = (level: SkillLevel): string => {
-  switch (level) {
-    case 'Beginner':
-      return '初级';
-    case 'Intermediate':
-      return '中级';
-    case 'Advanced':
-      return '高级';
-  }
-};
-
 // 难度转等级
 export const difficultyToLevel = (difficulty: CourseDifficulty): SkillLevel => {
   switch (difficulty) {
@@ -183,20 +171,6 @@ export const difficultyToLevel = (difficulty: CourseDifficulty): SkillLevel => {
       return 'Advanced';
     default:
       return 'Beginner';
-  }
-};
-
-// 难度中文名
-export const getDifficultyName = (difficulty: CourseDifficulty): string => {
-  switch (difficulty) {
-    case CourseDifficulty.BEGINNER:
-      return '初级';
-    case CourseDifficulty.INTERMEDIATE:
-      return '中级';
-    case CourseDifficulty.ADVANCED:
-      return '高级';
-    default:
-      return '初级';
   }
 };
 
@@ -213,22 +187,6 @@ export const lessonTypeToString = (type: LessonType): CourseType => {
       return 'text';
     default:
       return 'lab';
-  }
-};
-
-// 课时类型中文名
-export const getLessonTypeName = (type: LessonType): string => {
-  switch (type) {
-    case LessonType.LAB:
-      return '实验';
-    case LessonType.CHALLENGE:
-      return '挑战';
-    case LessonType.QUIZ:
-      return '测验';
-    case LessonType.TEXT:
-      return '文本';
-    default:
-      return '实验';
   }
 };
 
@@ -249,18 +207,4 @@ export const levelLabelToLevel = (label: string): SkillLevel => {
   if (upperLabel.includes('INTERMEDIATE')) return 'Intermediate';
   if (upperLabel.includes('ADVANCED')) return 'Advanced';
   return 'Beginner';
-};
-
-// 状态中文名
-export const getStatusName = (status: CourseStatus): string => {
-  switch (status) {
-    case CourseStatus.DRAFT:
-      return '草稿';
-    case CourseStatus.PUBLISHED:
-      return '已发布';
-    case CourseStatus.ARCHIVED:
-      return '已下架';
-    default:
-      return '未知';
-  }
 };

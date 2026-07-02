@@ -14,6 +14,7 @@ import (
 	"edu-platform/internal/domain/operations"
 	"edu-platform/internal/domain/user"
 	apperrors "edu-platform/pkg/errors"
+	"edu-platform/pkg/i18n"
 )
 
 const (
@@ -72,7 +73,7 @@ func (s *Service) SuggestFeedback(ctx context.Context, actorID uint64, roleType 
 	}
 	evidence := s.feedbackEvidence(detail)
 	prompt := s.feedbackPrompt(detail, evidence)
-	return s.generateSuggestion(ctx, actorID, AIActionSuggestFeedback, AISuggestionTypeFeedbackDraft, AISourceTypeSubmission, submissionID, "提交反馈草稿", prompt, evidence)
+	return s.generateSuggestion(ctx, actorID, AIActionSuggestFeedback, AISuggestionTypeFeedbackDraft, AISourceTypeSubmission, submissionID, i18n.T(ctx, "提交反馈草稿"), prompt, evidence)
 }
 
 func (s *Service) AssignmentSummary(ctx context.Context, actorID uint64, roleType int, assignmentID, classID uint64) (*AISuggestion, error) {
@@ -92,7 +93,7 @@ func (s *Service) AssignmentSummary(ctx context.Context, actorID uint64, roleTyp
 	if err != nil {
 		return nil, err
 	}
-	return s.generateSuggestion(ctx, actorID, AIActionAssignmentSummary, AISuggestionTypeAssignmentSummary, AISourceTypeAssignment, assignmentID, "作业提交摘要", prompt, evidence)
+	return s.generateSuggestion(ctx, actorID, AIActionAssignmentSummary, AISuggestionTypeAssignmentSummary, AISourceTypeAssignment, assignmentID, i18n.T(ctx, "作业提交摘要"), prompt, evidence)
 }
 
 func (s *Service) WeaknessDiagnosis(ctx context.Context, actorID uint64, roleType int, studentID, classID uint64) (*AISuggestion, error) {
@@ -106,7 +107,7 @@ func (s *Service) WeaknessDiagnosis(ctx context.Context, actorID uint64, roleTyp
 	if err != nil {
 		return nil, err
 	}
-	return s.generateSuggestion(ctx, actorID, AIActionWeaknessDiagnosis, AISuggestionTypeWeaknessDiagnosis, AISourceTypeStudent, studentID, "学生薄弱点诊断", prompt, evidence)
+	return s.generateSuggestion(ctx, actorID, AIActionWeaknessDiagnosis, AISuggestionTypeWeaknessDiagnosis, AISourceTypeStudent, studentID, i18n.T(ctx, "学生薄弱点诊断"), prompt, evidence)
 }
 
 func (s *Service) UpdateAISuggestion(ctx context.Context, actorID uint64, roleType int, suggestionID uint64, action string) (*AISuggestion, error) {
@@ -169,7 +170,7 @@ func (s *Service) generateSuggestion(ctx context.Context, actorID uint64, action
 	if err := s.ensureAICanGenerate(ctx, actorID, action, sourceType, sourceID); err != nil {
 		return nil, err
 	}
-	result, err := s.aiClient.Complete(ctx, teacherAISystemPrompt(), userPrompt)
+	result, err := s.aiClient.Complete(ctx, teacherAISystemPrompt(ctx), userPrompt)
 	if err != nil {
 		_, _ = s.recordAIRequest(ctx, AIRequest{
 			ActorID: actorID, Action: action, SourceType: sourceType, SourceID: sourceID,
@@ -532,8 +533,11 @@ func (s *Service) ensureTeacherCanDiagnoseStudent(ctx context.Context, actorID u
 	return nil
 }
 
-func teacherAISystemPrompt() string {
-	return "你是教学平台里的 AI 教师助手，只能帮助教师生成草稿和诊断摘要。你不能自动评分，不能发布成绩，不能直接面向学生输出。所有输出必须是中文。"
+func teacherAISystemPrompt(ctx context.Context) string {
+	if i18n.LocaleFromContext(ctx) == i18n.LocaleEnUS {
+		return "You are the AI teacher assistant inside an education platform. You may only help teachers generate drafts and diagnostic summaries. You must not grade automatically, publish grades, or output directly to students. " + i18n.LanguageInstruction(ctx)
+	}
+	return "你是教学平台里的 AI 教师助手，只能帮助教师生成草稿和诊断摘要。你不能自动评分，不能发布成绩，不能直接面向学生输出。" + i18n.LanguageInstruction(ctx)
 }
 
 func truncateAIText(value string, limit int) (string, bool) {

@@ -29,6 +29,7 @@ import {
   LabSourceType,
 } from '@/services/lab';
 import { courseApi } from '@/services/course';
+import { useTranslation } from 'react-i18next';
 
 // 懒加载 WebTerminal 组件
 const WebTerminal = lazy(() => import('./WebTerminal'));
@@ -75,13 +76,14 @@ const BootSequence: React.FC<BootSequenceProps> = ({
   sourceId,
   onSessionCreated,
 }) => {
+  const { t } = useTranslation('lab');
   const [progress, setProgress] = useState(0);
   const [steps, setSteps] = useState<BootStep[]>([
-    { id: 1, text: '正在分配云端计算资源 (Allocating Resources)...', status: 'pending' },
-    { id: 2, text: '正在拉取环境镜像 (Docker Image)...', status: 'waiting' },
-    { id: 3, text: '正在启动容器实例 (Container)...', status: 'waiting' },
-    { id: 4, text: '正在配置网络端口 (VNC/IDE/App Ports)...', status: 'waiting' },
-    { id: 5, text: '正在建立安全连接 (Secure Tunnel)...', status: 'waiting' },
+    { id: 1, text: t('boot.allocating'), status: 'pending' },
+    { id: 2, text: t('boot.pulling'), status: 'waiting' },
+    { id: 3, text: t('boot.starting'), status: 'waiting' },
+    { id: 4, text: t('boot.networking'), status: 'waiting' },
+    { id: 5, text: t('boot.connecting'), status: 'waiting' },
   ]);
 
   useEffect(() => {
@@ -124,7 +126,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
           setTimeout(onComplete, 500);
         } else {
           setSteps((prev) => prev.map((s, idx) => (idx === 2 ? { ...s, status: 'error' } : s)));
-          const errorMsg = response.error || '创建实验环境失败';
+          const errorMsg = response.error || t('createFailed');
           
           // 检查是否是会话冲突错误
           if (isSessionConflictError(errorMsg)) {
@@ -137,7 +139,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
         if (!isMounted) return;
         setSteps((prev) => prev.map((s, idx) => (idx === 2 ? { ...s, status: 'error' } : s)));
         // 检查是否是认证错误
-        const errorMsg = err?.response?.data?.error || err?.message || '网络错误，请稍后重试';
+        const errorMsg = err?.response?.data?.error || err?.message || t('networkError');
         
         // 检查是否是会话冲突错误
         if (isSessionConflictError(errorMsg)) {
@@ -174,7 +176,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
             <FlaskConical className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Agent EDU Lab</h1>
-          <p className="text-slate-500 mt-1 font-mono text-xs">Environment Initialization</p>
+          <p className="text-slate-500 mt-1 font-mono text-xs">{t('boot.initialization')}</p>
         </motion.div>
 
         <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-8 relative">
@@ -240,7 +242,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded"
                 >
-                  DONE
+                  {t('done', { ns: 'uiReview' })}
                 </motion.span>
               )}
               {step.status === 'error' && (
@@ -249,7 +251,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded"
                 >
-                  ERROR
+                  {t('error', { ns: 'uiReview' })}
                 </motion.span>
               )}
             </motion.div>
@@ -258,7 +260,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
       </div>
 
       <div className="absolute bottom-8 text-xs text-slate-600 font-mono">
-        ID: env-{sourceId}-{sourceType === LabSourceType.COURSE ? 'course' : 'project'} • Region:
+        ID: env-{sourceId}-{sourceType === LabSourceType.COURSE ? 'course' : 'project'} • {t('region', { ns: 'uiReview' })}:
         local
       </div>
     </motion.div>
@@ -303,10 +305,11 @@ const buildIframeRetryUrl = (rawUrl: string, retryCount: number): string => {
 };
 
 const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, description }) => {
+  const { t } = useTranslation('lab');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [loadingText, setLoadingText] = useState('正在连接...');
+  const [loadingText, setLoadingText] = useState(t('connecting'));
   const initStartedAtRef = useRef<number>(Date.now());
   const retryTimerRef = useRef<number | null>(null);
   const noVNCWatchdogRef = useRef<number | null>(null);
@@ -329,7 +332,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
     setLoading(true);
     setError(false);
     setRetryCount(0);
-    setLoadingText('正在连接...');
+    setLoadingText(t('connecting'));
     initStartedAtRef.current = Date.now();
     clearNoVNCWatchdog();
 
@@ -347,7 +350,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
     if (elapsed < MAX_INIT_WAIT_MS) {
       setError(false);
       setLoading(true);
-      setLoadingText('环境初始化中，正在等待服务启动...');
+      setLoadingText(t('waitingService'));
 
       if (retryTimerRef.current) {
         window.clearTimeout(retryTimerRef.current);
@@ -390,7 +393,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
 
         setError(false);
         setLoading(true);
-        setLoadingText('noVNC 连接仍未完成，正在重新建立代理连接...');
+        setLoadingText(t('reconnectingVnc'));
         setRetryCount((prev) => prev + 1);
       } catch {
         // iframe 为同源代理时可读；若浏览器限制读取，则保持当前连接状态，不额外打断用户。
@@ -409,7 +412,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
           <p className="text-slate-500 text-sm mb-2">{description}</p>
           <p className="text-slate-400 text-xs mb-4">
             {loadingText}
-            {retryCount > 0 ? `（重试 ${retryCount}）` : ''}
+            {retryCount > 0 ? t('retryCount', { count: retryCount }) : ''}
           </p>
           <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
         </div>
@@ -417,8 +420,8 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
       {error && (
         <div className="absolute inset-0 bg-[#1e1e1e] flex flex-col items-center justify-center z-10">
           <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-          <h2 className="text-xl font-bold text-slate-200 mb-2">连接失败</h2>
-          <p className="text-slate-500 text-sm mb-4">无法连接到 {title}</p>
+          <h2 className="text-xl font-bold text-slate-200 mb-2">{t('connectionFailed')}</h2>
+          <p className="text-slate-500 text-sm mb-4">{t('cannotConnect', { title })}</p>
           <a
             href={frameUrl}
             target="_blank"
@@ -426,7 +429,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
           >
             <ExternalLink className="w-4 h-4" />
-            在新窗口打开
+            {t('openNewWindow')}
           </a>
         </div>
       )}
@@ -505,6 +508,7 @@ const LabHeader: React.FC<LabHeaderProps> = ({
   onComplete,
   completing,
 }) => {
+  const { t } = useTranslation('lab');
   const tabs: Array<{ id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [];
   if (hasDesktop) {
     tabs.push({ id: 'desktop', label: 'Desktop', icon: Monitor });
@@ -544,7 +548,7 @@ const LabHeader: React.FC<LabHeaderProps> = ({
           className="h-full px-4 text-slate-400 hover:text-white hover:bg-[#333] transition-colors border-r border-white/5 flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-xs">返回</span>
+          <span className="text-xs">{t('back')}</span>
         </button>
         {tabs.map((tab) => (
           <TabButton
@@ -575,24 +579,24 @@ const LabHeader: React.FC<LabHeaderProps> = ({
         <div className="hidden lg:flex items-center gap-3 mr-2 border-r border-white/5 pr-4">
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
             <Cpu className="w-3 h-3" />
-            <span>Active</span>
+            <span>{t('active')}</span>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-emerald-500">
             <Wifi className="w-3 h-3" />
-            <span>Connected</span>
+            <span>{t('connected')}</span>
           </div>
         </div>
 
         <button
           className="text-slate-400 hover:text-white transition-colors"
-          title="Help"
+          title={t('help')}
           onClick={onHelp}
         >
           <HelpCircle className="w-4 h-4" />
         </button>
         <button
           className="text-slate-400 hover:text-white transition-colors"
-          title="Refresh"
+          title={t('refresh')}
           onClick={() => window.location.reload()}
         >
           <RefreshCw className="w-4 h-4" />
@@ -602,10 +606,10 @@ const LabHeader: React.FC<LabHeaderProps> = ({
           <button
             onClick={onOpenWorkbench}
             className="flex items-center gap-2 rounded bg-[#1f3a2a] px-3 py-1 text-xs font-bold text-emerald-300 transition-colors hover:bg-[#254633] hover:text-emerald-200"
-            title="打开 OpenClaw 工作台"
+            title={t('openWorkbench')}
           >
             <ExternalLink className="w-3 h-3" />
-            工作台
+            {t('workbench')}
           </button>
         )}
         
@@ -618,12 +622,12 @@ const LabHeader: React.FC<LabHeaderProps> = ({
           {completing ? (
             <>
               <Loader2 className="w-3 h-3 animate-spin" />
-              提交中...
+              {t('submitting')}
             </>
           ) : (
             <>
               <CheckCircle2 className="w-3 h-3" />
-              完成实验
+              {t('completeLab')}
             </>
           )}
         </button>
@@ -641,6 +645,7 @@ interface SessionConflictModalProps {
 }
 
 const SessionConflictModal: React.FC<SessionConflictModalProps> = ({ onClose, onConfirm, loading }) => {
+  const { t } = useTranslation('lab');
   return (
     <motion.div
       className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center"
@@ -659,13 +664,13 @@ const SessionConflictModal: React.FC<SessionConflictModalProps> = ({ onClose, on
             <AlertCircle className="w-6 h-6 text-amber-500" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">检测到已有实验环境</h3>
-            <p className="text-sm text-slate-400">需要先关闭现有环境</p>
+            <h3 className="text-lg font-bold text-white">{t('conflictTitle')}</h3>
+            <p className="text-sm text-slate-400">{t('conflictSubtitle')}</p>
           </div>
         </div>
         
         <p className="text-slate-300 text-sm mb-6">
-          当前账号已有正在创建或运行中的实验环境。是否关闭现有环境并创建新的实验环境？
+          {t('conflictDesc')}
         </p>
         
         <div className="flex gap-3 justify-end">
@@ -674,7 +679,7 @@ const SessionConflictModal: React.FC<SessionConflictModalProps> = ({ onClose, on
             disabled={loading}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 rounded-lg text-sm font-medium transition-colors text-white"
           >
-            取消
+            {t('cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -684,10 +689,10 @@ const SessionConflictModal: React.FC<SessionConflictModalProps> = ({ onClose, on
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                正在关闭...
+                {t('stopping')}
               </>
             ) : (
-              '关闭并重新创建'
+              t('stopAndCreate')
             )}
           </button>
         </div>
@@ -707,6 +712,7 @@ interface ErrorPageProps {
 }
 
 const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin, onResolveConflict, resolvingConflict }) => {
+  const { t } = useTranslation('lab');
   // 检查是否是认证相关错误
   const isAuthError = error.includes('认证') || error.includes('登录') || error.includes('令牌') || error.includes('token');
   const isConflictError = isSessionConflictError(error);
@@ -717,11 +723,11 @@ const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin, 
         <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/20 flex items-center justify-center">
           <AlertCircle className="w-10 h-10 text-red-500" />
         </div>
-        <h1 className="text-2xl font-bold mb-2">{isAuthError ? '请先登录' : '启动失败'}</h1>
-        <p className="text-slate-400 mb-6">{isAuthError ? '访问实验环境需要登录账号' : error}</p>
+        <h1 className="text-2xl font-bold mb-2">{isAuthError ? t('loginRequired') : t('launchFailed')}</h1>
+        <p className="text-slate-400 mb-6">{isAuthError ? t('loginRequiredDesc') : error}</p>
         {isConflictError && (
           <p className="text-xs leading-relaxed text-slate-500 mb-6">
-            可以直接关闭当前账号名下正在创建或运行的旧环境，然后重新启动本实验。
+            {t('conflictHint')}
           </p>
         )}
         <div className="flex gap-3 justify-center">
@@ -729,14 +735,14 @@ const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin, 
             onClick={onBack}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition-colors"
           >
-            返回
+            {t('back')}
           </button>
           {isAuthError && onLogin ? (
             <button
               onClick={onLogin}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors"
             >
-              去登录
+              {t('goLogin')}
             </button>
           ) : isConflictError && onResolveConflict ? (
             <button
@@ -745,14 +751,14 @@ const ErrorPage: React.FC<ErrorPageProps> = ({ error, onRetry, onBack, onLogin, 
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2"
             >
               {resolvingConflict && <Loader2 className="w-4 h-4 animate-spin" />}
-              关闭旧环境并重试
+              {t('resolveAndRetry')}
             </button>
           ) : (
             <button
               onClick={onRetry}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors"
             >
-              重试
+              {t('retry')}
             </button>
           )}
         </div>
@@ -767,6 +773,7 @@ interface LabPageProps {
 
 // --- 主组件 ---
 const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
+  const { t } = useTranslation('lab');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -958,7 +965,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   useEffect(() => {
     // 如果未登录，直接显示错误
     if (!isLoggedIn) {
-      setError('未提供认证令牌');
+      setError(t('authTokenMissing'));
       setIsBooting(false);
       return;
     }
@@ -1013,7 +1020,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     if (sourceId > 0) {
       checkActiveSession();
     } else {
-      setError('缺少必要参数');
+      setError(t('missingRequiredParams'));
       setIsBooting(false);
     }
   }, [sourceId, sourceType, isLoggedIn]);
@@ -1055,7 +1062,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
       }
 
       if (cancelled) return;
-      alert('实验时间已到，实验已自动结束。');
+      alert(t('timeExpired'));
       exitLabPage();
     };
 
@@ -1081,7 +1088,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
         exitLabPage();
         return;
       }
-      alert('课时ID无效，无法完成实验');
+      alert(t('invalidLesson'));
       console.error('[LabPage] 无效的lessonId:', lessonId);
       return;
     }
@@ -1094,7 +1101,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     const token = localStorage.getItem('authToken');
     
     if (!token) {
-      alert('请先登录后再完成实验');
+      alert(t('loginBeforeComplete'));
       return;
     }
 
@@ -1113,7 +1120,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
           success = true;
         } else {
           console.error('[LabPage] 完成实验失败:', response.error);
-          alert(response.error || '完成实验失败');
+          alert(response.error || t('completeFailed'));
         }
       }
       
@@ -1127,7 +1134,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
       }
     } catch (err) {
       console.error('[LabPage] 完成实验异常:', err);
-      alert('网络错误，请稍后重试');
+      alert(t('networkError'));
     } finally {
       setCompleting(false);
     }
@@ -1154,8 +1161,8 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   };
 
   const handleHelp = useCallback(() => {
-    alert('操作提示：\n1. 点击“完成实验”将提交并关闭当前实验。\n2. 顶部倒计时结束后会自动停止实验并退出。\n3. 需要刷新终端会话可使用右上角刷新按钮。');
-  }, []);
+    alert(t('helpText'));
+  }, [t]);
 
   // 重试
   const handleRetry = () => {
@@ -1212,7 +1219,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
 
       const stopResponse = await labApi.stopSession(sessionToStop.id);
       if (!stopResponse.success) {
-        setError(stopResponse.error || '关闭现有环境失败');
+        setError(stopResponse.error || t('stopFailed'));
         setShowConflictModal(false);
         setConflictLoading(false);
         return;
@@ -1224,7 +1231,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
       setIsBooting(true);
       setRetryKey((k) => k + 1);
     } catch (err: any) {
-      setError(err?.message || '操作失败');
+      setError(err?.message || t('operationFailed'));
       setShowConflictModal(false);
       setConflictLoading(false);
     }
@@ -1246,7 +1253,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   if (!sourceId || sourceId <= 0) {
     return (
       <ErrorPage
-        error="缺少必要参数，请从课程或项目页面进入实验环境"
+        error={t('missingParams')}
         onRetry={() => navigate(-1)}
         onBack={() => navigate(-1)}
       />
@@ -1326,7 +1333,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
                   url={urls.vncUrl}
                   title="Ubuntu Desktop"
                   icon={Monitor}
-                  description="通过 noVNC 连接到 Ubuntu 桌面环境"
+                  description={t('desktopDesc')}
                 />
               </div>
             )}
@@ -1385,19 +1392,19 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
                       url={gatewayFrameUrl}
                       title="OpenClaw Gateway"
                       icon={Globe}
-                      description="OpenClaw 控制台（首次访问需输入 Gateway Token）"
+                      description={t('gatewayDesc')}
                     />
                     {urls.gatewayToken && (
                       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur border border-white/10 text-xs">
-                        <span className="text-slate-300">Gateway Token:</span>
+                        <span className="text-slate-300">{t('gatewayToken', { ns: 'uiReview' })}:</span>
                         <code className="text-emerald-300">{maskToken(urls.gatewayToken)}</code>
                         <button
                           onClick={() => copyGatewayToken(urls.gatewayToken || '')}
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-200"
-                          title="复制完整 Token"
+                          title={t('copyToken')}
                         >
                           {copiedGatewayToken ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                          {copiedGatewayToken ? '已复制' : '复制'}
+                          {copiedGatewayToken ? t('copied') : t('copy')}
                         </button>
                       </div>
                     )}
@@ -1405,7 +1412,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
                 ) : (
                   <div className="w-full h-full bg-[#1e1e1e] flex flex-col items-center justify-center gap-3 text-slate-300">
                     <AlertCircle className="w-8 h-8 text-amber-400" />
-                    <p className="text-sm">Gateway 地址尚未就绪，请稍后刷新重试。</p>
+                    <p className="text-sm">{t('gatewayPending')}</p>
                   </div>
                 )}
               </div>
@@ -1437,12 +1444,12 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
                     url={selectedAppUrl.url}
                     title={selectedAppUrl.label || selectedAppUrl.name}
                     icon={Globe}
-                    description={`容器端口 ${selectedAppUrl.containerPort} · Service ${selectedAppUrl.servicePort}`}
+                    description={t('portDesc', { containerPort: selectedAppUrl.containerPort, servicePort: selectedAppUrl.servicePort })}
                   />
                 ) : (
                   <div className="w-full h-full bg-[#1e1e1e] flex flex-col items-center justify-center gap-3 text-slate-300">
                     <AlertCircle className="w-8 h-8 text-amber-400" />
-                    <p className="text-sm">当前模板没有可访问的应用端口。</p>
+                    <p className="text-sm">{t('noPorts')}</p>
                   </div>
                 )}
               </div>
@@ -1459,10 +1466,10 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
                     <button
                       onClick={handleRefreshOpencode}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-black/70 hover:bg-black/80 border border-white/10 text-slate-200 text-xs"
-                      title="刷新 Opencode 会话（重新加载 Skills）"
+                      title={t('refreshOpenCode')}
                     >
                       <RefreshCw className="w-3 h-3" />
-                      刷新 Opencode
+                      {t('refreshOpenCodeAction')}
                     </button>
                   </div>
                 )}
@@ -1497,7 +1504,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
                   url={urls.ideUrl}
                   title="WebIDE"
                   icon={Code2}
-                  description="在线代码编辑器"
+                  description={t('ideDesc')}
                 />
               </div>
             )}
@@ -1506,7 +1513,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
           <div className="h-6 bg-[#007acc] text-white flex items-center justify-between px-3 text-[10px] font-sans select-none">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5 cursor-pointer hover:bg-white/10 px-1 rounded">
-                <Activity className="w-3 h-3" /> Container: {session.containerName}
+                <Activity className="w-3 h-3" /> {t('container', { ns: 'uiReview' })}: {session.containerName}
               </span>
               <span className="flex items-center gap-1.5 cursor-pointer hover:bg-white/10 px-1 rounded">
                 <Wifi className="w-3 h-3" /> noVNC:{session.vncPort} | SSH:{session.sshPort}
@@ -1516,10 +1523,10 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
             </div>
             <div className="flex items-center gap-4">
               <span className="hover:bg-white/10 px-1 rounded cursor-pointer">
-                Image: {session.imageName}
+                {t('image', { ns: 'uiReview' })}: {session.imageName}
               </span>
               <span className="hover:bg-white/10 px-1 rounded cursor-pointer">
-                Status: {session.status === LabSessionStatus.RUNNING ? 'Running' : 'Unknown'}
+                {t('status', { ns: 'uiReview' })}: {session.status === LabSessionStatus.RUNNING ? t('running', { ns: 'uiReview' }) : t('unknown', { ns: 'uiReview' })}
               </span>
             </div>
           </div>
@@ -1545,7 +1552,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
                 return {
                   output: '',
                   exitCode: 1,
-                  error: result.error || '执行失败',
+                  error: result.error || t('executeFailed'),
                 };
               }}
             />

@@ -1,6 +1,8 @@
 package lab
 
 import (
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -56,6 +58,48 @@ func TestRewriteVNCWebsockifyAuthPreservesAbsoluteProxyPath(t *testing.T) {
 	}
 }
 
+func TestRewriteLocationMapsK8SServiceProxyRedirects(t *testing.T) {
+	headers := mapHeader("Location", "/api/v1/namespaces/edu-runtime-overseas/services/lab-service-230:ide/proxy/")
+
+	rewriteLocation(headers, "/api/lab/proxy/230/ide")
+
+	if got := headers.Get("Location"); got != "/api/lab/proxy/230/ide/" {
+		t.Fatalf("expected IDE redirect to stay under proxy base, got %q", got)
+	}
+}
+
+func TestRewriteLocationPreservesK8SServiceProxyQuery(t *testing.T) {
+	headers := mapHeader("Location", "/api/v1/namespaces/edu-runtime-overseas/services/lab-service-230:ide/proxy/?folder=%2Fworkspace")
+
+	rewriteLocation(headers, "/api/lab/proxy/230/ide")
+
+	if got := headers.Get("Location"); got != "/api/lab/proxy/230/ide/?folder=%2Fworkspace" {
+		t.Fatalf("expected IDE redirect query to be preserved, got %q", got)
+	}
+}
+
+func TestRewriteProxyResponseBodyMapsK8SServiceProxyAssets(t *testing.T) {
+	body := `<link href="/api/v1/namespaces/edu-runtime-overseas/services/lab-service-231:ide/proxy/stable/static/out/vs/code/browser/workbench/workbench.css">`
+	resp := &http.Response{
+		Header: http.Header{"Content-Type": []string{"text/html; charset=utf-8"}},
+		Body:   io.NopCloser(strings.NewReader(body)),
+	}
+
+	rewriteProxyResponseBody(resp, "/api/v1/namespaces/edu-runtime-overseas/services/lab-service-231:ide/proxy", "/api/lab/proxy/231/ide")
+
+	rewritten, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read rewritten body: %v", err)
+	}
+	got := string(rewritten)
+	if strings.Contains(got, "/api/v1/namespaces/") {
+		t.Fatalf("expected internal K8S path to be removed, got %q", got)
+	}
+	if !strings.Contains(got, `/api/lab/proxy/231/ide/stable/static/out/vs/code/browser/workbench/workbench.css`) {
+		t.Fatalf("expected asset path to use lab proxy, got %q", got)
+	}
+}
+
 func TestBuildURLsIncludesAppURLsAndHandlesNilSnapshot(t *testing.T) {
 	service := &Service{}
 	empty := service.BuildURLs(&UserLabSession{ID: 144, RuntimeMode: RuntimeModeClassic})
@@ -83,6 +127,12 @@ func TestBuildURLsIncludesAppURLsAndHandlesNilSnapshot(t *testing.T) {
 	if !appURL.IsDefault {
 		t.Fatal("expected app url to be default")
 	}
+}
+
+func mapHeader(key, value string) http.Header {
+	headers := http.Header{}
+	headers.Set(key, value)
+	return headers
 }
 
 func TestRuntimePortsIncludeAppNamedPorts(t *testing.T) {

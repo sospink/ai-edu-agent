@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@heroui/react';
 import { AlertCircle, Lightbulb, X, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface VerificationErrorProps {
   message: string;
@@ -15,6 +16,7 @@ export const VerificationError: React.FC<VerificationErrorProps> = ({
   onGetSuggestion,
   onDismiss,
 }) => {
+  const { t } = useTranslation('agent');
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
 
@@ -24,7 +26,7 @@ export const VerificationError: React.FC<VerificationErrorProps> = ({
       const result = await onGetSuggestion();
       setSuggestion(result);
     } catch (err) {
-      setSuggestion('暂时无法获取建议，请检查操作步骤是否正确。');
+      setSuggestion(t('suggestionUnavailable'));
     } finally {
       setLoading(false);
     }
@@ -63,7 +65,7 @@ export const VerificationError: React.FC<VerificationErrorProps> = ({
             className="w-full"
           >
             <Lightbulb size={14} />
-            获取 AI 建议
+            {t('getSuggestion')}
           </Button>
         </div>
       )}
@@ -71,7 +73,7 @@ export const VerificationError: React.FC<VerificationErrorProps> = ({
       {loading && (
         <div className="px-3 pb-3 flex items-center gap-2 text-sm text-default-500">
           <Loader2 size={14} className="animate-spin" />
-          正在分析问题...
+          {t('analyzing')}
         </div>
       )}
 
@@ -79,7 +81,7 @@ export const VerificationError: React.FC<VerificationErrorProps> = ({
         <div className="border-t border-danger-200 bg-warning-50 p-3">
           <div className="flex items-center gap-2 text-sm font-medium text-warning-700 mb-2">
             <Lightbulb size={14} />
-            AI 建议
+            {t('aiSuggestion')}
           </div>
           <div className="text-sm text-warning-800 whitespace-pre-wrap">{suggestion}</div>
         </div>

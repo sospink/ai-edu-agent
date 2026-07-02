@@ -1,3 +1,5 @@
+import i18n, { getCurrentLocale } from '@/i18n';
+
 export enum TermStatus {
   PLANNING = 0,
   ACTIVE = 1,
@@ -161,31 +163,31 @@ export const buildQuery = (query: object) => {
 export const getTermStatusMeta = (status: TermStatus) => {
   switch (status) {
     case TermStatus.ACTIVE:
-      return { label: '进行中', className: 'bg-emerald-50 text-emerald-700' };
+      return { label: i18n.t('adminClasses:termActive'), className: 'bg-emerald-50 text-emerald-700' };
     case TermStatus.ARCHIVED:
-      return { label: '已归档', className: 'bg-slate-100 text-slate-600' };
+      return { label: i18n.t('adminClasses:termArchived'), className: 'bg-slate-100 text-slate-600' };
     default:
-      return { label: '筹备中', className: 'bg-amber-50 text-amber-700' };
+      return { label: i18n.t('adminClasses:termPlanning'), className: 'bg-amber-50 text-amber-700' };
   }
 };
 
 export const getClassStatusMeta = (status: ClassStatus) => {
   switch (status) {
     case ClassStatus.DISABLED:
-      return { label: '已停用', className: 'bg-rose-50 text-rose-700' };
+      return { label: i18n.t('student:classDisabled'), className: 'bg-rose-50 text-rose-700' };
     case ClassStatus.ARCHIVED:
-      return { label: '已归档', className: 'bg-slate-100 text-slate-600' };
+      return { label: i18n.t('student:classArchived'), className: 'bg-slate-100 text-slate-600' };
     default:
-      return { label: '活跃中', className: 'bg-primary-50 text-primary-700' };
+      return { label: i18n.t('student:classActive'), className: 'bg-primary-50 text-primary-700' };
   }
 };
 
 export const formatDateTime = (value?: string | null) => {
   if (!value) return '—';
-  return new Date(value).toLocaleString('zh-CN', { hour12: false });
+  return new Date(value).toLocaleString(getCurrentLocale(), { hour12: false });
 };
 
 export const formatDate = (value?: string | null) => {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString('zh-CN');
+  return new Date(value).toLocaleDateString(getCurrentLocale());
 };

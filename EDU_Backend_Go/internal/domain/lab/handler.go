@@ -1,8 +1,10 @@
 package lab
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -14,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"edu-platform/internal/middleware"
+	"edu-platform/pkg/i18n"
 	appjwt "edu-platform/pkg/jwt"
 	"edu-platform/pkg/response"
 )
@@ -28,19 +31,19 @@ func NewHandler(service *Service, jwtManager *appjwt.Manager) *Handler {
 }
 
 func (h *Handler) GetImages(c *gin.Context) {
-	response.Success(c, []gin.H{}, "K8S 运行时不再从 Docker daemon 枚举镜像，请在课程/项目中直接填写镜像名")
+	response.SuccessKey(c, []gin.H{}, "lab.imagesConfiguredExternally", nil)
 }
 
 func (h *Handler) GetActiveSession(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
-		response.Unauthorized(c, "未登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
 	session, err := h.service.GetActiveSession(c.Request.Context(), userID)
 	if err != nil {
-		response.Internal(c, "获取会话失败: "+err.Error())
+		response.ErrorKey(c, http.StatusInternalServerError, "LAB_ACTIVE_SESSION_FAILED", "lab.activeSessionFailed", nil)
 		return
 	}
 	if session == nil {
@@ -57,13 +60,13 @@ func (h *Handler) GetActiveSession(c *gin.Context) {
 func (h *Handler) GetUserSessions(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
-		response.Unauthorized(c, "未登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
 	sessions, err := h.service.GetUserSessions(c.Request.Context(), userID)
 	if err != nil {
-		response.Internal(c, "获取会话列表失败: "+err.Error())
+		response.ErrorKey(c, http.StatusInternalServerError, "LAB_SESSION_LIST_FAILED", "lab.sessionListFailed", nil)
 		return
 	}
 	response.Success(c, sessions, "")
@@ -72,7 +75,7 @@ func (h *Handler) GetUserSessions(c *gin.Context) {
 func (h *Handler) CreateSession(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
-		response.Unauthorized(c, "未登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
@@ -81,15 +84,15 @@ func (h *Handler) CreateSession(c *gin.Context) {
 		SourceID   uint64     `json:"sourceId"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数无效")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	if req.SourceType != SourceTypeCourse && req.SourceType != SourceTypeProject {
-		response.BadRequest(c, "无效的来源类型")
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_SOURCE_TYPE_INVALID", "lab.invalidSourceType", nil)
 		return
 	}
 	if req.SourceID == 0 {
-		response.BadRequest(c, "缺少必要参数")
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_SOURCE_REQUIRED", "lab.sourceRequired", nil)
 		return
 	}
 
@@ -99,7 +102,9 @@ func (h *Handler) CreateSession(c *gin.Context) {
 		SourceID:   req.SourceID,
 	})
 	if err != nil {
-		response.BadRequest(c, err.Error())
+		// 透传 service 层的具体原因（如并发上限、镜像未配置等），response.Error 会按语言翻译，
+		// 英文请求经 i18n.SystemText 回退为通用英文，避免中文泄漏，同时保留中文端的可操作信息。
+		response.Error(c, http.StatusBadRequest, err.Error(), "LAB_CREATE_FAILED")
 		return
 	}
 
@@ -112,36 +117,37 @@ func (h *Handler) CreateSession(c *gin.Context) {
 func (h *Handler) StopSession(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
-		response.Unauthorized(c, "未登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
 	sessionID, err := parseUintParam(c, "sessionId")
 	if err != nil {
-		response.BadRequest(c, "无效的会话ID")
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_SESSION_ID_INVALID", "lab.invalidSessionId", nil)
 		return
 	}
 	if err := h.service.StopSession(c.Request.Context(), userID, sessionID); err != nil {
-		response.BadRequest(c, err.Error())
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_STOP_FAILED", "lab.stopFailed", nil)
 		return
 	}
-	response.Success(c, gin.H{"message": "实验环境已停止"}, "")
+	message := i18n.Message(c.Request.Context(), "lab.stopped", nil)
+	response.SuccessKey(c, gin.H{"message": message}, "lab.stopped", nil)
 }
 
 func (h *Handler) GetSessionURLs(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
-		response.Unauthorized(c, "未登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
 	session, err := h.service.GetActiveSession(c.Request.Context(), userID)
 	if err != nil {
-		response.Internal(c, "获取URL失败: "+err.Error())
+		response.ErrorKey(c, http.StatusInternalServerError, "LAB_URLS_FAILED", "lab.urlsFailed", nil)
 		return
 	}
 	if session == nil {
-		response.NotFound(c, "没有活跃的实验环境")
+		response.ErrorKey(c, http.StatusNotFound, "LAB_ACTIVE_SESSION_NOT_FOUND", "lab.noActiveSession", nil)
 		return
 	}
 	response.Success(c, h.urlsFor(c, session), "")
@@ -150,7 +156,7 @@ func (h *Handler) GetSessionURLs(c *gin.Context) {
 func (h *Handler) ExecuteCommand(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
-		response.Unauthorized(c, "未登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
@@ -160,17 +166,17 @@ func (h *Handler) ExecuteCommand(c *gin.Context) {
 		StepOrder int    `json:"stepOrder"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Command) == "" {
-		response.BadRequest(c, "缺少命令参数")
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_COMMAND_REQUIRED", "lab.commandRequired", nil)
 		return
 	}
 
 	session, err := h.service.GetActiveSession(c.Request.Context(), userID)
 	if err != nil {
-		response.Internal(c, "执行命令失败: "+err.Error())
+		response.ErrorKey(c, http.StatusInternalServerError, "LAB_EXECUTE_FAILED", "lab.executeFailed", nil)
 		return
 	}
 	if session == nil {
-		response.NotFound(c, "没有活跃的实验环境")
+		response.ErrorKey(c, http.StatusNotFound, "LAB_ACTIVE_SESSION_NOT_FOUND", "lab.noActiveSession", nil)
 		return
 	}
 
@@ -191,39 +197,39 @@ func (h *Handler) ProxyTarget(c *gin.Context) {
 func (h *Handler) proxyToTarget(c *gin.Context, target, routeBase string) {
 	sessionID, err := parseUintParam(c, "sessionId")
 	if err != nil {
-		response.BadRequest(c, "无效的会话ID")
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_SESSION_ID_INVALID", "lab.invalidSessionId", nil)
 		return
 	}
 
 	userID, authToken := h.proxyUserID(c, sessionID, routeBase)
 	if userID == 0 {
-		response.Unauthorized(c, "未登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
 	session, err := h.service.GetOwnedSession(c.Request.Context(), userID, sessionID)
 	if err != nil {
-		response.Internal(c, "Gateway 代理失败: "+err.Error())
+		response.ErrorKey(c, http.StatusInternalServerError, "LAB_PROXY_FAILED", "lab.proxyFailed", nil)
 		return
 	}
 	if session == nil || session.Status != SessionStatusRunning {
-		response.NotFound(c, "实验会话不存在或已过期")
+		response.ErrorKey(c, http.StatusNotFound, "LAB_SESSION_EXPIRED", "lab.sessionExpired", nil)
 		return
 	}
 	if target == PortNameGateway && (session.RuntimeMode != RuntimeModeOpenClaw || session.GatewayPort == 0) {
-		response.BadRequest(c, "当前会话未启用 Gateway")
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_GATEWAY_DISABLED", "lab.gatewayDisabled", nil)
 		return
 	}
 	resolvedTarget, ok := resolveProxyTarget(session, target)
 	if !ok {
-		response.Forbidden(c, "无权访问该代理目标")
+		response.ErrorKey(c, http.StatusForbidden, "LAB_PROXY_FORBIDDEN", "lab.proxyForbidden", nil)
 		return
 	}
 
 	suffix := c.Param("proxyPath")
 	upstream, err := h.service.ServiceProxyURL(session.ID, resolvedTarget, suffix, c.Request.URL.RawQuery)
 	if err != nil {
-		response.BadRequest(c, err.Error())
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_PROXY_TARGET_INVALID", "lab.proxyTargetInvalid", nil)
 		return
 	}
 	if authToken != "" {
@@ -232,7 +238,7 @@ func (h *Handler) proxyToTarget(c *gin.Context, target, routeBase string) {
 
 	proxy, err := h.reverseProxy(upstream, session.ID, resolvedTarget, routeBase)
 	if err != nil {
-		response.Internal(c, "Gateway 代理失败: "+err.Error())
+		response.ErrorKey(c, http.StatusInternalServerError, "LAB_PROXY_FAILED", "lab.proxyFailed", nil)
 		return
 	}
 	proxy.ServeHTTP(c.Writer, c.Request)
@@ -268,6 +274,7 @@ func (h *Handler) reverseProxy(upstream *url.URL, sessionID uint64, target, rout
 			req.Header.Del("Authorization")
 			req.Header.Del("Proxy-Connection")
 			req.Header.Del("Content-Length")
+			req.Header.Del("Accept-Encoding")
 			if isWebSocket {
 				req.Header.Set("Connection", "Upgrade")
 				req.Header.Set("Upgrade", "websocket")
@@ -278,12 +285,14 @@ func (h *Handler) reverseProxy(upstream *url.URL, sessionID uint64, target, rout
 		ModifyResponse: func(resp *http.Response) error {
 			stripFrameBlockingHeaders(resp.Header)
 			rewriteLocation(resp.Header, proxyBase)
+			rewriteProxyResponseBody(resp, k8sServiceProxyBase(h.service.runtimeNamespace(), sessionID, target), proxyBase)
 			return nil
 		},
-		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+		ErrorHandler: func(w http.ResponseWriter, req *http.Request, _ error) {
 			if !headerWritten(w) {
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusBadGateway)
-				_, _ = w.Write([]byte("Gateway 代理失败: " + err.Error()))
+				_, _ = w.Write([]byte(i18n.Message(req.Context(), "lab.proxyFailed", nil)))
 				return
 			}
 		},
@@ -409,9 +418,92 @@ func rewriteLocation(headers http.Header, proxyBase string) {
 	if location == "" {
 		return
 	}
+	if rewritten, ok := rewriteK8SServiceProxyLocation(location, proxyBase); ok {
+		headers.Set("Location", rewritten)
+		return
+	}
 	if strings.HasPrefix(location, "/") {
 		headers.Set("Location", proxyBase+location)
 	}
+}
+
+func rewriteK8SServiceProxyLocation(location, proxyBase string) (string, bool) {
+	parsed, err := url.Parse(location)
+	if err != nil {
+		return "", false
+	}
+	path := parsed.Path
+	if !strings.HasPrefix(path, "/api/v1/namespaces/") {
+		return "", false
+	}
+	proxyIndex := strings.Index(path, "/proxy")
+	if proxyIndex < 0 {
+		return "", false
+	}
+	suffix := path[proxyIndex+len("/proxy"):]
+	if suffix == "" {
+		suffix = "/"
+	}
+	parsed.Scheme = ""
+	parsed.Host = ""
+	parsed.User = nil
+	parsed.Path = strings.TrimRight(proxyBase, "/") + suffix
+	parsed.RawPath = ""
+	return parsed.String(), true
+}
+
+func k8sServiceProxyBase(namespace string, sessionID uint64, target string) string {
+	return fmt.Sprintf("/api/v1/namespaces/%s/services/%s:%s/proxy", namespace, ServiceName(sessionID), target)
+}
+
+func rewriteProxyResponseBody(resp *http.Response, internalBase, proxyBase string) {
+	if resp == nil || resp.Body == nil || internalBase == "" || proxyBase == "" {
+		return
+	}
+	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
+	if !isRewritableProxyContent(contentType) {
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		resp.Body = io.NopCloser(bytes.NewReader(nil))
+		resp.ContentLength = 0
+		resp.Header.Set("Content-Length", "0")
+		return
+	}
+
+	externalBase := strings.TrimRight(proxyBase, "/")
+	replacements := [][2]string{
+		{internalBase, externalBase},
+		{url.QueryEscape(internalBase), url.QueryEscape(externalBase)},
+		{strings.ReplaceAll(internalBase, "/", `\/`), strings.ReplaceAll(externalBase, "/", `\/`)},
+	}
+	rewritten := body
+	for _, pair := range replacements {
+		if pair[0] == "" || pair[0] == pair[1] {
+			continue
+		}
+		rewritten = bytes.ReplaceAll(rewritten, []byte(pair[0]), []byte(pair[1]))
+	}
+
+	resp.Body = io.NopCloser(bytes.NewReader(rewritten))
+	resp.ContentLength = int64(len(rewritten))
+	resp.Header.Set("Content-Length", strconv.Itoa(len(rewritten)))
+	resp.Header.Del("Content-Encoding")
+	resp.Header.Del("ETag")
+}
+
+func isRewritableProxyContent(contentType string) bool {
+	if contentType == "" {
+		return false
+	}
+	return strings.Contains(contentType, "text/html") ||
+		strings.Contains(contentType, "text/css") ||
+		strings.Contains(contentType, "javascript") ||
+		strings.Contains(contentType, "application/json") ||
+		strings.Contains(contentType, "text/plain")
 }
 
 func appendQuery(rawURL, key, value string) string {

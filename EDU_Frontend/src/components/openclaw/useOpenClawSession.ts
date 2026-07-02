@@ -10,6 +10,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   openclawViewService,
   type CompletedView,
@@ -17,7 +18,7 @@ import {
   type OpenclawViewScope,
   type ThinkingView,
 } from '@/services/openclawView';
-import { WORK_SCENE_PROMPTS } from './constants';
+import { WORK_SCENE_PROMPT_KEYS } from './constants';
 import type { SessionState } from './types';
 
 // ====== 类型定义 ======
@@ -151,6 +152,7 @@ function inferPhaseFromUrl(): SessionState {
 // ====== Provider Hook（返回 context value，由 Provider 组件包裹） ======
 
 export function useOpenClawSessionProvider(activeSessionId: string, scope: OpenclawViewScope = 'latest_turn'): OpenClawSessionContextValue {
+  const { t, i18n } = useTranslation('openclaw');
   const storageKey = useMemo(() => storageKeyForSession(activeSessionId), [activeSessionId]);
   // --- 从 URL 路径推导初始 phase（解决直接访问 /openclaw/executing 等场景） ---
   const urlPhase = useRef<SessionState>(inferPhaseFromUrl());
@@ -240,11 +242,18 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
   // ====== 场景启动 ======
 
   const startScene = useCallback((sceneIndex: number) => {
-    const prompt = WORK_SCENE_PROMPTS[sceneIndex] || '';
+    const promptKey = WORK_SCENE_PROMPT_KEYS[sceneIndex];
+    const prompt = promptKey ? t(promptKey) : '';
     setSelectedSceneIndex(sceneIndex);
     setPendingPrompt(prompt);
     setSessionPhase('running');
-  }, []);
+  }, [t]);
+
+  useEffect(() => {
+    if (selectedSceneIndex === null || hasSentMessage) return;
+    const promptKey = WORK_SCENE_PROMPT_KEYS[selectedSceneIndex];
+    if (promptKey) setPendingPrompt(t(promptKey));
+  }, [hasSentMessage, i18n.resolvedLanguage, selectedSceneIndex, t]);
 
   // ====== 发送消息 ======
 

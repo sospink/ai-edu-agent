@@ -53,6 +53,9 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import PublishCheckDrawer from '@/components/teacher/PublishCheckDrawer';
 import UnitAgentModal from './UnitAgentModal';
 import { getImageUrlCandidates, handleImageFallback } from '@/config';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import { getCurrentLocale } from '@/i18n';
 
 // ==================== 类型定义 ====================
 
@@ -76,7 +79,7 @@ interface ProjectFormData {
 
 // ==================== 辅助函数 ====================
 
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string, t: TFunction) => {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
   const now = new Date();
@@ -84,18 +87,18 @@ const formatDate = (dateStr: string) => {
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(hours / 24);
 
-  if (hours < 1) return '刚刚';
-  if (hours < 24) return `${hours} 小时前`;
-  if (days < 7) return `${days} 天前`;
-  return date.toLocaleDateString('zh-CN');
+  if (hours < 1) return t('justNow');
+  if (hours < 24) return t('hoursAgo', { count: hours });
+  if (days < 7) return t('daysAgo', { count: days });
+  return date.toLocaleDateString(getCurrentLocale());
 };
 
-const labTemplatePortSummary = (template: LabTemplate) => {
+const labTemplatePortSummary = (template: LabTemplate, t: TFunction) => {
   const ports = Array.isArray(template.exposedPorts) && template.exposedPorts.length > 0
     ? template.exposedPorts
     : (Array.isArray(template.appPorts) ? template.appPorts.map((port) => ({ ...port, type: 'web' })) : []);
   if (ports.length === 0) return '';
-  return ` · 端口 ${ports.map((port) => `${port.type === 'novnc' ? 'Desktop' : (port.label || port.name)}:${port.containerPort}`).join('/')}`;
+  return t('ports', { ports: ports.map((port) => `${port.type === 'novnc' ? 'Desktop' : (port.label || port.name)}:${port.containerPort}`).join('/') });
 };
 
 // ==================== 项目编辑器组件 ====================
@@ -112,6 +115,7 @@ interface ProjectEditorProps {
 }
 
 const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave, onCancel, loading, onToast, onTagsChange, onShowConfirm }) => {
+  const { t } = useTranslation('projectManagement');
   const [formData, setFormData] = useState<ProjectFormData>(project);
   const [activeTab, setActiveTab] = useState<'basics' | 'syllabus' | 'settings'>('basics');
   const [uploading, setUploading] = useState(false);
@@ -164,22 +168,22 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
   // 创建新标签
   const handleCreateTag = async () => {
     if (!newTagName.trim()) {
-      onToast('请输入标签名称', 'error');
+      onToast(t('tagRequired'), 'error');
       return;
     }
     setTagLoading(true);
     try {
       const result = await tagApi.create(newTagName.trim(), newTagColor);
       if (result.success) {
-        onToast('标签创建成功', 'success');
+        onToast(t('tagCreated'), 'success');
         setNewTagName('');
         setNewTagColor('#3B82F6');
         onTagsChange();
       } else {
-        onToast(result.error || '创建失败', 'error');
+        onToast(result.error || t('createFailed'), 'error');
       }
     } catch {
-      onToast('创建失败', 'error');
+      onToast(t('createFailed'), 'error');
     } finally {
       setTagLoading(false);
     }
@@ -188,25 +192,25 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
   // 删除标签
   const handleDeleteTag = async (tagId: number) => {
     onShowConfirm({
-      title: '删除标签',
-      message: '确定要删除该标签吗？删除后将从所有项目中移除。',
+      title: t('deleteTagTitle'),
+      message: t('deleteTagMessage'),
       type: 'danger',
       onConfirm: async () => {
         setTagLoading(true);
         try {
           const result = await tagApi.delete(tagId);
           if (result.success) {
-            onToast('标签删除成功', 'success');
+            onToast(t('tagDeleted'), 'success');
             // 从当前选中的标签中移除
             if (formData.tagIds.includes(tagId)) {
               handleChange('tagIds', formData.tagIds.filter(id => id !== tagId));
             }
             onTagsChange();
           } else {
-            onToast(result.error || '删除失败', 'error');
+            onToast(result.error || t('deleteFailed'), 'error');
           }
         } catch {
-          onToast('删除失败', 'error');
+          onToast(t('deleteFailed'), 'error');
         } finally {
           setTagLoading(false);
         }
@@ -224,12 +228,12 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
       const result = await uploadApi.uploadImage(file);
       if (result.success && result.data) {
         handleChange('coverUrl', result.data.url);
-        onToast('图片上传成功', 'success');
+        onToast(t('imageUploaded'), 'success');
       } else {
-        onToast(result.error || '上传失败', 'error');
+        onToast(result.error || t('uploadFailed'), 'error');
       }
     } catch {
-      onToast('上传失败', 'error');
+      onToast(t('uploadFailed'), 'error');
     } finally {
       setUploading(false);
     }
@@ -278,7 +282,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
     const newUnit: ProjectUnit = {
       id: -Date.now(), // 临时负数ID表示新建
       projectId: formData.id || 0,
-      title: '新单元',
+      title: t('newUnit'),
       description: '',
       type: 1,
       modeGroup: 1,
@@ -319,10 +323,10 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
           </button>
           <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              {formData.id ? '编辑项目' : '新建项目'}
+              {formData.id ? t('editProject') : t('createProject')}
               {formData.status === 0 && (
                 <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">
-                  草稿
+                  {t('statuses.draft')}
                 </span>
               )}
             </h2>
@@ -333,7 +337,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
             onClick={onCancel}
             className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-colors"
           >
-            取消
+            {t('cancel')}
           </button>
           <button
             onClick={() => onSave(formData)}
@@ -341,7 +345,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
             className="px-6 py-2.5 rounded-xl text-sm font-bold bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2 disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            保存更改
+            {t('saveChanges')}
           </button>
         </div>
       </div>
@@ -354,9 +358,9 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
             {/* Tabs */}
             <div className="card-surface rounded-2xl p-2">
               {[
-                { id: 'basics', label: '基础信息', icon: FileText },
-                { id: 'syllabus', label: '教学大纲', icon: Layers },
-                { id: 'settings', label: '高级设置', icon: Settings },
+                { id: 'basics', label: t('tabs.basics'), icon: FileText },
+                { id: 'syllabus', label: t('tabs.syllabus'), icon: Layers },
+                { id: 'settings', label: t('tabs.settings'), icon: Settings },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -375,12 +379,12 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
 
             {/* Status Card */}
             <div className="card-surface rounded-2xl p-6">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">发布状态</h3>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">{t('publishStatus')}</h3>
               <div className="space-y-3">
                 {[
-                  { value: 1, label: '已发布', desc: '学生可见，可进行学习' },
-                  { value: 0, label: '草稿箱', desc: '仅管理员可见' },
-                  { value: 2, label: '已下架', desc: '暂停学习，保留数据' },
+                  { value: 1, label: t('statuses.published'), desc: t('publishedDesc') },
+                  { value: 0, label: t('draftBox'), desc: t('draftDesc') },
+                  { value: 2, label: t('statuses.archived'), desc: t('archivedDesc') },
                 ].map((opt) => (
                   <label
                     key={opt.value}
@@ -414,13 +418,13 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                 {/* Basic Info */}
                 <div className="card-surface rounded-2xl p-8 space-y-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">项目名称 *</label>
+                    <label className="text-sm font-bold text-slate-700">{t('name')}</label>
                     <input
                       type="text"
                       value={formData.title}
                       onChange={(e) => handleChange('title', e.target.value)}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                      placeholder="例如：Vue.js 基础实战"
+                      placeholder={t('namePlaceholder')}
                     />
                   </div>
 
@@ -441,7 +445,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">难度等级</label>
+                      <label className="text-sm font-bold text-slate-700">{t('difficulty')}</label>
                       <Select
                         selectedKeys={[String(formData.difficulty)]}
                         onSelectionChange={(keys) => {
@@ -460,27 +464,27 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                           listbox: 'bg-white',
                         }}
                       >
-                        <SelectItem key="1">初级 (Beginner)</SelectItem>
-                        <SelectItem key="2">中级 (Intermediate)</SelectItem>
-                        <SelectItem key="3">高级 (Advanced)</SelectItem>
+                        <SelectItem key="1">{t('difficulties.beginner')}</SelectItem>
+                        <SelectItem key="2">{t('difficulties.intermediate')}</SelectItem>
+                        <SelectItem key="3">{t('difficulties.advanced')}</SelectItem>
                       </Select>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">一句话简介</label>
+                    <label className="text-sm font-bold text-slate-700">{t('subtitle')}</label>
                     <input
                       type="text"
                       value={formData.subtitle}
                       onChange={(e) => handleChange('subtitle', e.target.value)}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                      placeholder="简要描述项目的核心价值..."
+                      placeholder={t('subtitlePlaceholder')}
                     />
                   </div>
 
                   {/* Cover Image */}
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">项目封面</label>
+                    <label className="text-sm font-bold text-slate-700">{t('cover')}</label>
                     <div className="flex gap-6 items-start">
                       <div
                         className="w-40 h-24 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 cursor-pointer hover:border-blue-300 transition-colors"
@@ -489,7 +493,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                         {formData.coverUrl ? (
                           <img
                             src={getImageUrlCandidates(formData.coverUrl)[0]}
-                            alt="Cover"
+                            alt={t('coverImage', { ns: 'uiReview' })}
                             className="w-full h-full object-cover"
                             onError={(e) => handleImageFallback(e, getImageUrlCandidates(formData.coverUrl))}
                           />
@@ -500,7 +504,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                             ) : (
                               <>
                                 <ImageIcon className="w-6 h-6 mb-1" />
-                                <span className="text-xs">点击上传</span>
+                                <span className="text-xs">{t('upload')}</span>
                               </>
                             )}
                           </div>
@@ -519,9 +523,9 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                           value={formData.coverUrl}
                           onChange={(e) => handleChange('coverUrl', e.target.value)}
                           className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-600 focus:outline-none focus:border-blue-500"
-                          placeholder="或输入图片URL..."
+                          placeholder={t('imageUrlPlaceholder')}
                         />
-                        <p className="text-xs text-slate-400">建议尺寸: 800x450px, 支持 JPG/PNG/WebP</p>
+                        <p className="text-xs text-slate-400">{t('imageHelp')}</p>
                       </div>
                     </div>
                   </div>
@@ -529,13 +533,13 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                   {/* Description - Markdown Editor */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-bold text-slate-700">项目详细介绍 (支持 Markdown)</label>
+                      <label className="text-sm font-bold text-slate-700">{t('description')}</label>
                       <button
                         type="button"
                         onClick={() => setShowDescPreview(!showDescPreview)}
                         className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                       >
-                        {showDescPreview ? '编辑' : '预览'}
+                        {showDescPreview ? t('edit') : t('preview')}
                       </button>
                     </div>
                     {showDescPreview ? (
@@ -543,7 +547,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                         {formData.description ? (
                           <ReactMarkdown>{formData.description}</ReactMarkdown>
                         ) : (
-                          <p className="text-slate-400">暂无内容</p>
+                          <p className="text-slate-400">{t('noContent')}</p>
                         )}
                       </div>
                     ) : (
@@ -552,7 +556,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                         onChange={(e) => handleChange('description', e.target.value)}
                         rows={8}
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
-                        placeholder="支持 Markdown 格式，例如：&#10;&#10;## 项目背景&#10;&#10;这是一个关于...的项目。&#10;&#10;### 主要特点&#10;&#10;- 特点一&#10;- 特点二"
+                        placeholder={t('markdownPlaceholder')}
                       />
                     )}
                   </div>
@@ -563,14 +567,14 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <TagIcon className="w-4 h-4 text-slate-400" />
-                      <h3 className="text-sm font-bold text-slate-700">项目标签</h3>
+                      <h3 className="text-sm font-bold text-slate-700">{t('tags')}</h3>
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowTagManager(true)}
                       className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                     >
-                      管理标签
+                      {t('manageTags')}
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -593,7 +597,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                       </button>
                     ))}
                     {allTags.length === 0 && (
-                      <p className="text-sm text-slate-400">暂无标签，点击"管理标签"创建</p>
+                      <p className="text-sm text-slate-400">{t('noTagsHint')}</p>
                     )}
                   </div>
 
@@ -615,7 +619,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-slate-800">标签管理</h3>
+                            <h3 className="text-lg font-bold text-slate-800">{t('tagManagement')}</h3>
                             <button
                               onClick={() => setShowTagManager(false)}
                               className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
@@ -626,13 +630,13 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
 
                           {/* Create New Tag */}
                           <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-                            <h4 className="text-sm font-bold text-slate-700 mb-3">创建新标签</h4>
+                            <h4 className="text-sm font-bold text-slate-700 mb-3">{t('createTag')}</h4>
                             <div className="flex gap-2">
                               <input
                                 type="text"
                                 value={newTagName}
                                 onChange={(e) => setNewTagName(e.target.value)}
-                                placeholder="标签名称"
+                                placeholder={t('tagName')}
                                 className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                               />
                               <div className="relative">
@@ -641,7 +645,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                                   value={newTagColor}
                                   onChange={(e) => setNewTagColor(e.target.value)}
                                   className="w-10 h-10 rounded-lg cursor-pointer border-0"
-                                  title="选择颜色"
+                                  title={t('selectColor')}
                                 />
                               </div>
                               <button
@@ -649,17 +653,17 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                                 disabled={tagLoading}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                               >
-                                {tagLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '创建'}
+                                {tagLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('create')}
                               </button>
                             </div>
                           </div>
 
                           {/* Existing Tags */}
                           <div>
-                            <h4 className="text-sm font-bold text-slate-700 mb-3">现有标签</h4>
+                            <h4 className="text-sm font-bold text-slate-700 mb-3">{t('existingTags')}</h4>
                             <div className="space-y-2 max-h-60 overflow-y-auto">
                               {allTags.length === 0 ? (
-                                <p className="text-sm text-slate-400 text-center py-4">暂无标签</p>
+                                <p className="text-sm text-slate-400 text-center py-4">{t('noTags')}</p>
                               ) : (
                                 allTags.map((tag) => (
                                   <div
@@ -695,7 +699,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                 <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center gap-2 mb-4">
                     <Target className="w-4 h-4 text-slate-400" />
-                    <h3 className="text-sm font-bold text-slate-700">学习目标</h3>
+                    <h3 className="text-sm font-bold text-slate-700">{t('goals')}</h3>
                   </div>
                   <div className="space-y-3">
                     {formData.learningGoals.map((goal, index) => (
@@ -716,13 +720,13 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                         onChange={(e) => setNewGoal(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addGoal()}
                         className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                        placeholder="添加学习目标..."
+                        placeholder={t('goalPlaceholder')}
                       />
                       <button
                         onClick={addGoal}
                         className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100"
                       >
-                        添加
+                        {t('add')}
                       </button>
                     </div>
                   </div>
@@ -732,7 +736,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                 <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center gap-2 mb-4">
                     <BookOpen className="w-4 h-4 text-slate-400" />
-                    <h3 className="text-sm font-bold text-slate-700">前置知识</h3>
+                    <h3 className="text-sm font-bold text-slate-700">{t('prerequisites')}</h3>
                   </div>
                   <div className="space-y-3">
                     {formData.prerequisites.map((prereq, index) => (
@@ -753,13 +757,13 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                         onChange={(e) => setNewPrereq(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addPrereq()}
                         className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                        placeholder="添加前置知识..."
+                        placeholder={t('prerequisitePlaceholder')}
                       />
                       <button
                         onClick={addPrereq}
                         className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100"
                       >
-                        添加
+                        {t('add')}
                       </button>
                     </div>
                   </div>
@@ -771,13 +775,13 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                 <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-slate-800">课程单元</h3>
+                    <h3 className="text-lg font-bold text-slate-800">{t('units')}</h3>
                     <button
                       onClick={handleAddUnit}
                       className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-bold transition-colors border border-slate-200 flex items-center gap-2"
                     >
                       <Plus className="w-3 h-3" />
-                      添加单元
+                      {t('addUnit')}
                     </button>
                   </div>
 
@@ -787,7 +791,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                         <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-3 text-slate-300">
                           <Layers className="w-6 h-6" />
                         </div>
-                        <p className="text-slate-400 text-sm">暂无课程单元，点击上方按钮添加。</p>
+                        <p className="text-slate-400 text-sm">{t('noUnits')}</p>
                       </div>
                     )}
                     {formData.units.map((unit, index) => (
@@ -818,7 +822,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                               value={unit.title}
                               onChange={(e) => handleUpdateUnit(index, 'title', e.target.value)}
                               className="w-full px-3 py-1.5 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 focus:outline-none text-sm font-bold text-slate-700"
-                              placeholder="单元标题"
+                              placeholder={t('unitTitle')}
                             />
                           </div>
                           <div className="col-span-3">
@@ -839,8 +843,8 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                                 listbox: 'bg-white',
                               }}
                             >
-                              <SelectItem key="1">实验 (Lab)</SelectItem>
-                              <SelectItem key="2">挑战 (Challenge)</SelectItem>
+                              <SelectItem key="1">{t('unitTypes.lab')}</SelectItem>
+                              <SelectItem key="2">{t('unitTypes.challenge')}</SelectItem>
                             </Select>
                           </div>
                           <div className="col-span-2">
@@ -861,8 +865,8 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                                 listbox: 'bg-white',
                               }}
                             >
-                              <SelectItem key="1">引导模式</SelectItem>
-                              <SelectItem key="2">挑战模式</SelectItem>
+                              <SelectItem key="1">{t('modes.guided')}</SelectItem>
+                              <SelectItem key="2">{t('modes.challenge')}</SelectItem>
                             </Select>
                           </div>
                           <div className="col-span-2 flex items-center gap-1">
@@ -873,7 +877,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                               onChange={(e) => handleUpdateUnit(index, 'timeLimit', Number(e.target.value))}
                               className="w-12 px-1 py-1.5 bg-slate-50 rounded-lg text-xs font-medium text-slate-600 border-none focus:ring-0 text-center"
                             />
-                            <span className="text-xs text-slate-400">分</span>
+                            <span className="text-xs text-slate-400">{t('minutes')}</span>
                           </div>
                         </div>
 
@@ -886,7 +890,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                                 setAgentModalOpen(true);
                               }}
                               className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                              title="配置 Agent 手册"
+                              title={t('configureAgent')}
                             >
                               <Bot className="w-4 h-4" />
                             </button>
@@ -915,35 +919,35 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                 <div className="card-surface rounded-2xl p-8">
                   <div className="flex items-center gap-2 mb-6">
                     <Monitor className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-lg font-bold text-slate-800">实验环境配置</h3>
+                    <h3 className="text-lg font-bold text-slate-800">{t('environment')}</h3>
                   </div>
                   <div className="space-y-5">
                     <div>
-                      <label className="text-sm font-bold text-slate-700 mb-2 block">Lab 模板</label>
+                      <label className="text-sm font-bold text-slate-700 mb-2 block">{t('labTemplate')}</label>
                       <ToolbarSelect
-                        ariaLabel="Lab 模板"
+                        ariaLabel={t('labTemplate')}
                         value={String(formData.labTemplateId || 0)}
                         onChange={(value) => handleChange('labTemplateId', Number(value))}
                         options={[
-                          { key: '0', label: '不绑定模板，使用下方镜像配置' },
+                          { key: '0', label: t('noTemplate') },
                           ...labTemplates.map(template => ({
                             key: String(template.id),
-                            label: `${template.name} · ${template.envImage}${labTemplatePortSummary(template)}`,
+                            label: `${template.name} · ${template.envImage}${labTemplatePortSummary(template, t)}`,
                           })),
                         ]}
                       />
-                      <p className="text-xs text-slate-400 mt-2">Classic 项目发布会校验启用中的 Lab 模板；OpenClaw 项目不强制绑定模板。</p>
+                      <p className="text-xs text-slate-400 mt-2">{t('templateHelp')}</p>
                     </div>
 
                     {/* Ubuntu 桌面镜像 */}
                     <div>
-                      <label className="text-sm font-bold text-slate-700 mb-2 block">Ubuntu 桌面镜像</label>
+                      <label className="text-sm font-bold text-slate-700 mb-2 block">{t('desktopImage')}</label>
                       <div className="flex items-center gap-3">
                         <Monitor className="w-5 h-5 text-slate-400 shrink-0" />
                         <ToolbarSelect
-                          ariaLabel="Ubuntu 桌面镜像"
+                          ariaLabel={t('desktopImage')}
                           value={formData.envImage}
-                          placeholder="选择镜像"
+                          placeholder={t('selectImage')}
                           isDisabled={loadingImages}
                           disallowEmptySelection={false}
                           onChange={(value) => handleChange('envImage', value)}
@@ -954,18 +958,18 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                           className="flex-1"
                         />
                       </div>
-                      <p className="text-xs text-slate-400 mt-2">提供 Ubuntu 桌面环境 (noVNC)</p>
+                      <p className="text-xs text-slate-400 mt-2">{t('desktopHelp')}</p>
                     </div>
                     
                     {/* WebIDE 镜像 */}
                     <div>
-                      <label className="text-sm font-bold text-slate-700 mb-2 block">WebIDE 镜像</label>
+                      <label className="text-sm font-bold text-slate-700 mb-2 block">{t('webIdeImage')}</label>
                       <div className="flex items-center gap-3">
                         <Box className="w-5 h-5 text-slate-400 shrink-0" />
                         <ToolbarSelect
-                          ariaLabel="WebIDE 镜像"
+                          ariaLabel={t('webIdeImage')}
                           value={formData.ideImage}
-                          placeholder="选择镜像"
+                          placeholder={t('selectImage')}
                           isDisabled={loadingImages}
                           disallowEmptySelection={false}
                           onChange={(value) => handleChange('ideImage', value)}
@@ -977,7 +981,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({ project, allTags, onSave,
                         />
                         {loadingImages && <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />}
                       </div>
-                      <p className="text-xs text-slate-400 mt-2">提供在线代码编辑器环境</p>
+                      <p className="text-xs text-slate-400 mt-2">{t('webIdeHelp')}</p>
                     </div>
                   </div>
                 </div>
@@ -1045,6 +1049,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
   onDraft,
   onShowConfirm,
 }) => {
+  const { t } = useTranslation('projectManagement');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined);
 
@@ -1052,9 +1057,9 @@ const ProjectList: React.FC<ProjectListProps> = ({
 
   const getDifficultyBadge = (diff: number) => {
     const config = {
-      1: { label: '初级', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-      2: { label: '中级', color: 'bg-blue-50 text-blue-600 border-blue-100' },
-      3: { label: '高级', color: 'bg-amber-50 text-amber-600 border-amber-100' },
+      1: { label: t('difficulties.beginnerShort'), color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+      2: { label: t('difficulties.intermediateShort'), color: 'bg-blue-50 text-blue-600 border-blue-100' },
+      3: { label: t('difficulties.advancedShort'), color: 'bg-amber-50 text-amber-600 border-amber-100' },
     };
     const c = config[diff as keyof typeof config] || config[1];
     return <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${c.color}`}>{c.label}</span>;
@@ -1062,9 +1067,9 @@ const ProjectList: React.FC<ProjectListProps> = ({
 
   const getStatusBadge = (status: number) => {
     const config = {
-      0: { label: '草稿', color: 'bg-slate-100 text-slate-500 border-slate-200', icon: FileEdit },
-      1: { label: '已发布', color: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: CheckCircle2 },
-      2: { label: '已下架', color: 'bg-rose-50 text-rose-600 border-rose-100', icon: Archive },
+      0: { label: t('statuses.draft'), color: 'bg-slate-100 text-slate-500 border-slate-200', icon: FileEdit },
+      1: { label: t('statuses.published'), color: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: CheckCircle2 },
+      2: { label: t('statuses.archived'), color: 'bg-rose-50 text-rose-600 border-rose-100', icon: Archive },
     };
     const c = config[status as keyof typeof config] || config[0];
     return (
@@ -1095,19 +1100,19 @@ const ProjectList: React.FC<ProjectListProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
           <div>
             <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
-              项目管理
+              {t('title')}
               <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded-full">
-                {total} 个项目
+                {t('count', { count: total })}
               </span>
             </h2>
-            <p className="text-slate-500 text-sm mt-1">管理实训项目内容、大纲结构及发布状态。</p>
+            <p className="text-slate-500 text-sm mt-1">{t('titleDesc')}</p>
           </div>
           <button
             onClick={onCreate}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-full shadow-lg shadow-blue-600/20 transition-all hover:scale-105 active:scale-95 group"
           >
             <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-            <span>新建项目</span>
+            <span>{t('createProject')}</span>
           </button>
         </div>
 
@@ -1117,25 +1122,25 @@ const ProjectList: React.FC<ProjectListProps> = ({
             value={searchKeyword}
             onChange={setSearchKeyword}
             onEnter={handleSearch}
-            placeholder="输入项目名称、Slug..."
+            placeholder={t('searchPlaceholder')}
             className="max-w-md flex-1"
           />
           <button
             onClick={handleSearch}
             className="h-12 rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
           >
-            搜索
+            {t('search')}
           </button>
           <div className="h-6 w-px bg-slate-200 mx-1"></div>
           <ToolbarSelect
-            ariaLabel="按项目状态筛选"
+            ariaLabel={t('statusFilter')}
             value={statusFilter === undefined ? 'all' : String(statusFilter)}
             onChange={(value) => handleStatusChange(value === 'all' ? undefined : Number(value))}
             options={[
-              { key: 'all', label: '全部状态' },
-              { key: '0', label: '草稿' },
-              { key: '1', label: '已发布' },
-              { key: '2', label: '已下架' },
+              { key: 'all', label: t('allStatuses') },
+              { key: '0', label: t('statuses.draft') },
+              { key: '1', label: t('statuses.published') },
+              { key: '2', label: t('statuses.archived') },
             ]}
             className="w-40"
           />
@@ -1153,14 +1158,14 @@ const ProjectList: React.FC<ProjectListProps> = ({
           <thead className="bg-slate-50/60 sticky top-0 z-10">
             <tr>
               <th className="pl-8 pr-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider w-[35%]">
-                项目信息
+                {t('projectInfo')}
               </th>
-              <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider">难度</th>
-              <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider">状态</th>
-              <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider">数据统计</th>
-              <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider">最后更新</th>
+              <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider">{t('difficulty')}</th>
+              <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider">{t('status')}</th>
+              <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider">{t('statistics')}</th>
+              <th className="px-4 py-5 text-xs font-bold text-slate-400 uppercase tracking-wider">{t('updatedAt')}</th>
               <th className="pl-4 pr-8 py-5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">
-                操作
+                {t('actions')}
               </th>
             </tr>
           </thead>
@@ -1168,7 +1173,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
             {projects.length === 0 && !loading && (
               <tr>
                 <td colSpan={6} className="py-20 text-center text-slate-400">
-                  暂无项目数据
+                  {t('empty')}
                 </td>
               </tr>
             )}
@@ -1213,32 +1218,32 @@ const ProjectList: React.FC<ProjectListProps> = ({
                 <td className="px-4 py-5">{getStatusBadge(p.status)}</td>
                 <td className="px-4 py-5">
                   <div className="flex items-center gap-4 text-xs">
-                    <div className="flex items-center gap-1.5 text-slate-600" title="单元数">
+                    <div className="flex items-center gap-1.5 text-slate-600" title={t('unitCount')}>
                       <Layers className="w-3.5 h-3.5 text-slate-400" />
                       <span className="font-bold">{(p.labsCount || 0) + (p.challengesCount || 0)}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-slate-600" title="学习人数">
+                    <div className="flex items-center gap-1.5 text-slate-600" title={t('learnerCount')}>
                       <Users className="w-3.5 h-3.5 text-slate-400" />
                       <span className="font-bold">{(p.studentsCount || 0).toLocaleString()}</span>
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-5">
-                  <div className="text-xs text-slate-500">{formatDate(p.updatedAt)}</div>
+                  <div className="text-xs text-slate-500">{formatDate(p.updatedAt, t)}</div>
                 </td>
                 <td className="pl-4 pr-8 py-5 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => onCheck(p)}
                       className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                      title="发布检查"
+                      title={t('publishCheck')}
                     >
                       <ShieldCheck className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onPreview(p)}
                       className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
-                      title="学生视角预览"
+                      title={t('studentPreview')}
                     >
                       <Eye className="w-4 h-4" />
                     </button>
@@ -1246,7 +1251,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
                       <button
                         onClick={() => onArchive(p)}
                         className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                        title="下架"
+                        title={t('archive')}
                       >
                         <Archive className="w-4 h-4" />
                       </button>
@@ -1254,7 +1259,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
                       <button
                         onClick={() => onDraft(p)}
                         className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
-                        title="设为草稿"
+                        title={t('setDraft')}
                       >
                         <FileEdit className="w-4 h-4" />
                       </button>
@@ -1262,7 +1267,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
                       <button
                         onClick={() => onPublish(p)}
                         className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                        title="检查后发布"
+                        title={t('publishAfterCheck')}
                       >
                         <Rocket className="w-4 h-4" />
                       </button>
@@ -1270,21 +1275,21 @@ const ProjectList: React.FC<ProjectListProps> = ({
                     <button
                       onClick={() => onEdit(p)}
                       className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="编辑"
+                      title={t('edit')}
                     >
                       <FileText className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => {
                         onShowConfirm({
-                          title: '删除项目',
-                          message: '确定要删除该项目吗？此操作不可恢复，项目下的所有单元都将被删除。',
+                          title: t('deleteProjectTitle'),
+                          message: t('deleteProjectMessage'),
                           type: 'danger',
                           onConfirm: () => onDelete(p.id),
                         });
                       }}
                       className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                      title="删除"
+                      title={t('delete')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1299,8 +1304,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
       {/* Pagination */}
       <div className="p-6 flex items-center justify-between bg-white">
         <span className="text-xs font-medium text-slate-400">
-          显示 <span className="text-slate-900 font-bold">{(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)}</span> / 共{' '}
-          <span className="text-slate-900 font-bold">{total}</span> 个项目
+          {t('pageSummary', { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, total), total })}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -1340,6 +1344,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
 // ==================== 主组件 ====================
 
 const ProjectManagement: React.FC = () => {
+  const { t } = useTranslation('projectManagement');
   const [view, setView] = useState<'list' | 'editor'>('list');
   const [projects, setProjects] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);
@@ -1354,7 +1359,7 @@ const ProjectManagement: React.FC = () => {
   const [checkDrawerOpen, setCheckDrawerOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<PublishCheckResult | null>(null);
-  const [checkTitle, setCheckTitle] = useState('发布检查');
+  const [checkTitle, setCheckTitle] = useState(() => t('checkTitle'));
   const [previewProject, setPreviewProject] = useState<Project | null>(null);
   const { toast, success, error, hideToast } = useToast();
   
@@ -1489,11 +1494,11 @@ const ProjectManagement: React.FC = () => {
   // 保存项目
   const handleSave = async (data: ProjectFormData) => {
     if (!data.title.trim()) {
-      error('请输入项目名称');
+      error(t('nameRequired'));
       return;
     }
     if (!data.slug.trim()) {
-      error('请输入项目 Slug');
+      error(t('slugRequired'));
       return;
     }
 
@@ -1521,7 +1526,7 @@ const ProjectManagement: React.FC = () => {
         // 更新项目
         const result = await projectApi.update(data.id, projectData);
         if (!result.success) {
-          error(result.error || '更新失败');
+          error(result.error || t('updateFailed'));
           return;
         }
         projectId = data.id;
@@ -1529,7 +1534,7 @@ const ProjectManagement: React.FC = () => {
         // 创建项目
         const result = await projectApi.create(projectData);
         if (!result.success || !result.data) {
-          error(result.error || '创建失败');
+          error(result.error || t('createFailed'));
           return;
         }
         projectId = result.data.id;
@@ -1572,13 +1577,13 @@ const ProjectManagement: React.FC = () => {
         }
       }
 
-      success('保存成功');
+      success(t('saved'));
       setView('list');
       setCurrentProject(null);
       loadProjects();
     } catch (err) {
       console.error('保存失败:', err);
-      error('保存失败');
+      error(t('saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -1589,19 +1594,19 @@ const ProjectManagement: React.FC = () => {
     try {
       const result = await projectApi.delete(id);
       if (result.success) {
-        success('删除成功');
+        success(t('deleted'));
         loadProjects();
       } else {
-        error(result.error || '删除失败');
+        error(result.error || t('deleteFailed'));
       }
     } catch (err) {
       console.error('删除失败:', err);
-      error('删除失败');
+      error(t('deleteFailed'));
     }
   };
 
   const openProjectPreview = (project: Project, result: PublishCheckResult | null = null) => {
-    setCheckTitle(`${project.title} · 学生视角预览`);
+    setCheckTitle(t('previewSuffix', { title: project.title }));
     setPreviewProject(project);
     setCheckResult(result);
     setCheckDrawerOpen(true);
@@ -1609,7 +1614,7 @@ const ProjectManagement: React.FC = () => {
 
   const handlePublishCheck = async (project: Project, withPreview = false): Promise<PublishCheckResult | null> => {
     setChecking(true);
-    setCheckTitle(`${project.title} · 发布检查`);
+    setCheckTitle(t('checkSuffix', { title: project.title }));
     setPreviewProject(withPreview ? project : null);
     setCheckResult(null);
     setCheckDrawerOpen(true);
@@ -1619,11 +1624,11 @@ const ProjectManagement: React.FC = () => {
         setCheckResult(response.data);
         return response.data;
       }
-      error(response.error || '发布检查失败');
+      error(response.error || t('checkFailed'));
       return null;
     } catch (err) {
       console.error('项目发布检查失败:', err);
-      error('发布检查失败');
+      error(t('checkFailed'));
       return null;
     } finally {
       setChecking(false);
@@ -1635,7 +1640,7 @@ const ProjectManagement: React.FC = () => {
     if (!check?.canPublish) return;
     const response = await projectApi.publish(project.id);
     if (response.success) {
-      success('项目发布成功');
+      success(t('published'));
       await loadProjects();
       setCheckDrawerOpen(false);
       return;
@@ -1645,26 +1650,26 @@ const ProjectManagement: React.FC = () => {
       setCheckResult(blocked);
       setCheckDrawerOpen(true);
     }
-    error(response.error || '项目发布失败');
+    error(response.error || t('publishFailed'));
   };
 
   const handleArchiveProject = async (project: Project) => {
     const response = await projectApi.archive(project.id);
     if (response.success) {
-      success('项目已下架');
+      success(t('archived'));
       await loadProjects();
     } else {
-      error(response.error || '项目下架失败');
+      error(response.error || t('archiveFailed'));
     }
   };
 
   const handleDraftProject = async (project: Project) => {
     const response = await projectApi.draft(project.id);
     if (response.success) {
-      success('项目已设为草稿');
+      success(t('drafted'));
       await loadProjects();
     } else {
-      error(response.error || '设置草稿失败');
+      error(response.error || t('draftFailed'));
     }
   };
 
@@ -1737,7 +1742,7 @@ const ProjectManagement: React.FC = () => {
         title={confirmState.title}
         message={confirmState.message}
         type={confirmState.type}
-        confirmText="删除"
+        confirmText={t('delete')}
         onConfirm={handleConfirm}
         onCancel={hideConfirm}
       />

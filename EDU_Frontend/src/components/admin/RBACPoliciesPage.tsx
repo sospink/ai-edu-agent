@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { adminRbacApi, type RBACPoliciesPayload } from '@/services/adminRbac';
 
 const RBACPoliciesPage: React.FC = () => {
+  const { t } = useTranslation('adminRbac');
   const [loading, setLoading] = useState(true);
   const [payload, setPayload] = useState<RBACPoliciesPayload | null>(null);
 
@@ -22,15 +24,15 @@ const RBACPoliciesPage: React.FC = () => {
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">权限矩阵</h2>
-          <p className="mt-1 text-sm text-default-500">只读展示当前 Casbin 角色继承与路由策略</p>
+          <h2 className="text-2xl font-bold text-foreground">{t('title')}</h2>
+          <p className="mt-1 text-sm text-default-500">{t('subtitle')}</p>
         </div>
         <button
           onClick={() => void load()}
           className="inline-flex items-center gap-2 rounded-lg border border-default-200 bg-white px-4 py-2 text-sm font-medium text-default-600 transition hover:bg-default-50"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          刷新
+          {t('refresh')}
         </button>
       </div>
 
@@ -41,8 +43,8 @@ const RBACPoliciesPage: React.FC = () => {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">角色继承</h3>
-              <p className="text-xs text-default-500">当前生效的继承关系</p>
+              <h3 className="font-semibold text-foreground">{t('inheritance')}</h3>
+              <p className="text-xs text-default-500">{t('inheritanceDesc')}</p>
             </div>
           </div>
           <div className="mt-5 space-y-3">
@@ -54,21 +56,21 @@ const RBACPoliciesPage: React.FC = () => {
               </div>
             ))}
           </div>
-          <div className="mt-5 text-xs text-default-400">策略文件：{payload?.policyPath || '—'}</div>
+          <div className="mt-5 text-xs text-default-400">{t('policyFile', { path: payload?.policyPath || '—' })}</div>
         </div>
 
         <div className="card-surface rounded-xl">
           <div className="border-b border-default-200 px-5 py-4">
-            <h3 className="font-semibold text-foreground">路由策略</h3>
-            <p className="mt-1 text-xs text-default-500">按角色、对象路径和 HTTP 方法展示</p>
+            <h3 className="font-semibold text-foreground">{t('routePolicies')}</h3>
+            <p className="mt-1 text-xs text-default-500">{t('routePoliciesDesc')}</p>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-default-500">
-                  <th className="px-5 py-3 font-medium">角色</th>
-                  <th className="px-5 py-3 font-medium">路径</th>
-                  <th className="px-5 py-3 font-medium">方法</th>
+                  <th className="px-5 py-3 font-medium">{t('role')}</th>
+                  <th className="px-5 py-3 font-medium">{t('path')}</th>
+                  <th className="px-5 py-3 font-medium">{t('method')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -83,7 +85,7 @@ const RBACPoliciesPage: React.FC = () => {
                 ))}
                 {!loading && !payload?.policies.length && (
                   <tr>
-                    <td colSpan={3} className="px-5 py-10 text-center text-default-400">暂无权限策略数据</td>
+                    <td colSpan={3} className="px-5 py-10 text-center text-default-400">{t('empty')}</td>
                   </tr>
                 )}
               </tbody>

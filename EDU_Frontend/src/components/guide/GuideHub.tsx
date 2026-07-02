@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   CheckCircle2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 type GuideTab = 'start' | 'map' | 'core' | 'highlights';
 
@@ -28,34 +30,32 @@ interface TourStep {
   actionLabel: string;
 }
 
-const tourSteps: TourStep[] = [
+const createTourSteps = (t: TFunction<'guide'>): TourStep[] => [
   {
-    title: '进入学习路径',
-    description: '先进入学习中心，查看课程与技能列表，选择你的第一门课开始学习。',
+    title: t('tour1Title'), description: t('tour1Desc'),
     route: '/study',
-    actionLabel: '带我去学习中心',
+    actionLabel: t('tour1Action'),
   },
   {
-    title: '打开课时并开始实训',
-    description: '在课程中进入具体课时，阅读资料并结合 AI 智能体教师完成练习。',
+    title: t('tour2Title'), description: t('tour2Desc'),
     route: '/study',
-    actionLabel: '继续浏览课时',
+    actionLabel: t('tour2Action'),
   },
   {
-    title: '进入项目实战',
-    description: '完成基础课后转到项目模块，用真实任务巩固技能与工程能力。',
+    title: t('tour3Title'), description: t('tour3Desc'),
     route: '/projects',
-    actionLabel: '带我去项目实战',
+    actionLabel: t('tour3Action'),
   },
   {
-    title: '持续迭代学习',
-    description: '结合 AI 助手、课程资料和实操反馈，形成“学-练-评”闭环。',
+    title: t('tour4Title'), description: t('tour4Desc'),
     route: '/study',
-    actionLabel: '回到学习闭环',
+    actionLabel: t('tour4Action'),
   },
 ];
 
 const GuideHub: React.FC = () => {
+  const { t } = useTranslation('guide');
+  const tourSteps = createTourSteps(t);
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<GuideTab>('start');
@@ -116,10 +116,10 @@ const GuideHub: React.FC = () => {
   };
 
   const tabs: Array<{ key: GuideTab; label: string; icon: React.ReactNode }> = [
-    { key: 'start', label: '开始向导', icon: <Compass className="w-4 h-4" /> },
-    { key: 'map', label: '功能地图', icon: <Map className="w-4 h-4" /> },
-    { key: 'core', label: '核心功能', icon: <GraduationCap className="w-4 h-4" /> },
-    { key: 'highlights', label: '产品特点', icon: <Sparkles className="w-4 h-4" /> },
+    { key: 'start', label: t('startTab'), icon: <Compass className="w-4 h-4" /> },
+    { key: 'map', label: t('mapTab'), icon: <Map className="w-4 h-4" /> },
+    { key: 'core', label: t('coreTab'), icon: <GraduationCap className="w-4 h-4" /> },
+    { key: 'highlights', label: t('highlightsTab'), icon: <Sparkles className="w-4 h-4" /> },
   ];
 
   return (
@@ -130,11 +130,11 @@ const GuideHub: React.FC = () => {
         className="fixed left-6 bottom-6 z-40 group"
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.97 }}
-        aria-label="向导与指南"
+        aria-label={t('trigger')}
       >
         <div className="relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-900 text-white shadow-lg shadow-slate-900/30 border border-slate-700/60">
           <Compass className="w-4 h-4" />
-          <span className="text-sm font-medium">向导与指南</span>
+          <span className="text-sm font-medium">{t('trigger')}</span>
           {!hasSeen && (
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           )}
@@ -160,14 +160,14 @@ const GuideHub: React.FC = () => {
             >
               <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-800">平台向导与指南</h3>
-                  <p className="text-xs text-slate-500">快速了解平台功能、学习路径与产品能力</p>
+                  <h3 className="text-sm font-semibold text-slate-800">{t('title')}</h3>
+                  <p className="text-xs text-slate-500">{t('subtitle')}</p>
                 </div>
                 <button
                   type="button"
                   onClick={closeHub}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  aria-label="关闭指南"
+                  aria-label={t('close')}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -199,9 +199,9 @@ const GuideHub: React.FC = () => {
                   <div className="space-y-4">
                     {!tourActive && (
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <h4 className="text-sm font-semibold text-slate-800">3 分钟开始向导</h4>
+                        <h4 className="text-sm font-semibold text-slate-800">{t('quickTitle')}</h4>
                         <p className="text-xs text-slate-600 mt-2 leading-6">
-                          按 4 个步骤快速了解平台的学习路径、实训方式和项目实践入口。
+                          {t('quickDesc')}
                         </p>
                         <div className="mt-3 flex items-center gap-2">
                           <button
@@ -210,12 +210,12 @@ const GuideHub: React.FC = () => {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
                           >
                             <Rocket className="w-3.5 h-3.5" />
-                            {hasCompleted ? '重新开始向导' : '开始向导'}
+                            {hasCompleted ? t('restart') : t('start')}
                           </button>
                           {hasCompleted && (
                             <span className="inline-flex items-center gap-1 text-emerald-600 text-xs">
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              已完成
+                              {t('completed')}
                             </span>
                           )}
                         </div>
@@ -226,14 +226,14 @@ const GuideHub: React.FC = () => {
                       <div className="rounded-xl border border-slate-200 p-4">
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-slate-500">
-                            步骤 {tourStepIndex + 1}/{tourSteps.length}
+                            {t('step', { current: tourStepIndex + 1, total: tourSteps.length })}
                           </span>
                           <button
                             type="button"
                             onClick={() => setTourActive(false)}
                             className="text-xs text-slate-500 hover:text-slate-700"
                           >
-                            暂停向导
+                            {t('pause')}
                           </button>
                         </div>
                         <h4 className="text-sm font-semibold text-slate-800 mt-2">{currentStep.title}</h4>
@@ -253,14 +253,14 @@ const GuideHub: React.FC = () => {
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 disabled:opacity-40"
                           >
                             <ChevronLeft className="w-3.5 h-3.5" />
-                            上一步
+                            {t('previous')}
                           </button>
                           <button
                             type="button"
                             onClick={nextStep}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50"
                           >
-                            {tourStepIndex >= tourSteps.length - 1 ? '完成向导' : '下一步'}
+                            {tourStepIndex >= tourSteps.length - 1 ? t('finish') : t('next')}
                             {tourStepIndex < tourSteps.length - 1 && <ChevronRight className="w-3.5 h-3.5" />}
                           </button>
                         </div>
@@ -274,37 +274,37 @@ const GuideHub: React.FC = () => {
                     <div className="rounded-xl border border-slate-200 p-3">
                       <div className="flex items-center gap-2 text-slate-800 text-sm font-semibold">
                         <BookOpen className="w-4 h-4 text-blue-600" />
-                        学习中心
+                        {t('learning')}
                       </div>
-                      <p className="text-xs text-slate-600 mt-2">浏览课程与技能路径，进入课时学习和实训。</p>
+                      <p className="text-xs text-slate-600 mt-2">{t('learningDesc')}</p>
                       <button
                         type="button"
                         onClick={() => jumpTo('/study')}
                         className="mt-3 text-xs text-blue-600 hover:text-blue-700"
                       >
-                        打开学习中心
+                        {t('openLearning')}
                       </button>
                     </div>
                     <div className="rounded-xl border border-slate-200 p-3">
                       <div className="flex items-center gap-2 text-slate-800 text-sm font-semibold">
                         <FolderKanban className="w-4 h-4 text-violet-600" />
-                        项目实战
+                        {t('projects')}
                       </div>
-                      <p className="text-xs text-slate-600 mt-2">围绕真实任务练习工程能力，做完整项目闭环。</p>
+                      <p className="text-xs text-slate-600 mt-2">{t('projectsDesc')}</p>
                       <button
                         type="button"
                         onClick={() => jumpTo('/projects')}
                         className="mt-3 text-xs text-blue-600 hover:text-blue-700"
                       >
-                        打开项目实战
+                        {t('openProjects')}
                       </button>
                     </div>
                     <div className="rounded-xl border border-slate-200 p-3">
                       <div className="flex items-center gap-2 text-slate-800 text-sm font-semibold">
                         <Bot className="w-4 h-4 text-emerald-600" />
-                        AI 助手
+                        {t('ai')}
                       </div>
-                      <p className="text-xs text-slate-600 mt-2">对话式答疑、资料解析、路径建议，陪伴学习全过程。</p>
+                      <p className="text-xs text-slate-600 mt-2">{t('aiDesc')}</p>
                     </div>
                   </div>
                 )}
@@ -312,20 +312,16 @@ const GuideHub: React.FC = () => {
                 {activeTab === 'core' && (
                   <div className="space-y-3 text-xs text-slate-700">
                     <div className="rounded-xl border border-slate-200 p-3">
-                      <p className="font-semibold text-slate-800">课程学习与技能分层</p>
-                      <p className="mt-2 leading-6">从课程到阶段到课时分层组织，支持系统化学习与阶段推进。</p>
+                      <p className="font-semibold text-slate-800">{t('layeredTitle')}</p><p className="mt-2 leading-6">{t('layeredDesc')}</p>
                     </div>
                     <div className="rounded-xl border border-slate-200 p-3">
-                      <p className="font-semibold text-slate-800">实训驱动学习</p>
-                      <p className="mt-2 leading-6">围绕课时实验和项目实践展开，强调“学完就能做”。</p>
+                      <p className="font-semibold text-slate-800">{t('labTitle')}</p><p className="mt-2 leading-6">{t('labDesc')}</p>
                     </div>
                     <div className="rounded-xl border border-slate-200 p-3">
-                      <p className="font-semibold text-slate-800">AI 教师辅助</p>
-                      <p className="mt-2 leading-6">可根据当前课程上下文给出开场引导、疑难解释与练习建议。</p>
+                      <p className="font-semibold text-slate-800">{t('teacherTitle')}</p><p className="mt-2 leading-6">{t('teacherDesc')}</p>
                     </div>
                     <div className="rounded-xl border border-slate-200 p-3">
-                      <p className="font-semibold text-slate-800">进度与成果沉淀</p>
-                      <p className="mt-2 leading-6">学习记录、课时完成、项目实践结果可持续跟踪与复盘。</p>
+                      <p className="font-semibold text-slate-800">{t('progressTitle')}</p><p className="mt-2 leading-6">{t('progressDesc')}</p>
                     </div>
                   </div>
                 )}
@@ -333,16 +329,13 @@ const GuideHub: React.FC = () => {
                 {activeTab === 'highlights' && (
                   <div className="space-y-3 text-xs text-slate-700">
                     <div className="rounded-xl border border-slate-200 p-3">
-                      <p className="font-semibold text-slate-800">国产模型生态适配</p>
-                      <p className="mt-2 leading-6">支持主流国产模型生态，贴合教学落地与产业场景。</p>
+                      <p className="font-semibold text-slate-800">{t('ecosystemTitle')}</p><p className="mt-2 leading-6">{t('ecosystemDesc')}</p>
                     </div>
                     <div className="rounded-xl border border-slate-200 p-3">
-                      <p className="font-semibold text-slate-800">课程与项目双引擎</p>
-                      <p className="mt-2 leading-6">理论课程与项目实战结合，降低“只会看不会做”的风险。</p>
+                      <p className="font-semibold text-slate-800">{t('dualTitle')}</p><p className="mt-2 leading-6">{t('dualDesc')}</p>
                     </div>
                     <div className="rounded-xl border border-slate-200 p-3">
-                      <p className="font-semibold text-slate-800">平台化可扩展</p>
-                      <p className="mt-2 leading-6">可持续新增课程、技能与实训内容，快速对齐教学目标。</p>
+                      <p className="font-semibold text-slate-800">{t('extensibleTitle')}</p><p className="mt-2 leading-6">{t('extensibleDesc')}</p>
                     </div>
                   </div>
                 )}

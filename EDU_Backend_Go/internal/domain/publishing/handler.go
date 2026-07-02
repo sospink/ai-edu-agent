@@ -8,6 +8,7 @@ import (
 	"edu-platform/internal/domain/course"
 	"edu-platform/internal/domain/project"
 	"edu-platform/internal/middleware"
+	"edu-platform/pkg/i18n"
 	appjwt "edu-platform/pkg/jwt"
 	"edu-platform/pkg/pagination"
 	"edu-platform/pkg/response"
@@ -32,7 +33,7 @@ func (h *Handler) CheckCourse(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidCourseId")
 	if !ok {
 		return
 	}
@@ -41,7 +42,7 @@ func (h *Handler) CheckCourse(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "课程发布检查完成")
+	response.SuccessKey(c, result, "publishing.courseCheckCompleted", nil)
 }
 
 func (h *Handler) PublishCourse(c *gin.Context) {
@@ -49,7 +50,7 @@ func (h *Handler) PublishCourse(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidCourseId")
 	if !ok {
 		return
 	}
@@ -58,15 +59,15 @@ func (h *Handler) PublishCourse(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, record, "课程已发布")
+	response.SuccessKey(c, record, "publishing.coursePublished", nil)
 }
 
 func (h *Handler) ArchiveCourse(c *gin.Context) {
-	h.setCourseStatus(c, course.CourseStatusArchived, "课程已下架")
+	h.setCourseStatus(c, course.CourseStatusArchived, "publishing.courseArchived")
 }
 
 func (h *Handler) DraftCourse(c *gin.Context) {
-	h.setCourseStatus(c, course.CourseStatusDraft, "课程已设为草稿")
+	h.setCourseStatus(c, course.CourseStatusDraft, "publishing.courseDrafted")
 }
 
 func (h *Handler) UpdateCourse(c *gin.Context) {
@@ -74,7 +75,7 @@ func (h *Handler) UpdateCourse(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidCourseId")
 	if !ok {
 		return
 	}
@@ -95,7 +96,7 @@ func (h *Handler) UpdateCourse(c *gin.Context) {
 		LabTemplateID  *uint64 `json:"labTemplateId"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	params := course.UpdateCourseParams{
@@ -116,7 +117,7 @@ func (h *Handler) UpdateCourse(c *gin.Context) {
 			_ = c.Error(err)
 			return
 		}
-		response.Success(c, record, "课程更新成功")
+		response.SuccessKey(c, record, "publishing.courseUpdated", nil)
 		return
 	}
 	status := course.CourseStatus(*req.Status)
@@ -131,7 +132,7 @@ func (h *Handler) UpdateCourse(c *gin.Context) {
 			_ = c.Error(err)
 			return
 		}
-		response.Success(c, record, "课程更新成功")
+		response.SuccessKey(c, record, "publishing.courseUpdated", nil)
 		return
 	}
 	if _, err := h.courseService.UpdateCourse(id, params); err != nil {
@@ -143,7 +144,7 @@ func (h *Handler) UpdateCourse(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, record, "课程更新并发布成功")
+	response.SuccessKey(c, record, "publishing.courseUpdatedPublished", nil)
 }
 
 func (h *Handler) CheckProject(c *gin.Context) {
@@ -151,7 +152,7 @@ func (h *Handler) CheckProject(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的项目ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidProjectId")
 	if !ok {
 		return
 	}
@@ -160,7 +161,7 @@ func (h *Handler) CheckProject(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "项目发布检查完成")
+	response.SuccessKey(c, result, "publishing.projectCheckCompleted", nil)
 }
 
 func (h *Handler) PublishProject(c *gin.Context) {
@@ -168,7 +169,7 @@ func (h *Handler) PublishProject(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的项目ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidProjectId")
 	if !ok {
 		return
 	}
@@ -177,15 +178,15 @@ func (h *Handler) PublishProject(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, record, "项目已发布")
+	response.SuccessKey(c, record, "publishing.projectPublished", nil)
 }
 
 func (h *Handler) ArchiveProject(c *gin.Context) {
-	h.setProjectStatus(c, project.ProjectStatusArchived, "项目已下架")
+	h.setProjectStatus(c, project.ProjectStatusArchived, "publishing.projectArchived")
 }
 
 func (h *Handler) DraftProject(c *gin.Context) {
-	h.setProjectStatus(c, project.ProjectStatusDraft, "项目已设为草稿")
+	h.setProjectStatus(c, project.ProjectStatusDraft, "publishing.projectDrafted")
 }
 
 func (h *Handler) UpdateProject(c *gin.Context) {
@@ -193,7 +194,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的项目ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidProjectId")
 	if !ok {
 		return
 	}
@@ -216,7 +217,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		LabTemplateID *uint64   `json:"labTemplateId"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	params := project.UpdateProjectParams{
@@ -239,7 +240,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 			_ = c.Error(err)
 			return
 		}
-		response.Success(c, record, "项目更新成功")
+		response.SuccessKey(c, record, "publishing.projectUpdated", nil)
 		return
 	}
 	status := project.ProjectStatus(*req.Status)
@@ -254,7 +255,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 			_ = c.Error(err)
 			return
 		}
-		response.Success(c, record, "项目更新成功")
+		response.SuccessKey(c, record, "publishing.projectUpdated", nil)
 		return
 	}
 	if _, err := h.projectService.UpdateProject(id, params); err != nil {
@@ -266,7 +267,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, record, "项目更新并发布成功")
+	response.SuccessKey(c, record, "publishing.projectUpdatedPublished", nil)
 }
 
 func (h *Handler) CheckManual(c *gin.Context) {
@@ -274,7 +275,7 @@ func (h *Handler) CheckManual(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的手册ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidManualId")
 	if !ok {
 		return
 	}
@@ -283,7 +284,7 @@ func (h *Handler) CheckManual(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, result, "手册发布检查完成")
+	response.SuccessKey(c, result, "publishing.manualCheckCompleted", nil)
 }
 
 func (h *Handler) UpdateManual(c *gin.Context) {
@@ -291,7 +292,7 @@ func (h *Handler) UpdateManual(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的手册ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidManualId")
 	if !ok {
 		return
 	}
@@ -301,7 +302,7 @@ func (h *Handler) UpdateManual(c *gin.Context) {
 		IsPublished *int   `json:"isPublished"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	manual, err := h.service.UpdateManual(c.Request.Context(), claims.UserID, claims.RoleType, id, req.Title, req.Description, req.IsPublished)
@@ -309,12 +310,12 @@ func (h *Handler) UpdateManual(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"id":          manual.ID,
 		"title":       manual.Title,
 		"description": manual.Description,
 		"isPublished": manual.IsPublished,
-	}, "手册更新成功")
+	}, "publishing.manualUpdated", nil)
 }
 
 func (h *Handler) ListTeacherLabTemplates(c *gin.Context) {
@@ -323,7 +324,7 @@ func (h *Handler) ListTeacherLabTemplates(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, templates, "获取可用 Lab 模板成功")
+	response.SuccessKey(c, templates, "publishing.teacherTemplatesLoaded", nil)
 }
 
 func (h *Handler) ListAdminLabTemplates(c *gin.Context) {
@@ -332,7 +333,7 @@ func (h *Handler) ListAdminLabTemplates(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, templates, "获取 Lab 模板成功")
+	response.SuccessKey(c, templates, "publishing.adminTemplatesLoaded", nil)
 }
 
 func (h *Handler) CreateLabTemplate(c *gin.Context) {
@@ -349,7 +350,7 @@ func (h *Handler) CreateLabTemplate(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Created(c, template, "Lab 模板创建成功")
+	response.CreatedKey(c, template, "publishing.templateCreated", nil)
 }
 
 func (h *Handler) UpdateLabTemplate(c *gin.Context) {
@@ -357,7 +358,7 @@ func (h *Handler) UpdateLabTemplate(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的模板ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidTemplateId")
 	if !ok {
 		return
 	}
@@ -370,7 +371,7 @@ func (h *Handler) UpdateLabTemplate(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, template, "Lab 模板更新成功")
+	response.SuccessKey(c, template, "publishing.templateUpdated", nil)
 }
 
 func (h *Handler) UpdateLabTemplateStatus(c *gin.Context) {
@@ -378,7 +379,7 @@ func (h *Handler) UpdateLabTemplateStatus(c *gin.Context) {
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的模板ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidTemplateId")
 	if !ok {
 		return
 	}
@@ -386,7 +387,7 @@ func (h *Handler) UpdateLabTemplateStatus(c *gin.Context) {
 		Status int `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return
 	}
 	template, err := h.service.UpdateLabTemplateStatus(c.Request.Context(), claims.UserID, id, LabTemplateStatus(req.Status))
@@ -394,7 +395,7 @@ func (h *Handler) UpdateLabTemplateStatus(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, template, "Lab 模板状态更新成功")
+	response.SuccessKey(c, template, "publishing.templateStatusUpdated", nil)
 }
 
 func (h *Handler) ListAuditLogs(c *gin.Context) {
@@ -412,20 +413,20 @@ func (h *Handler) ListAuditLogs(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     logs,
 		"total":    total,
 		"page":     q.Page,
 		"pageSize": q.PageSize,
-	}, "获取发布审计成功")
+	}, "publishing.auditLoaded", nil)
 }
 
-func (h *Handler) setCourseStatus(c *gin.Context, status course.CourseStatus, message string) {
+func (h *Handler) setCourseStatus(c *gin.Context, status course.CourseStatus, key i18n.MessageKey) {
 	claims, ok := currentClaims(c)
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidCourseId")
 	if !ok {
 		return
 	}
@@ -434,15 +435,15 @@ func (h *Handler) setCourseStatus(c *gin.Context, status course.CourseStatus, me
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, record, message)
+	response.SuccessKey(c, record, key, nil)
 }
 
-func (h *Handler) setProjectStatus(c *gin.Context, status project.ProjectStatus, message string) {
+func (h *Handler) setProjectStatus(c *gin.Context, status project.ProjectStatus, key i18n.MessageKey) {
 	claims, ok := currentClaims(c)
 	if !ok {
 		return
 	}
-	id, ok := parseUintParam(c, "id", "无效的项目ID")
+	id, ok := parseUintParam(c, "id", "publishing.invalidProjectId")
 	if !ok {
 		return
 	}
@@ -451,7 +452,7 @@ func (h *Handler) setProjectStatus(c *gin.Context, status project.ProjectStatus,
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, record, message)
+	response.SuccessKey(c, record, key, nil)
 }
 
 func (h *Handler) ensureCourseAccess(c *gin.Context, courseID, actorID uint64, roleType int) bool {
@@ -463,7 +464,7 @@ func (h *Handler) ensureCourseAccess(c *gin.Context, courseID, actorID uint64, r
 	if roleType >= 10 || record.CreatorID == actorID {
 		return true
 	}
-	response.Forbidden(c, "无权管理该课程")
+	response.ForbiddenKey(c, "publishing.courseForbidden", nil)
 	return false
 }
 
@@ -476,23 +477,23 @@ func (h *Handler) ensureProjectAccess(c *gin.Context, projectID, actorID uint64,
 	if roleType >= 10 || record.CreatedBy == actorID {
 		return true
 	}
-	response.Forbidden(c, "无权管理该项目")
+	response.ForbiddenKey(c, "publishing.projectForbidden", nil)
 	return false
 }
 
 func currentClaims(c *gin.Context) (*appjwt.Claims, bool) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return nil, false
 	}
 	return claims, true
 }
 
-func parseUintParam(c *gin.Context, name, message string) (uint64, bool) {
+func parseUintParam(c *gin.Context, name string, key i18n.MessageKey) (uint64, bool) {
 	id, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil {
-		response.BadRequest(c, message)
+		response.BadRequestKey(c, key, nil)
 		return 0, false
 	}
 	return id, true
@@ -521,7 +522,7 @@ func bindLabTemplateInput(c *gin.Context) (LabTemplateInput, bool) {
 		Status             int                      `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "请求参数错误")
+		response.BadRequestKey(c, "common.invalidParams", nil)
 		return LabTemplateInput{}, false
 	}
 	return LabTemplateInput{

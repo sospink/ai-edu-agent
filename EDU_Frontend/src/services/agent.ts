@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config';
+import i18n, { getCurrentLocale } from '@/i18n';
 import { api } from './api';
 
 const directOrData = <T,>(res: unknown): T | undefined => {
@@ -191,18 +192,19 @@ export async function chatStream(
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : '',
+        'X-Locale': getCurrentLocale(),
       },
       body: JSON.stringify({ question, stepContext, chatHistory }),
     });
 
     if (!response.ok) {
-      onError?.(await readErrorMessage(response, 'AI 服务暂时不可用'));
+      onError?.(await readErrorMessage(response, i18n.t('errors:AI_UNAVAILABLE')));
       return;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
-      onError?.('无法读取响应流');
+      onError?.(i18n.t('errors:STREAM_UNREADABLE'));
       return;
     }
 
@@ -242,7 +244,7 @@ export async function chatStream(
 
     onDone?.();
   } catch (error: any) {
-    onError?.(error.message || 'AI 服务暂时不可用');
+    onError?.(error.message || i18n.t('errors:AI_UNAVAILABLE'));
   }
 }
 
@@ -261,18 +263,19 @@ export async function coachStream(
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : '',
+        'X-Locale': getCurrentLocale(),
       },
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      onError?.(await readErrorMessage(response, 'AI 教学助手暂时不可用'));
+      onError?.(await readErrorMessage(response, i18n.t('errors:AI_UNAVAILABLE')));
       return;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
-      onError?.('无法读取响应流');
+      onError?.(i18n.t('errors:STREAM_UNREADABLE'));
       return;
     }
 
@@ -317,7 +320,7 @@ export async function coachStream(
 
     onDone?.();
   } catch (error: any) {
-    onError?.(error.message || 'AI 教学助手暂时不可用');
+    onError?.(error.message || i18n.t('errors:AI_UNAVAILABLE'));
   }
 }
 

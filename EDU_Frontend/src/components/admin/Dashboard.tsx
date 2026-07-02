@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import {
   Activity,
   ArrowUpRight,
@@ -48,6 +49,9 @@ import {
   type ResourceQuotaScope,
   type RuntimeSessionEvent,
 } from '@/services/dashboard';
+import i18n, { getCurrentLocale } from '@/i18n';
+
+const tr = (key: string, options?: Record<string, unknown>) => i18n.t(`adminDashboard:${key}`, options);
 
 type DrawerTab = 'summary' | 'events' | 'logs';
 
@@ -83,62 +87,62 @@ const statusStyles: Record<string, string> = {
 };
 
 const kpiCards = [
-  { key: 'activeSessions', label: '运行中会话', icon: PlayCircle, accent: 'text-primary-600', filter: { status: 'running' } },
-  { key: 'creatingSessions', label: '创建中会话', icon: Clock3, accent: 'text-secondary-600', filter: { status: 'creating' } },
-  { key: 'errorSessions', label: '异常会话', icon: XCircle, accent: 'text-danger-600', filter: { status: 'error' } },
-  { key: 'openClawSessions', label: 'OpenClaw 会话', icon: Terminal, accent: 'text-secondary-600', filter: { runtimeMode: 'openclaw' } },
-  { key: 'recent24h', label: '24 小时新增', icon: Activity, accent: 'text-success-600', filter: {} },
-  { key: 'expiredPending', label: '待回收会话', icon: PauseCircle, accent: 'text-warning-600', filter: { status: 'creating' } },
+  { key: 'activeSessions', labelKey: 'kpis.activeSessions', icon: PlayCircle, accent: 'text-primary-600', filter: { status: 'running' } },
+  { key: 'creatingSessions', labelKey: 'kpis.creatingSessions', icon: Clock3, accent: 'text-secondary-600', filter: { status: 'creating' } },
+  { key: 'errorSessions', labelKey: 'kpis.errorSessions', icon: XCircle, accent: 'text-danger-600', filter: { status: 'error' } },
+  { key: 'openClawSessions', labelKey: 'kpis.openClawSessions', icon: Terminal, accent: 'text-secondary-600', filter: { runtimeMode: 'openclaw' } },
+  { key: 'recent24h', labelKey: 'kpis.recent24h', icon: Activity, accent: 'text-success-600', filter: {} },
+  { key: 'expiredPending', labelKey: 'kpis.expiredPending', icon: PauseCircle, accent: 'text-warning-600', filter: { status: 'creating' } },
 ] as const;
 
-const sessionTabs: Array<{ key: string; label: string }> = [
-  { key: 'all', label: '全部' },
-  { key: 'running', label: '运行中' },
-  { key: 'creating', label: '创建中' },
-  { key: 'error', label: '异常' },
-  { key: 'stopped', label: '已停止' },
+const sessionTabs: Array<{ key: string; labelKey: string }> = [
+  { key: 'all', labelKey: 'statuses.all' },
+  { key: 'running', labelKey: 'statuses.running' },
+  { key: 'creating', labelKey: 'statuses.creating' },
+  { key: 'error', labelKey: 'statuses.error' },
+  { key: 'stopped', labelKey: 'statuses.stopped' },
 ];
 
-const timeRangeOptions: Array<{ key: DashboardTimeRange; label: string }> = [
-  { key: 'all', label: '全部时间' },
-  { key: '24h', label: '最近 24 小时' },
-  { key: '7d', label: '最近 7 天' },
-  { key: '30d', label: '最近 30 天' },
+const timeRangeOptions: Array<{ key: DashboardTimeRange; labelKey: string }> = [
+  { key: 'all', labelKey: 'timeRanges.all' },
+  { key: '24h', labelKey: 'timeRanges.24h' },
+  { key: '7d', labelKey: 'timeRanges.7d' },
+  { key: '30d', labelKey: 'timeRanges.30d' },
 ];
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return '—';
-  return new Date(value).toLocaleString('zh-CN', { hour12: false });
+  return new Date(value).toLocaleString(getCurrentLocale(), { hour12: false });
 };
 
 const formatRelativeTime = (value?: string | null) => {
   if (!value) return '—';
   const target = new Date(value).getTime();
   const diff = Date.now() - target;
-  if (diff < 60_000) return '刚刚';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
-  return `${Math.floor(diff / 86_400_000)} 天前`;
+  if (diff < 60_000) return tr('justNow');
+  if (diff < 3_600_000) return tr('minutesAgo', { count: Math.floor(diff / 60_000) });
+  if (diff < 86_400_000) return tr('hoursAgo', { count: Math.floor(diff / 3_600_000) });
+  return tr('daysAgo', { count: Math.floor(diff / 86_400_000) });
 };
 
 const labelForStatus = (status: string) => {
   switch (status) {
     case 'running':
-      return '运行中';
+      return tr('statuses.running');
     case 'creating':
-      return '创建中';
+      return tr('statuses.creating');
     case 'stopped':
-      return '已停止';
+      return tr('statuses.stopped');
     case 'error':
-      return '异常';
+      return tr('statuses.error');
     case 'warning':
-      return '待关注';
+      return tr('statuses.warning');
     case 'success':
-      return '正常';
+      return tr('statuses.success');
     case 'danger':
-      return '高风险';
+      return tr('statuses.danger');
     case 'neutral':
-      return '未配置';
+      return tr('statuses.neutral');
     default:
       return status;
   }
@@ -147,9 +151,9 @@ const labelForStatus = (status: string) => {
 const labelForSource = (source: string) => {
   switch (source) {
     case 'course':
-      return '课程';
+      return tr('sources.course');
     case 'project':
-      return '项目';
+      return tr('sources.project');
     default:
       return source;
   }
@@ -174,6 +178,7 @@ interface InspectorState {
 }
 
 const Dashboard: React.FC = () => {
+  useTranslation('adminDashboard');
   const { toast, success, error, info, hideToast } = useToast();
   const confirmDialog = useConfirmDialog();
 
@@ -221,7 +226,7 @@ const Dashboard: React.FC = () => {
     if (response.success && response.data) {
       setOverview(response.data);
     } else {
-      error(response.error || '加载平台运行概览失败');
+      error(response.error || tr('loadOverviewFailed'));
     }
     setLoadingOverview(false);
   }, [error]);
@@ -233,7 +238,7 @@ const Dashboard: React.FC = () => {
       setSessions(response.data.list);
       setTotal(response.data.total);
     } else {
-      error(response.error || '加载会话工作台失败');
+      error(response.error || tr('loadSessionsFailed'));
     }
     setLoadingSessions(false);
   }, [error]);
@@ -249,13 +254,13 @@ const Dashboard: React.FC = () => {
     if (quotaResp.success && quotaResp.data) {
       setQuotas(quotaResp.data.list);
     } else {
-      error(quotaResp.error || '加载资源配额失败');
+      error(quotaResp.error || tr('loadQuotasFailed'));
     }
     if (auditResp.success && auditResp.data) {
       setAuditLogs(auditResp.data.list);
       setAuditTotal(auditResp.data.total);
     } else {
-      error(auditResp.error || '加载审计日志失败');
+      error(auditResp.error || tr('loadAuditFailed'));
     }
     if (healthResp.success && healthResp.data) {
       setHealthCards(healthResp.data);
@@ -295,7 +300,7 @@ const Dashboard: React.FC = () => {
     if (response.success && response.data) {
       setSessionDetail(response.data);
     } else {
-      setDrawerError(response.error || '加载会话详情失败');
+      setDrawerError(response.error || tr('loadDetailFailed'));
       setSessionDetail(null);
     }
     if (eventsResponse.success && eventsResponse.data) {
@@ -309,7 +314,7 @@ const Dashboard: React.FC = () => {
       if (logsResponse.success && logsResponse.data) {
         setSessionLogs(logsResponse.data);
       } else {
-        setDrawerError(logsResponse.error || '加载日志失败');
+        setDrawerError(logsResponse.error || tr('loadLogsFailed'));
       }
       setLogsLoading(false);
     }
@@ -346,43 +351,43 @@ const Dashboard: React.FC = () => {
     });
   };
 
-  const handleCopy = async (value: string, message = '已复制') => {
+  const handleCopy = async (value: string, message = tr('copied')) => {
     if (!value) {
-      info('当前没有可复制的信息');
+      info(tr('nothingToCopy'));
       return;
     }
     try {
       await navigator.clipboard.writeText(value);
       success(message);
     } catch {
-      error('复制失败');
+      error(tr('copyFailed'));
     }
   };
 
   const handleStopSession = (session: DashboardSession) => {
     confirmDialog.showConfirm({
-      title: '停止会话',
-      message: `确定停止 ${session.sourceName} 的运行会话吗？`,
+      title: tr('stopSession'),
+      message: tr('stopConfirm', { name: session.sourceName }),
       type: 'warning',
       onConfirm: async () => {
         setStoppingSessionId(session.id);
         const response = await dashboardService.stopSession(session.id);
         if (response.success && response.data) {
           if (response.data.stopped) {
-            success('会话已停止');
+            success(tr('sessionStopped'));
           } else if (response.data.reason === 'already_stopped') {
-            info('会话已处于停止状态');
+            info(tr('alreadyStopped'));
           } else if (response.data.reason === 'not_found') {
-            info('会话不存在，无需操作');
+            info(tr('sessionMissing'));
           } else {
-            info('停止请求已处理');
+            info(tr('stopHandled'));
           }
           await refreshAll(filters);
           if (inspector.mode === 'session' && inspector.sessionId === session.id) {
             closeInspector();
           }
         } else {
-          error(response.error || '停止会话失败');
+          error(response.error || tr('stopFailed'));
         }
         setStoppingSessionId(null);
       },
@@ -391,7 +396,7 @@ const Dashboard: React.FC = () => {
 
   const handleRefreshIntegration = async () => {
     await Promise.all([refreshOverview(), refreshOperations()]);
-    success('状态已刷新');
+    success(tr('statusRefreshed'));
   };
 
   const resetQuotaForm = () => {
@@ -415,17 +420,17 @@ const Dashboard: React.FC = () => {
     const payload: ResourceQuotaInput = {
       scopeType: quotaForm.scopeType,
       scopeId: quotaForm.scopeType === 'global' ? 0 : Number(quotaForm.scopeId || 0),
-      name: quotaForm.name.trim() || `${quotaForm.scopeType} 配额`,
+      name: quotaForm.name.trim() || tr('defaultQuotaName', { scope: quotaForm.scopeType }),
       maxConcurrentSessions: Number(quotaForm.maxConcurrentSessions || 0),
       maxSessionMinutes: Number(quotaForm.maxSessionMinutes || 0),
       enabled: quotaForm.enabled,
     };
     if (payload.scopeType !== 'global' && !payload.scopeId) {
-      error('班级或用户配额必须填写对象 ID');
+      error(tr('scopeIdRequired'));
       return;
     }
     if (payload.maxConcurrentSessions < 0 || payload.maxSessionMinutes <= 0) {
-      error('请填写有效的并发数和运行时长');
+      error(tr('quotaInvalid'));
       return;
     }
     setQuotaSubmitting(true);
@@ -434,21 +439,21 @@ const Dashboard: React.FC = () => {
       : await dashboardService.createResourceQuota(payload);
     setQuotaSubmitting(false);
     if (response.success) {
-      success(editingQuota ? '资源配额已更新' : '资源配额已创建');
+      success(editingQuota ? tr('quotaUpdated') : tr('quotaCreated'));
       resetQuotaForm();
       await refreshOperations();
     } else {
-      error(response.error || '保存资源配额失败');
+      error(response.error || tr('quotaSaveFailed'));
     }
   };
 
   const toggleQuota = async (quota: ResourceQuota) => {
     const response = await dashboardService.updateResourceQuotaStatus(quota.id, !quota.enabled);
     if (response.success) {
-      success(quota.enabled ? '资源配额已停用' : '资源配额已启用');
+      success(quota.enabled ? tr('quotaDisabled') : tr('quotaEnabled'));
       await refreshOperations();
     } else {
-      error(response.error || '更新资源配额状态失败');
+      error(response.error || tr('quotaStatusFailed'));
     }
   };
 
@@ -461,7 +466,7 @@ const Dashboard: React.FC = () => {
       setSessionLogs(response.data);
       setDrawerError('');
     } else {
-      setDrawerError(response.error || '加载日志失败');
+      setDrawerError(response.error || tr('loadLogsFailed'));
     }
     setLogsLoading(false);
   }, [inspector, sessionLogs]);
@@ -490,11 +495,11 @@ const Dashboard: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 text-sm font-medium text-primary-600">
               <Layers3 className="h-4 w-4" />
-              平台运行概览
+              {tr('badge')}
             </div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">K8S 实训运行工作台</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{tr('title')}</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-default-500">
-              聚焦平台相关命名空间、实训会话、运行时资源和外部集成状态。这里可以直接完成筛选、排障定位和单会话轻操作。
+              {tr('subtitle')}
             </p>
           </div>
           <button
@@ -502,13 +507,13 @@ const Dashboard: React.FC = () => {
             className="inline-flex items-center gap-2 rounded-lg border border-default-200 bg-white px-4 py-2 text-sm font-medium text-default-600 transition-colors hover:border-primary-200 hover:text-primary-600"
           >
             <RefreshCw className="h-4 w-4" />
-            刷新工作台
+            {tr('refreshWorkbench')}
           </button>
         </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        {kpiCards.map(({ key, label, icon: Icon, accent, filter }) => (
+        {kpiCards.map(({ key, labelKey, icon: Icon, accent, filter }) => (
           <button
             key={key}
             onClick={() => handleKpiClick(filter)}
@@ -529,7 +534,7 @@ const Dashboard: React.FC = () => {
                 <div className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
                   {overview.kpis[key]}
                 </div>
-                <div className="mt-1 text-sm text-default-500">{label}</div>
+                <div className="mt-1 text-sm text-default-500">{tr(labelKey)}</div>
               </>
             )}
           </button>
@@ -539,8 +544,8 @@ const Dashboard: React.FC = () => {
       <section className="card-surface rounded-2xl">
         <div className="flex items-center justify-between border-b border-default-100 px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">最近活跃</h2>
-            <p className="mt-1 text-sm text-default-500">优先看最近进入、最近异常或刚完成启动的会话。</p>
+            <h2 className="text-lg font-semibold text-foreground">{tr('recentActive')}</h2>
+            <p className="mt-1 text-sm text-default-500">{tr('recentActiveDesc')}</p>
           </div>
         </div>
         <div className="px-6 py-5">
@@ -561,7 +566,7 @@ const Dashboard: React.FC = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-foreground">{session.sourceName}</div>
-                      <div className="mt-1 text-xs text-default-400">#{session.id} · {session.fullName || session.userName || `用户 ${session.userId}`}</div>
+                      <div className="mt-1 text-xs text-default-400">#{session.id} · {session.fullName || session.userName || tr('userFallback', { id: session.userId })}</div>
                     </div>
                     <StatusChip status={session.statusText} />
                   </div>
@@ -575,7 +580,7 @@ const Dashboard: React.FC = () => {
               ))}
             </div>
           ) : (
-            <EmptyInline message="当前没有最近活跃的会话摘要。" />
+            <EmptyInline message={tr('noRecent')} />
           )}
         </div>
       </section>
@@ -584,14 +589,14 @@ const Dashboard: React.FC = () => {
         <div className="card-surface rounded-2xl">
           <div className="flex items-center justify-between border-b border-default-100 px-6 py-4">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">运行时健康概览</h2>
-              <p className="mt-1 text-sm text-default-500">聚焦平台命名空间、资源分布和镜像使用情况。</p>
+              <h2 className="text-lg font-semibold text-foreground">{tr('runtimeHealth')}</h2>
+              <p className="mt-1 text-sm text-default-500">{tr('runtimeHealthDesc')}</p>
             </div>
           </div>
           <div className="grid gap-6 px-6 py-6 md:grid-cols-2">
             <div className="space-y-4">
               <div className="rounded-xl bg-default-50 px-4 py-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-default-400">Namespace</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-default-400">{tr('namespace', { ns: 'uiReview' })}</div>
                 {loadingOverview || !overview ? (
                   <div className="mt-3 space-y-2">
                     <SkeletonBlock className="h-4 w-32" />
@@ -600,15 +605,15 @@ const Dashboard: React.FC = () => {
                 ) : (
                   <div className="mt-3 space-y-2 text-sm text-default-600">
                     <div className="flex items-center justify-between gap-3">
-                      <span>Configured</span>
+                      <span>{tr('configured', { ns: 'uiReview' })}</span>
                       <span className="font-medium text-foreground">{overview.runtime.configuredNamespace || '—'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span>Runtime</span>
+                      <span>{tr('runtime', { ns: 'uiReview' })}</span>
                       <span className="font-medium text-foreground">{overview.runtime.runtimeNamespace || '—'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span>Pods / Services</span>
+                      <span>{tr('podsServices', { ns: 'uiReview' })}</span>
                       <span className="font-medium text-foreground">
                         {overview.runtime.podCount} / {overview.runtime.serviceCount}
                       </span>
@@ -617,16 +622,16 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
 
-              <StatGroup title="Pod 阶段分布" items={overview?.runtime.podPhases || []} loading={loadingOverview} />
-              <StatGroup title="运行模式分布" items={overview?.runtime.runtimeModes || []} loading={loadingOverview} />
+              <StatGroup title={tr('podPhases')} items={overview?.runtime.podPhases || []} loading={loadingOverview} />
+              <StatGroup title={tr('runtimeModes')} items={overview?.runtime.runtimeModes || []} loading={loadingOverview} />
             </div>
 
             <div className="space-y-4">
-              <StatGroup title="会话状态分布" items={overview?.runtime.sessionStatuses || []} loading={loadingOverview} />
+              <StatGroup title={tr('sessionStatuses')} items={overview?.runtime.sessionStatuses || []} loading={loadingOverview} />
               <div className="card-surface-muted rounded-xl px-4 py-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Box className="h-4 w-4 text-primary-600" />
-                  镜像使用 Top 5
+                  {tr('imageTop')}
                 </div>
                 <div className="mt-4 space-y-3">
                   {loadingOverview || !overview ? (
@@ -639,11 +644,11 @@ const Dashboard: React.FC = () => {
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-foreground">{image.image}</div>
                         </div>
-                        <StatusChip status="neutral">{image.count} 个</StatusChip>
+                        <StatusChip status="neutral">{tr('imageCount', { count: image.count })}</StatusChip>
                       </div>
                     ))
                   ) : (
-                    <EmptyInline message="当前没有采集到镜像使用数据。" />
+                    <EmptyInline message={tr('noImages')} />
                   )}
                 </div>
               </div>
@@ -654,8 +659,8 @@ const Dashboard: React.FC = () => {
         <div className="card-surface rounded-2xl">
           <div className="flex items-center justify-between border-b border-default-100 px-6 py-4">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">平台状态</h2>
-              <p className="mt-1 text-sm text-default-500">外部集成和需要优先处理的运行信号。</p>
+              <h2 className="text-lg font-semibold text-foreground">{tr('platformStatus')}</h2>
+              <p className="mt-1 text-sm text-default-500">{tr('platformStatusDesc')}</p>
             </div>
           </div>
           <div className="space-y-6 px-6 py-6">
@@ -692,7 +697,7 @@ const Dashboard: React.FC = () => {
                       }}
                       disabled={!integration.canRefresh}
                       className="rounded-lg p-2 text-default-400 transition-colors hover:bg-white hover:text-primary-600"
-                      title="刷新状态"
+                      title={tr('refreshStatus')}
                     >
                       <RefreshCw className="h-4 w-4" />
                     </button>
@@ -704,7 +709,7 @@ const Dashboard: React.FC = () => {
             <div className="border-t border-default-100 pt-6">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <ShieldCheck className="h-4 w-4 text-warning-600" />
-                需要优先关注
+                {tr('needsAttention')}
               </div>
               <div className="mt-4 space-y-3">
                 {loadingOverview || !overview ? (
@@ -724,7 +729,7 @@ const Dashboard: React.FC = () => {
                     </button>
                   ))
                 ) : (
-                  <EmptyInline message="当前没有需要升级处理的运行信号。" />
+                  <EmptyInline message={tr('noAttention')} />
                 )}
               </div>
             </div>
@@ -736,11 +741,11 @@ const Dashboard: React.FC = () => {
         <div className="card-surface rounded-2xl">
           <div className="flex items-center justify-between border-b border-default-100 px-6 py-4">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">资源配额治理</h2>
-              <p className="mt-1 text-sm text-default-500">配置全局、班级或用户的 Classic Lab 并发和单次运行时长。</p>
+              <h2 className="text-lg font-semibold text-foreground">{tr('quotaGovernance')}</h2>
+              <p className="mt-1 text-sm text-default-500">{tr('quotaDesc')}</p>
             </div>
             <button onClick={() => void refreshOperations()} className="rounded-lg border border-default-200 px-3 py-2 text-sm font-medium text-default-600 hover:text-primary-600">
-              刷新
+              {tr('refresh')}
             </button>
           </div>
           <div className="grid gap-5 px-6 py-6 lg:grid-cols-[1fr_320px]">
@@ -754,61 +759,61 @@ const Dashboard: React.FC = () => {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="truncate text-sm font-semibold text-foreground">{quota.name}</div>
-                          <StatusChip status={quota.enabled ? 'success' : 'neutral'}>{quota.enabled ? '启用' : '停用'}</StatusChip>
+                          <StatusChip status={quota.enabled ? 'success' : 'neutral'}>{quota.enabled ? tr('enabled') : tr('disabled')}</StatusChip>
                           <StatusChip status="neutral">{quota.scopeType}:{quota.scopeId}</StatusChip>
                         </div>
                         <div className="mt-2 text-sm text-default-500">
-                          并发 {quota.maxConcurrentSessions === 0 ? '不限' : quota.maxConcurrentSessions} 个 · 单次 {quota.maxSessionMinutes} 分钟
+                          {tr('quotaMetrics', { concurrent: quota.maxConcurrentSessions === 0 ? tr('unlimited') : quota.maxConcurrentSessions, minutes: quota.maxSessionMinutes })}
                         </div>
-                        <div className="mt-1 text-xs text-default-400">更新于 {formatDateTime(quota.updatedAt)}</div>
+                        <div className="mt-1 text-xs text-default-400">{tr('updatedAt', { value: formatDateTime(quota.updatedAt) })}</div>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button onClick={() => editQuota(quota)} className="rounded-lg border border-default-200 bg-white px-3 py-2 text-xs font-semibold text-default-600 hover:text-primary-600">
-                          编辑
+                          {tr('edit')}
                         </button>
                         <button onClick={() => void toggleQuota(quota)} className="rounded-lg border border-default-200 bg-white px-3 py-2 text-xs font-semibold text-default-600 hover:text-primary-600">
-                          {quota.enabled ? '停用' : '启用'}
+                          {quota.enabled ? tr('disabled') : tr('enabled')}
                         </button>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <EmptyInline message="当前没有资源配额。系统会自动准备一条全局默认配额。" />
+                <EmptyInline message={tr('noQuotas')} />
               )}
             </div>
 
             <div className="card-surface-muted rounded-xl px-4 py-4">
-              <div className="text-sm font-semibold text-foreground">{editingQuota ? '编辑配额' : '新增配额'}</div>
+              <div className="text-sm font-semibold text-foreground">{editingQuota ? tr('editQuota') : tr('newQuota')}</div>
               <div className="mt-4 space-y-3">
                 <ToolbarSelect
-                  ariaLabel="配额作用域"
+                  ariaLabel={tr('quotaScope')}
                   value={quotaForm.scopeType}
                   onChange={(value) => setQuotaForm((prev) => ({ ...prev, scopeType: value as ResourceQuotaScope, scopeId: value === 'global' ? '0' : prev.scopeId }))}
                   options={[
-                    { key: 'global', label: '全局' },
-                    { key: 'class', label: '班级' },
-                    { key: 'user', label: '用户' },
+                    { key: 'global', label: tr('global') },
+                    { key: 'class', label: tr('class') },
+                    { key: 'user', label: tr('user') },
                   ]}
                 />
                 <input
                   value={quotaForm.scopeId}
                   onChange={(event) => setQuotaForm((prev) => ({ ...prev, scopeId: event.target.value }))}
                   disabled={quotaForm.scopeType === 'global'}
-                  placeholder="对象 ID"
+                  placeholder={tr('scopeId')}
                   className="h-10 w-full rounded-lg border border-default-200 bg-white px-3 text-sm outline-none focus:border-primary-400 disabled:bg-default-100"
                 />
                 <input
                   value={quotaForm.name}
                   onChange={(event) => setQuotaForm((prev) => ({ ...prev, name: event.target.value }))}
-                  placeholder="配额名称"
+                  placeholder={tr('quotaName')}
                   className="h-10 w-full rounded-lg border border-default-200 bg-white px-3 text-sm outline-none focus:border-primary-400"
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     value={quotaForm.maxConcurrentSessions}
                     onChange={(event) => setQuotaForm((prev) => ({ ...prev, maxConcurrentSessions: event.target.value }))}
-                    placeholder="并发数"
+                    placeholder={tr('concurrency')}
                     type="number"
                     min="0"
                     className="h-10 rounded-lg border border-default-200 bg-white px-3 text-sm outline-none focus:border-primary-400"
@@ -816,7 +821,7 @@ const Dashboard: React.FC = () => {
                   <input
                     value={quotaForm.maxSessionMinutes}
                     onChange={(event) => setQuotaForm((prev) => ({ ...prev, maxSessionMinutes: event.target.value }))}
-                    placeholder="分钟"
+                    placeholder={tr('minutes')}
                     type="number"
                     min="1"
                     className="h-10 rounded-lg border border-default-200 bg-white px-3 text-sm outline-none focus:border-primary-400"
@@ -824,7 +829,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <label className="flex items-center gap-2 text-sm font-medium text-default-600">
                   <input type="checkbox" checked={quotaForm.enabled} onChange={(event) => setQuotaForm((prev) => ({ ...prev, enabled: event.target.checked }))} />
-                  启用配额
+                  {tr('enableQuota')}
                 </label>
                 <div className="flex items-center gap-2">
                   <button
@@ -833,11 +838,11 @@ const Dashboard: React.FC = () => {
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
                   >
                     {quotaSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {editingQuota ? '保存' : '创建'}
+                    {editingQuota ? tr('save') : tr('create')}
                   </button>
                   {editingQuota ? (
                     <button onClick={resetQuotaForm} className="rounded-lg border border-default-200 px-4 py-2 text-sm font-semibold text-default-600">
-                      取消
+                      {tr('cancel')}
                     </button>
                   ) : null}
                 </div>
@@ -849,18 +854,18 @@ const Dashboard: React.FC = () => {
         <div className="card-surface rounded-2xl">
           <div className="flex items-center justify-between border-b border-default-100 px-6 py-4">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">系统审计</h2>
-              <p className="mt-1 text-sm text-default-500">系统域治理动作记录，不混入教学动作日志。</p>
+              <h2 className="text-lg font-semibold text-foreground">{tr('audit')}</h2>
+              <p className="mt-1 text-sm text-default-500">{tr('auditDesc')}</p>
             </div>
             <ToolbarSelect
-              ariaLabel="按审计结果筛选"
+              ariaLabel={tr('auditResultFilter')}
               value={auditResultFilter}
               onChange={setAuditResultFilter}
               options={[
-                { key: 'all', label: '全部结果' },
-                { key: 'success', label: '成功' },
-                { key: 'failed', label: '失败' },
-                { key: 'noop', label: '无操作' },
+                { key: 'all', label: tr('allResults') },
+                { key: 'success', label: tr('success') },
+                { key: 'failed', label: tr('failed') },
+                { key: 'noop', label: tr('noop') },
               ]}
               className="w-44"
             />
@@ -875,16 +880,16 @@ const Dashboard: React.FC = () => {
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-foreground">{log.action}</div>
                       <div className="mt-1 text-sm text-default-500">{log.message || `${log.targetType} #${log.targetId}`}</div>
-                      <div className="mt-1 text-xs text-default-400">操作者 #{log.actorId || 'system'} · {formatDateTime(log.createdAt)}</div>
+                      <div className="mt-1 text-xs text-default-400">{tr('auditActor', { id: log.actorId || 'system', value: formatDateTime(log.createdAt) })}</div>
                     </div>
                     <StatusChip status={log.result === 'success' ? 'success' : log.result === 'failed' ? 'danger' : 'neutral'}>{log.result || 'unknown'}</StatusChip>
                   </div>
                 </div>
               ))
             ) : (
-              <EmptyInline message="当前没有系统审计日志。" />
+              <EmptyInline message={tr('noAudit')} />
             )}
-            <div className="text-xs text-default-400">共 {auditTotal} 条系统审计记录，当前展示最近 12 条。</div>
+            <div className="text-xs text-default-400">{tr('auditSummary', { total: auditTotal })}</div>
           </div>
         </div>
       </section>
@@ -893,24 +898,24 @@ const Dashboard: React.FC = () => {
         <div className="border-b border-default-100 px-6 py-5">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">实训会话工作台</h2>
-              <p className="mt-1 text-sm text-default-500">按状态、运行模式和来源快速定位会话，并在右侧抽屉中完成排障和轻操作。</p>
+              <h2 className="text-lg font-semibold text-foreground">{tr('sessionWorkbench')}</h2>
+              <p className="mt-1 text-sm text-default-500">{tr('sessionWorkbenchDesc')}</p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:flex">
               <ToolbarSearchField
                 value={filters.q || ''}
                 onChange={(value) => handleFilterPatch({ q: value })}
-                placeholder="搜索会话、镜像、用户、来源"
+                placeholder={tr('searchSessions')}
                 className="min-w-[220px]"
               />
 
               <ToolbarSelect
-                ariaLabel="运行模式筛选"
+                ariaLabel={tr('runtimeFilter')}
                 value={filters.runtimeMode || 'all'}
                 onChange={(value) => handleFilterPatch({ runtimeMode: value })}
                 options={[
-                  { key: 'all', label: '全部运行模式' },
+                  { key: 'all', label: tr('allRuntimes') },
                   { key: 'classic', label: 'Classic' },
                   { key: 'openclaw', label: 'OpenClaw' },
                 ]}
@@ -918,22 +923,22 @@ const Dashboard: React.FC = () => {
               />
 
               <ToolbarSelect
-                ariaLabel="来源筛选"
+                ariaLabel={tr('sourceFilter')}
                 value={filters.sourceType || 'all'}
                 onChange={(value) => handleFilterPatch({ sourceType: value })}
                 options={[
-                  { key: 'all', label: '全部来源' },
-                  { key: 'course', label: '课程' },
-                  { key: 'project', label: '项目' },
+                  { key: 'all', label: tr('allSources') },
+                  { key: 'course', label: tr('sources.course') },
+                  { key: 'project', label: tr('sources.project') },
                 ]}
                 className="xl:w-40"
               />
 
               <ToolbarSelect
-                ariaLabel="时间范围筛选"
+                ariaLabel={tr('timeFilter')}
                 value={filters.timeRange || 'all'}
                 onChange={(value) => handleFilterPatch({ timeRange: value as DashboardTimeRange })}
-                options={timeRangeOptions.map((option) => ({ key: option.key, label: option.label }))}
+                options={timeRangeOptions.map((option) => ({ key: option.key, label: tr(option.labelKey) }))}
                 className="xl:w-40"
               />
             </div>
@@ -952,7 +957,7 @@ const Dashboard: React.FC = () => {
                       : 'bg-default-100 text-default-600 hover:bg-default-200'
                   }`}
                 >
-                  {tab.label}
+                  {tr(tab.labelKey)}
                 </button>
               );
             })}
@@ -971,13 +976,13 @@ const Dashboard: React.FC = () => {
             </colgroup>
             <thead className="bg-default-50/70">
               <tr className="text-left text-xs uppercase tracking-[0.16em] text-default-400">
-                <th className="px-6 py-4 font-semibold">会话</th>
-                <th className="px-6 py-4 font-semibold">用户</th>
-                <th className="px-6 py-4 font-semibold">运行模式</th>
-                <th className="px-6 py-4 font-semibold">状态</th>
-                <th className="px-6 py-4 font-semibold">最近更新</th>
+                <th className="px-6 py-4 font-semibold">{tr('session')}</th>
+                <th className="px-6 py-4 font-semibold">{tr('user')}</th>
+                <th className="px-6 py-4 font-semibold">{tr('runtimeMode')}</th>
+                <th className="px-6 py-4 font-semibold">{tr('status')}</th>
+                <th className="px-6 py-4 font-semibold">{tr('recentUpdate')}</th>
                 <th className="sticky right-0 z-10 border-l border-default-100 bg-default-50/95 px-6 py-4 font-semibold backdrop-blur">
-                  轻操作
+                  {tr('quickActions')}
                 </th>
               </tr>
             </thead>
@@ -1022,9 +1027,9 @@ const Dashboard: React.FC = () => {
                     <td className="px-6 py-4 align-middle">
                       <div
                         className="truncate whitespace-nowrap text-sm text-default-500"
-                        title={`${session.fullName || session.userName || `用户 ${session.userId}`} · @${session.userName || 'unknown'}`}
+                        title={`${session.fullName || session.userName || tr('userFallback', { id: session.userId })} · @${session.userName || 'unknown'}`}
                       >
-                        <span className="font-medium text-foreground">{session.fullName || session.userName || `用户 ${session.userId}`}</span>
+                        <span className="font-medium text-foreground">{session.fullName || session.userName || tr('userFallback', { id: session.userId })}</span>
                         <span className="mx-2 text-default-300">·</span>
                         <span>@{session.userName || 'unknown'}</span>
                       </div>
@@ -1040,11 +1045,11 @@ const Dashboard: React.FC = () => {
                     <td className="px-6 py-4 align-middle">
                       <div
                         className="flex items-center gap-2 whitespace-nowrap"
-                        title={session.expiresAt ? `到期 ${formatDateTime(session.expiresAt)}` : '未设置过期时间'}
+                        title={session.expiresAt ? tr('expiresAtValue', { value: formatDateTime(session.expiresAt) }) : tr('expiryNotSet')}
                       >
                         <StatusChip status={session.statusText} />
                         <div className="truncate text-xs text-default-400">
-                          {session.expiresAt ? `到期 ${formatDateTime(session.expiresAt)}` : '未设置过期时间'}
+                          {session.expiresAt ? tr('expiresAtValue', { value: formatDateTime(session.expiresAt) }) : tr('expiryNotSet')}
                         </div>
                       </div>
                     </td>
@@ -1060,13 +1065,13 @@ const Dashboard: React.FC = () => {
                     </td>
                     <td className="sticky right-0 z-[1] border-l border-default-100 bg-white px-6 py-4 align-middle shadow-[-12px_0_20px_-18px_rgba(15,23,42,0.2)]">
                       <div className="flex items-center gap-2 whitespace-nowrap">
-                        <IconButton label="详情" onClick={() => void openSessionInspector(session.id)}>
+                        <IconButton label={tr('details')} onClick={() => void openSessionInspector(session.id)}>
                           <Eye className="h-4 w-4" />
                         </IconButton>
-                        <IconButton label="日志" onClick={() => void openSessionInspector(session.id, 'logs')}>
+                        <IconButton label={tr('logs')} onClick={() => void openSessionInspector(session.id, 'logs')}>
                           <FileText className="h-4 w-4" />
                         </IconButton>
-                        <IconButton label="复制地址" onClick={() => handleCopy(session.runtimeText === 'openclaw' ? session.gatewayToken || '' : session.containerName, '已复制关键信息')}>
+                        <IconButton label={tr('copyAddress')} onClick={() => handleCopy(session.runtimeText === 'openclaw' ? session.gatewayToken || '' : session.containerName, tr('keyInfoCopied'))}>
                           <Copy className="h-4 w-4" />
                         </IconButton>
                         {session.statusText === 'running' || session.statusText === 'creating' ? (
@@ -1076,7 +1081,7 @@ const Dashboard: React.FC = () => {
                             className="inline-flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm font-medium text-danger-700 transition-colors hover:bg-danger-100 disabled:opacity-50"
                           >
                             {stoppingSessionId === session.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            停止
+                            {tr('stop')}
                           </button>
                         ) : null}
                       </div>
@@ -1088,8 +1093,8 @@ const Dashboard: React.FC = () => {
                   <td colSpan={6} className="px-6 py-16">
                     <div className="flex flex-col items-center gap-3 text-center">
                       <Server className="h-8 w-8 text-default-300" />
-                      <div className="text-base font-semibold text-foreground">当前筛选下没有匹配的会话</div>
-                      <div className="max-w-md text-sm text-default-500">调整状态、运行模式或关键字后，这里会自动展示对应的运行会话与轻操作入口。</div>
+                      <div className="text-base font-semibold text-foreground">{tr('emptySessions')}</div>
+                      <div className="max-w-md text-sm text-default-500">{tr('emptySessionsDesc')}</div>
                     </div>
                   </td>
                 </tr>
@@ -1099,7 +1104,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center justify-between border-t border-default-100 px-6 py-4">
-          <div className="text-sm text-default-500">共 {total} 条会话记录</div>
+          <div className="text-sm text-default-500">{tr('sessionTotal', { total })}</div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleFilterPatch({ page: Math.max(1, (filters.page || 1) - 1) })}
@@ -1107,7 +1112,7 @@ const Dashboard: React.FC = () => {
               className="inline-flex items-center gap-1 rounded-lg border border-default-200 px-3 py-2 text-sm text-default-600 transition-colors hover:border-primary-200 hover:text-primary-600 disabled:opacity-40"
             >
               <ChevronLeft className="h-4 w-4" />
-              上一页
+              {tr('previous')}
             </button>
             <div className="min-w-[72px] text-center text-sm text-default-500">
               {(filters.page || 1)} / {totalPages}
@@ -1117,7 +1122,7 @@ const Dashboard: React.FC = () => {
               disabled={(filters.page || 1) >= totalPages}
               className="inline-flex items-center gap-1 rounded-lg border border-default-200 px-3 py-2 text-sm text-default-600 transition-colors hover:border-primary-200 hover:text-primary-600 disabled:opacity-40"
             >
-              下一页
+              {tr('next')}
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
@@ -1145,16 +1150,16 @@ const Dashboard: React.FC = () => {
                 <div className="flex items-start justify-between border-b border-default-100 px-6 py-5">
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-[0.16em] text-default-400">
-                      {inspector.mode === 'session' ? '会话详情' : '集成详情'}
+                      {inspector.mode === 'session' ? tr('sessionDetail') : tr('integrationDetail')}
                     </div>
                     <div className="mt-2 text-xl font-semibold text-foreground">
                       {inspector.mode === 'session'
-                        ? sessionDetail?.session.sourceName || `会话 #${inspector.sessionId}`
-                        : inspector.integration?.label || '平台状态'}
+                        ? sessionDetail?.session.sourceName || tr('sessionFallback', { id: inspector.sessionId })
+                        : inspector.integration?.label || tr('platformStatus')}
                     </div>
                     <div className="mt-1 text-sm text-default-500">
                       {inspector.mode === 'session'
-                        ? '查看运行时资源、事件、访问地址和日志摘要。'
+                        ? tr('detailDesc')
                         : inspector.integration?.message}
                     </div>
                   </div>
@@ -1170,9 +1175,9 @@ const Dashboard: React.FC = () => {
                   <>
                     <div className="flex gap-2 border-b border-default-100 px-6 py-3">
                       {[
-                        { key: 'summary', label: '摘要' },
-                        { key: 'events', label: '事件' },
-                        { key: 'logs', label: '日志' },
+                        { key: 'summary', label: tr('summary') },
+                        { key: 'events', label: tr('events') },
+                        { key: 'logs', label: tr('logs') },
                       ].map((tab) => (
                         <button
                           key={tab.key}
@@ -1220,7 +1225,7 @@ const Dashboard: React.FC = () => {
                           ) : null}
                         </>
                       ) : (
-                        <EmptyInline message={drawerError || '当前没有可展示的会话详情。'} />
+                        <EmptyInline message={drawerError || tr('noDetail')} />
                       )}
                     </div>
                   </>
@@ -1234,10 +1239,10 @@ const Dashboard: React.FC = () => {
                             <span className="text-sm font-semibold text-foreground">{inspector.integration.summary}</span>
                           </div>
                           <div className="mt-3 text-sm leading-6 text-default-600">{inspector.integration.message}</div>
-                          <div className="mt-3 text-xs text-default-400">最近检查：{formatDateTime(inspector.integration.lastCheck)}</div>
+                          <div className="mt-3 text-xs text-default-400">{tr('checkedAt', { value: formatDateTime(inspector.integration.lastCheck) })}</div>
                         </div>
                         <div className="card-surface rounded-xl">
-                          <div className="border-b border-default-100 px-4 py-3 text-sm font-semibold text-foreground">详细配置</div>
+                          <div className="border-b border-default-100 px-4 py-3 text-sm font-semibold text-foreground">{tr('detailedConfig')}</div>
                           <div className="space-y-3 px-4 py-4">
                             {Object.entries(inspector.integration.details || {}).map(([key, value]) => (
                               <div key={key} className="flex items-start justify-between gap-3 text-sm">
@@ -1284,7 +1289,7 @@ const StatGroup: React.FC<{ title: string; items: Array<{ name: string; count: n
           </div>
         ))
       ) : (
-        <EmptyInline message="暂无统计数据" />
+        <EmptyInline message={tr('noStats')} />
       )}
     </div>
   </div>
@@ -1319,17 +1324,17 @@ const SessionSummary: React.FC<{
         <StatusChip status="neutral">{labelForSource(detail.session.sourceText)}</StatusChip>
       </div>
       <div className="mt-4 grid gap-3 text-sm text-default-600">
-        <SummaryRow label="会话 ID" value={`#${detail.session.id}`} />
-        <SummaryRow label="用户" value={detail.session.fullName || detail.session.userName || `用户 ${detail.session.userId}`} />
-        <SummaryRow label="容器标识" value={detail.session.containerName} />
-        <SummaryRow label="镜像" value={detail.session.imageName} />
-        <SummaryRow label="创建时间" value={formatDateTime(detail.session.createdAt)} />
-        <SummaryRow label="到期时间" value={formatDateTime(detail.session.expiresAt)} />
+        <SummaryRow label={tr('sessionId')} value={`#${detail.session.id}`} />
+        <SummaryRow label={tr('user')} value={detail.session.fullName || detail.session.userName || tr('userFallback', { id: detail.session.userId })} />
+        <SummaryRow label={tr('containerId')} value={detail.session.containerName} />
+        <SummaryRow label={tr('image')} value={detail.session.imageName} />
+        <SummaryRow label={tr('createdAt')} value={formatDateTime(detail.session.createdAt)} />
+        <SummaryRow label={tr('expiresAt')} value={formatDateTime(detail.session.expiresAt)} />
       </div>
     </div>
 
     <div className="card-surface rounded-xl">
-      <div className="border-b border-default-100 px-4 py-3 text-sm font-semibold text-foreground">访问地址与通道</div>
+      <div className="border-b border-default-100 px-4 py-3 text-sm font-semibold text-foreground">{tr('accessChannels')}</div>
       <div className="space-y-3 px-4 py-4">
         {[
           { key: 'Desktop', value: detail.urls.vncUrl },
@@ -1345,24 +1350,24 @@ const SessionSummary: React.FC<{
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-medium text-foreground">{item.key}</div>
               <div className="flex items-center gap-2">
-                <IconButton label="复制" onClick={() => onCopy(item.value, `${item.key} 信息已复制`)}>
+                <IconButton label={tr('copy')} onClick={() => onCopy(item.value, tr('itemCopied', { item: item.key }))}>
                   <Copy className="h-4 w-4" />
                 </IconButton>
                 {item.value.startsWith('/') ? (
-                  <IconButton label="打开" onClick={() => onOpenLink(item.value)}>
+                  <IconButton label={tr('open')} onClick={() => onOpenLink(item.value)}>
                     <ExternalLink className="h-4 w-4" />
                   </IconButton>
                 ) : null}
               </div>
             </div>
-            <div className="mt-2 break-all text-xs text-default-500">{item.value || '当前未提供'}</div>
+            <div className="mt-2 break-all text-xs text-default-500">{item.value || tr('notProvided')}</div>
           </div>
         ))}
       </div>
     </div>
 
     <div className="card-surface rounded-xl">
-      <div className="border-b border-default-100 px-4 py-3 text-sm font-semibold text-foreground">运行时资源</div>
+      <div className="border-b border-default-100 px-4 py-3 text-sm font-semibold text-foreground">{tr('runtimeResources')}</div>
       <div className="space-y-4 px-4 py-4">
         <div className="rounded-lg bg-default-50 px-3 py-3">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -1371,14 +1376,14 @@ const SessionSummary: React.FC<{
           </div>
           {detail.pod ? (
             <div className="mt-3 grid gap-2 text-sm text-default-600">
-              <SummaryRow label="名称" value={detail.pod.name} />
+              <SummaryRow label={tr('name')} value={detail.pod.name} />
               <SummaryRow label="Phase" value={detail.pod.phase} />
               <SummaryRow label="Ready" value={detail.pod.ready ? 'Yes' : 'No'} />
               <SummaryRow label="Pod IP" value={detail.pod.podIp || '—'} />
               <SummaryRow label="Node" value={detail.pod.nodeName || '—'} />
             </div>
           ) : (
-            <div className="mt-3 text-sm text-default-400">当前没有读取到 Pod 详情。</div>
+            <div className="mt-3 text-sm text-default-400">{tr('noPod')}</div>
           )}
         </div>
 
@@ -1389,22 +1394,22 @@ const SessionSummary: React.FC<{
           </div>
           {detail.service ? (
             <div className="mt-3 grid gap-2 text-sm text-default-600">
-              <SummaryRow label="名称" value={detail.service.name} />
-              <SummaryRow label="类型" value={detail.service.type} />
+              <SummaryRow label={tr('name')} value={detail.service.name} />
+              <SummaryRow label={tr('type')} value={detail.service.type} />
               <SummaryRow label="ClusterIP" value={detail.service.clusterIp || '—'} />
               <SummaryRow
-                label="端口"
+                label={tr('ports')}
                 value={detail.service.ports.map((port) => `${port.name}:${port.port}`).join(' / ') || '—'}
               />
             </div>
           ) : (
-            <div className="mt-3 text-sm text-default-400">当前没有读取到 Service 详情。</div>
+            <div className="mt-3 text-sm text-default-400">{tr('noService')}</div>
           )}
         </div>
 
         {detail.pod?.conditions?.length ? (
           <div className="rounded-lg bg-default-50 px-3 py-3">
-            <div className="text-sm font-medium text-foreground">Pod 条件</div>
+            <div className="text-sm font-medium text-foreground">{tr('podConditions')}</div>
             <div className="mt-3 space-y-2">
               {detail.pod.conditions.map((condition) => (
                 <div key={condition.type} className="flex items-start justify-between gap-3 rounded-lg bg-white px-3 py-3">
@@ -1434,7 +1439,7 @@ const EventList: React.FC<{ events: DashboardSessionDetail['events']; runtimeEve
   <div className="space-y-3">
     {runtimeEvents.length > 0 ? (
       <div className="space-y-3">
-        <div className="text-sm font-semibold text-foreground">平台事件流</div>
+        <div className="text-sm font-semibold text-foreground">{tr('platformEvents')}</div>
         {runtimeEvents.map((event) => (
           <div key={event.id} className="rounded-xl border border-default-100 bg-primary-50/40 px-4 py-4">
             <div className="flex items-center gap-2">
@@ -1449,7 +1454,7 @@ const EventList: React.FC<{ events: DashboardSessionDetail['events']; runtimeEve
         ))}
       </div>
     ) : null}
-    {runtimeEvents.length > 0 && events.length > 0 ? <div className="border-t border-default-100 pt-3 text-sm font-semibold text-foreground">K8S 事件</div> : null}
+    {runtimeEvents.length > 0 && events.length > 0 ? <div className="border-t border-default-100 pt-3 text-sm font-semibold text-foreground">{tr('k8sEvents')}</div> : null}
     {events.length > 0 ? (
       events.map((event, index) => (
         <div key={`${event.reason}-${index}`} className="rounded-xl border border-default-100 bg-default-50/70 px-4 py-4">
@@ -1457,17 +1462,17 @@ const EventList: React.FC<{ events: DashboardSessionDetail['events']; runtimeEve
             <StatusChip status={event.type === 'Warning' ? 'warning' : 'success'}>
               {event.type || 'Normal'}
             </StatusChip>
-            <div className="text-sm font-semibold text-foreground">{event.reason || '事件'}</div>
+            <div className="text-sm font-semibold text-foreground">{event.reason || tr('events')}</div>
           </div>
           <div className="mt-2 text-sm leading-6 text-default-600">{event.message}</div>
           <div className="mt-3 flex items-center justify-between text-xs text-default-400">
-            <span>计数 {event.count}</span>
+            <span>{tr('eventCountValue', { count: event.count })}</span>
             <span>{formatDateTime(event.lastSeen || event.firstSeen)}</span>
           </div>
         </div>
       ))
     ) : (
-      <EmptyInline message="当前没有可展示的事件记录。" />
+      <EmptyInline message={tr('noEvents')} />
     )}
   </div>
 );
@@ -1482,15 +1487,15 @@ const LogPanel: React.FC<{ logs: DashboardLogsPayload | null; loading: boolean; 
     );
   }
   if (!logs) {
-    return <EmptyInline message={errorText || '当前没有可展示的日志内容。'} />;
+    return <EmptyInline message={errorText || tr('noLogs')} />;
   }
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-default-100 bg-default-50 px-4 py-3 text-sm text-default-500">
-        容器 <span className="font-medium text-foreground">{logs.container}</span> · 最近 {logs.tail} 行 · 更新时间 {formatDateTime(logs.generatedAt)}
+        {tr('logSummary', { container: logs.container, tail: logs.tail, value: formatDateTime(logs.generatedAt) })}
       </div>
       <pre className="overflow-x-auto rounded-xl bg-slate-950 px-4 py-4 text-xs leading-6 text-slate-100">
-        {logs.logs || '暂无日志输出'}
+        {logs.logs || tr('emptyLogs')}
       </pre>
     </div>
   );

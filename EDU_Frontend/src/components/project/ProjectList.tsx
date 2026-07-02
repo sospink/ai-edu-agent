@@ -6,6 +6,8 @@ import type { User } from '@/types';
 import { getDifficultyLevel } from '@/types/project';
 import { projectApi, tagApi, type Tag } from '@/services/project';
 import { getImageUrlCandidates, handleImageFallback } from '@/config';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 interface ProjectListProps {
   onProjectSelect: (project: Project) => void;
@@ -13,25 +15,25 @@ interface ProjectListProps {
   onLoginRequired: () => void;
 }
 
-const getLevelBadge = (level: ProjectDifficulty) => {
+const getLevelBadge = (level: ProjectDifficulty, t: TFunction<'project'>) => {
   switch (level) {
     case 'Beginner':
-      return { label: '初级', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+      return { label: t('beginner'), className: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
     case 'Intermediate':
-      return { label: '中级', className: 'bg-blue-100 text-blue-700 border-blue-200' };
+      return { label: t('intermediate'), className: 'bg-blue-100 text-blue-700 border-blue-200' };
     case 'Advanced':
-      return { label: '高级', className: 'bg-amber-100 text-amber-700 border-amber-200' };
+      return { label: t('advanced'), className: 'bg-amber-100 text-amber-700 border-amber-200' };
     default:
-      return { label: '未分级', className: 'bg-slate-100 text-slate-600 border-slate-200' };
+      return { label: t('unrated'), className: 'bg-slate-100 text-slate-600 border-slate-200' };
   }
 };
 
-const getEstimatedDuration = (labsCount: number, challengesCount: number): string => {
+const getEstimatedDuration = (labsCount: number, challengesCount: number, t: TFunction<'project'>): string => {
   const totalMinutes = (labsCount || 0) * 15 + (challengesCount || 0) * 30;
-  if (totalMinutes < 60) return `${totalMinutes || 30} 分钟`;
+  if (totalMinutes < 60) return t('durationMinutes', { minutes: totalMinutes || 30 });
   const hours = Math.floor(totalMinutes / 60);
   const mins = totalMinutes % 60;
-  return mins > 0 ? `${hours} 小时 ${mins} 分钟` : `${hours} 小时`;
+  return mins > 0 ? t('durationHoursMinutes', { hours, minutes: mins }) : t('durationHours', { hours });
 };
 
 type ProjectCategory = 'all' | 'openclaw' | 'classic';
@@ -41,6 +43,7 @@ const isOpenClawProject = (project: Project): boolean =>
   (project.tags || []).some((tag) => tag.name.trim().toLowerCase().replace(/[\s_-]/g, '') === 'openclaw');
 
 const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
+  const { t } = useTranslation('project');
   const [projects, setProjects] = useState<Project[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,9 +51,11 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
   const [activeFilter, setActiveFilter] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const loadProjects = async (keyword?: string, tagId?: number) => {
     setLoading(true);
+    setLoadError('');
     try {
       const result = await projectApi.getList({
         page: 1,
@@ -61,9 +66,12 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
       });
       if (result.success && result.data) {
         setProjects(result.data.list as Project[]);
+      } else {
+        setLoadError(result.error || t('loadFailed'));
       }
     } catch (error) {
       console.error('加载项目失败:', error);
+      setLoadError(t('loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -110,22 +118,22 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
   const categoryTabs = [
     {
       key: 'all' as const,
-      label: '全部项目',
-      desc: '场景与工程项目',
+      label: t('all'),
+      desc: t('allDesc'),
       count: projects.length,
       icon: Boxes,
     },
     {
       key: 'openclaw' as const,
-      label: 'OpenClaw 场景',
-      desc: '独立 Agent 演示',
+      label: t('openclaw'),
+      desc: t('openclawDesc'),
       count: openClawCount,
       icon: Bot,
     },
     {
       key: 'classic' as const,
-      label: '普通项目实战',
-      desc: '进入在线实训环境',
+      label: t('classic'),
+      desc: t('classicDesc'),
       count: classicCount,
       icon: Clock,
     },
@@ -143,9 +151,9 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
       <div className="mx-auto min-h-screen w-full max-w-7xl px-6 pb-20 pt-24 md:px-12">
 
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="mb-14 text-center">
-        <h1 className="mb-4 text-4xl font-black tracking-tight text-slate-900 md:text-5xl">项目实战库</h1>
+        <h1 className="mb-4 text-4xl font-black tracking-tight text-slate-900 md:text-5xl">{t('title')}</h1>
         <p className="mx-auto max-w-2xl text-sm leading-relaxed text-slate-600 md:text-base">
-          在真实任务场景中构建、调试并交付完整项目，形成可展示的工程成果。
+          {t('desc')}
         </p>
 
         <div className="relative z-20 mx-auto mt-8 max-w-2xl">
@@ -154,7 +162,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
             <Search className="ml-5 h-5 w-5 text-slate-400" />
             <input
               type="text"
-              placeholder="搜索项目名称、技术栈或方向..."
+              placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
@@ -165,7 +173,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
               onClick={handleSearch}
               className="mr-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              搜索
+              {t('search')}
             </button>
           </div>
         </div>
@@ -223,7 +231,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
       >
         <div className="mr-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
           <Filter className="h-4 w-4" />
-          标签筛选
+          {t('tagFilter')}
         </div>
         <button
           type="button"
@@ -234,7 +242,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
               : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-800'
           }`}
         >
-          全部
+          {t('all')}
         </button>
         {tags.map((tag) => (
           <button
@@ -255,26 +263,35 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
       {loading && (
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-slate-700" />
-          <span className="ml-3 text-slate-600">项目加载中...</span>
+          <span className="ml-3 text-slate-600">{t('loading')}</span>
         </div>
       )}
 
-      {!loading && filteredProjects.length === 0 && (
+      {!loading && loadError && (
+        <div className="py-20 text-center">
+          <h3 className="text-lg font-bold text-danger-600">{loadError}</h3>
+          <button type="button" onClick={() => void loadProjects(searchQuery, activeFilter || undefined)} className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+            {t('retry')}
+          </button>
+        </div>
+      )}
+
+      {!loading && !loadError && filteredProjects.length === 0 && (
         <div className="py-24 text-center">
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400">
             <Search className="h-6 w-6" />
           </div>
-          <h3 className="mb-2 text-xl font-bold text-slate-700">暂无项目</h3>
-          <p className="text-slate-500">当前筛选条件下还没有可展示的项目</p>
+          <h3 className="mb-2 text-xl font-bold text-slate-700">{t('emptyTitle')}</h3>
+          <p className="text-slate-500">{t('emptyDesc')}</p>
         </div>
       )}
 
-      {!loading && filteredProjects.length > 0 && (
+      {!loading && !loadError && filteredProjects.length > 0 && (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {filteredProjects.map((project, index) => {
             const difficulty = getDifficultyLevel(project.difficulty);
-            const level = getLevelBadge(difficulty);
-            const duration = getEstimatedDuration(project.labsCount, project.challengesCount);
+            const level = getLevelBadge(difficulty, t);
+            const duration = getEstimatedDuration(project.labsCount, project.challengesCount, t);
             const isActive = hoveredId === Number(project.id);
             const isOpenClaw = isOpenClawProject(project);
             const coverCandidates = getImageUrlCandidates(project.coverUrl);
@@ -345,7 +362,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
                         : 'border-transparent bg-white/90 text-slate-600'
                     }`}
                   >
-                    {isOpenClaw ? 'OpenClaw 场景' : '普通实战'}
+                    {isOpenClaw ? t('openclawCard') : t('classicCard')}
                   </div>
                 </motion.div>
 
@@ -360,10 +377,10 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
                       {project.title}
                     </h3>
                     <p className={`mt-1 text-xs font-semibold ${isOpenClaw ? 'text-emerald-700' : 'text-slate-500'}`}>
-                      {isOpenClaw ? '独立 Agent 场景演示' : '在线环境项目实训'}
+                      {isOpenClaw ? t('openclawSubtitle') : t('classicSubtitle')}
                     </p>
                     <p className="mt-1.5 line-clamp-2 min-h-[2.5rem] text-[13px] leading-relaxed text-slate-600">
-                      {project.subtitle || project.description || '暂无简介'}
+                      {project.subtitle || project.description || t('noDescription')}
                     </p>
                   </div>
 
@@ -384,7 +401,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
                       </span>
                     </div>
                     <span className="inline-flex items-center gap-1 font-semibold text-slate-700 opacity-0 transition group-hover:opacity-100">
-                      进入
+                      {t('enter')}
                       <ChevronRight className="h-3 w-3" />
                     </span>
                   </div>

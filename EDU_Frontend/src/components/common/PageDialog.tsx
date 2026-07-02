@@ -2,6 +2,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '@/components/common/bodyScrollLock';
+import { useTranslation } from 'react-i18next';
 
 export const OverlayPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (typeof document === 'undefined') return null;
@@ -25,6 +26,7 @@ export const PageDialog: React.FC<PageDialogProps> = ({
   closeOnBackdrop = true,
   zIndexClassName = 'z-[9998]',
 }) => {
+  const { t } = useTranslation('common');
   useBodyScrollLock(isOpen);
 
   return (
@@ -34,7 +36,7 @@ export const PageDialog: React.FC<PageDialogProps> = ({
           <div className={`fixed inset-0 ${zIndexClassName}`}>
             <motion.button
               type="button"
-              aria-label="关闭对话框"
+              aria-label={t('actions.closeDialog')}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

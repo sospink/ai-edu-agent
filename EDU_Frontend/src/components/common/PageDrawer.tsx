@@ -2,6 +2,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { OverlayPortal } from '@/components/common/PageDialog';
 import { useBodyScrollLock } from '@/components/common/bodyScrollLock';
+import { useTranslation } from 'react-i18next';
 
 interface PageDrawerProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const PageDrawer: React.FC<PageDrawerProps> = ({
   closeOnBackdrop = true,
   zIndexClassName = 'z-[9997]',
 }) => {
+  const { t } = useTranslation('common');
   useBodyScrollLock(isOpen);
 
   const isRight = side === 'right';
@@ -33,7 +35,7 @@ export const PageDrawer: React.FC<PageDrawerProps> = ({
           <div className={`fixed inset-0 ${zIndexClassName}`}>
             <motion.button
               type="button"
-              aria-label="关闭抽屉"
+              aria-label={t('actions.closeDrawer')}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

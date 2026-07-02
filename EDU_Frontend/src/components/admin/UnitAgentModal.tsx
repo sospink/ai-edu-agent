@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Bot } from 'lucide-react';
 import { AgentManualEditor } from './AgentManualEditor';
+import { useTranslation } from 'react-i18next';
 
 interface UnitAgentModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ const UnitAgentModal: React.FC<UnitAgentModalProps> = ({
   unitTitle,
   onClose,
 }) => {
+  const { t } = useTranslation('teacherEditors');
   if (!isOpen) return null;
 
   return createPortal(
@@ -49,7 +51,7 @@ const UnitAgentModal: React.FC<UnitAgentModalProps> = ({
                     <Bot className="w-5 h-5 text-blue-500" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-800">Agent 手册配置</h2>
+                    <h2 className="text-lg font-bold text-slate-800">{t('agentConfig')}</h2>
                     <p className="text-sm text-slate-500 mt-0.5">{unitTitle}</p>
                   </div>
                 </div>

@@ -413,6 +413,10 @@ func mustLogin(t *testing.T, fixture *testFixture, username, password string) st
 }
 
 func performJSON(t *testing.T, handler http.Handler, method, target string, body any, token string) *httptest.ResponseRecorder {
+	return performJSONWithLocale(t, handler, method, target, body, token, "")
+}
+
+func performJSONWithLocale(t *testing.T, handler http.Handler, method, target string, body any, token, locale string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var payload []byte
@@ -428,6 +432,9 @@ func performJSON(t *testing.T, handler http.Handler, method, target string, body
 	req.Header.Set("Content-Type", "application/json")
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if locale != "" {
+		req.Header.Set("X-Locale", locale)
 	}
 
 	recorder := httptest.NewRecorder()

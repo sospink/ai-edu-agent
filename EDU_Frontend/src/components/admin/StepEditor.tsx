@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Input,
   Textarea,
@@ -27,17 +28,17 @@ interface StepEditorProps {
 
 const LANGUAGES = ['bash', 'sql', 'python', 'javascript', 'typescript', 'json', 'yaml', 'text'];
 const VERIFICATION_TYPES = [
-  { key: 'none', label: '无需验证' },
-  { key: 'file_exists', label: '文件存在' },
-  { key: 'command_output', label: '命令输出' },
-  { key: 'service_running', label: '服务运行' },
-  { key: 'custom', label: '自定义脚本' },
+  { key: 'none', labelKey: 'verificationTypes.none' },
+  { key: 'file_exists', labelKey: 'verificationTypes.fileExists' },
+  { key: 'command_output', labelKey: 'verificationTypes.commandOutput' },
+  { key: 'service_running', labelKey: 'verificationTypes.serviceRunning' },
+  { key: 'custom', labelKey: 'verificationTypes.custom' },
 ];
 const EXPECT_TYPES = [
-  { key: 'not_empty', label: '非空' },
-  { key: 'contains', label: '包含' },
-  { key: 'equals', label: '等于' },
-  { key: 'regex', label: '正则匹配' },
+  { key: 'not_empty', labelKey: 'expectTypes.notEmpty' },
+  { key: 'contains', labelKey: 'expectTypes.contains' },
+  { key: 'equals', labelKey: 'expectTypes.equals' },
+  { key: 'regex', labelKey: 'expectTypes.regex' },
 ];
 
 export const StepEditor: React.FC<StepEditorProps> = ({
@@ -50,6 +51,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
   isFirst,
   isLast,
 }) => {
+  const { t } = useTranslation('stepEditor');
   const [activeTab, setActiveTab] = useState('visual');
 
   // 更新步骤字段
@@ -119,7 +121,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
           {(block.type === 'text' || block.type === 'heading') && (
             <Textarea
               size="sm"
-              placeholder={block.type === 'heading' ? '标题文字' : '文本内容'}
+              placeholder={block.type === 'heading' ? t('headingText') : t('textContent')}
               value={block.text || ''}
               onChange={(e) => updateContentBlock(blockIndex, { ...block, text: e.target.value })}
               minRows={block.type === 'heading' ? 1 : 2}
@@ -131,7 +133,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
               <div className="flex gap-2 items-center">
                 <Select
                   size="sm"
-                  label="语言"
+                  label={t('language')}
                   selectedKeys={block.language ? [block.language] : []}
                   onChange={(e) => updateContentBlock(blockIndex, { ...block, language: e.target.value })}
                   className="w-32"
@@ -145,12 +147,12 @@ export const StepEditor: React.FC<StepEditorProps> = ({
                   isSelected={block.executable || false}
                   onValueChange={(v) => updateContentBlock(blockIndex, { ...block, executable: v })}
                 >
-                  可执行
+                  {t('executable')}
                 </Switch>
               </div>
               <Textarea
                 size="sm"
-                placeholder="代码内容"
+                placeholder={t('codeContent')}
                 value={block.code || ''}
                 onChange={(e) => updateContentBlock(blockIndex, { ...block, code: e.target.value })}
                 minRows={3}
@@ -191,7 +193,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
                 variant="flat"
                 onPress={() => updateContentBlock(blockIndex, { ...block, items: [...(block.items || []), ''] })}
               >
-                <Plus size={14} /> 添加项
+                <Plus size={14} /> {t('addItem')}
               </Button>
             </div>
           )}
@@ -208,7 +210,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
       <div className="space-y-3">
         <Select
           size="sm"
-          label="验证类型"
+          label={t('verificationType')}
           selectedKeys={[vType]}
           onChange={(e) => {
             const newType = e.target.value;
@@ -219,15 +221,15 @@ export const StepEditor: React.FC<StepEditorProps> = ({
             }
           }}
         >
-          {VERIFICATION_TYPES.map(t => (
-            <SelectItem key={t.key}>{t.label}</SelectItem>
+          {VERIFICATION_TYPES.map(item => (
+            <SelectItem key={item.key}>{t(item.labelKey)}</SelectItem>
           ))}
         </Select>
 
         {vType === 'file_exists' && (
           <Input
             size="sm"
-            label="文件路径"
+            label={t('filePath')}
             placeholder="/path/to/file"
             value={step.verification?.path || ''}
             onChange={(e) => updateVerification({ ...step.verification!, path: e.target.value })}
@@ -238,25 +240,25 @@ export const StepEditor: React.FC<StepEditorProps> = ({
           <>
             <Input
               size="sm"
-              label="命令"
+              label={t('command')}
               placeholder="ls -la"
               value={step.verification?.command || ''}
               onChange={(e) => updateVerification({ ...step.verification!, command: e.target.value })}
             />
             <Select
               size="sm"
-              label="期望"
+              label={t('expectation')}
               selectedKeys={step.verification?.expect ? [step.verification.expect] : ['not_empty']}
               onChange={(e) => updateVerification({ ...step.verification!, expect: e.target.value as any })}
             >
-              {EXPECT_TYPES.map(t => (
-                <SelectItem key={t.key}>{t.label}</SelectItem>
+              {EXPECT_TYPES.map(item => (
+                <SelectItem key={item.key}>{t(item.labelKey)}</SelectItem>
               ))}
             </Select>
             {step.verification?.expect && step.verification.expect !== 'not_empty' && (
               <Input
                 size="sm"
-                label="期望值"
+                label={t('expectedValue')}
                 value={step.verification?.value || ''}
                 onChange={(e) => updateVerification({ ...step.verification!, value: e.target.value })}
               />
@@ -268,7 +270,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
           <Input
             size="sm"
             type="number"
-            label="端口号"
+            label={t('port')}
             placeholder="3306"
             value={step.verification?.port?.toString() || ''}
             onChange={(e) => updateVerification({ ...step.verification!, port: parseInt(e.target.value) || 0 })}
@@ -278,8 +280,8 @@ export const StepEditor: React.FC<StepEditorProps> = ({
         {vType === 'custom' && (
           <Textarea
             size="sm"
-            label="自定义脚本"
-            placeholder="#!/bin/bash\n# 返回 0 表示验证通过"
+            label={t('customScript')}
+            placeholder={t('customScriptPlaceholder')}
             value={step.verification?.script || ''}
             onChange={(e) => updateVerification({ ...step.verification!, script: e.target.value })}
             minRows={3}
@@ -294,7 +296,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
     <Card className="mb-4 border-none shadow-sm">
       <CardBody>
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-lg font-bold text-primary">步骤 {index + 1}</span>
+          <span className="text-lg font-bold text-primary">{t('step', { number: index + 1 })}</span>
           <div className="flex-1" />
           {!isFirst && (
             <Button size="sm" isIconOnly variant="light" onPress={onMoveUp}>
@@ -313,7 +315,7 @@ export const StepEditor: React.FC<StepEditorProps> = ({
 
         <Input
           size="sm"
-          label="步骤标题"
+          label={t('stepTitle')}
           value={step.title}
           onChange={(e) => updateField('title', e.target.value)}
           className="mb-4"
@@ -325,33 +327,33 @@ export const StepEditor: React.FC<StepEditorProps> = ({
           size="sm"
           className="mb-4"
         >
-          <Tab key="visual" title="可视化编辑" />
-          <Tab key="json" title="JSON 编辑" />
+          <Tab key="visual" title={t('visualEdit')} />
+          <Tab key="json" title={t('jsonEdit')} />
         </Tabs>
 
         {activeTab === 'visual' ? (
           <>
             <div className="mb-4">
-              <div className="text-sm font-medium mb-2">内容块</div>
+              <div className="text-sm font-medium mb-2">{t('contentBlocks')}</div>
               {step.content.map((block, blockIndex) => renderContentBlockEditor(block, blockIndex))}
               <div className="flex gap-2 flex-wrap">
                 <Button size="sm" variant="flat" onPress={() => addContentBlock('text')}>
-                  <Plus size={14} /> 文本
+                  <Plus size={14} /> {t('text')}
                 </Button>
                 <Button size="sm" variant="flat" onPress={() => addContentBlock('heading')}>
-                  <Plus size={14} /> 标题
+                  <Plus size={14} /> {t('heading')}
                 </Button>
                 <Button size="sm" variant="flat" onPress={() => addContentBlock('code')}>
-                  <Plus size={14} /> 代码
+                  <Plus size={14} /> {t('code')}
                 </Button>
                 <Button size="sm" variant="flat" onPress={() => addContentBlock('list')}>
-                  <Plus size={14} /> 列表
+                  <Plus size={14} /> {t('list')}
                 </Button>
               </div>
             </div>
 
             <div className="mb-4">
-              <div className="text-sm font-medium mb-2">快捷问题</div>
+              <div className="text-sm font-medium mb-2">{t('quickQuestions')}</div>
               {step.quickQuestions.map((q, qIndex) => (
                 <div key={qIndex} className="flex gap-2 mb-1">
                   <Input
@@ -375,29 +377,29 @@ export const StepEditor: React.FC<StepEditorProps> = ({
                 </div>
               ))}
               <Button size="sm" variant="flat" onPress={() => updateField('quickQuestions', [...step.quickQuestions, ''])}>
-                <Plus size={14} /> 添加问题
+                <Plus size={14} /> {t('addQuestion')}
               </Button>
             </div>
 
             <div className="mb-4">
-              <div className="text-sm font-medium mb-2">Skill Tags</div>
+              <div className="text-sm font-medium mb-2">{t('skillTags', { ns: 'uiReview' })}</div>
               <Input
                 size="sm"
                 value={(step.skillTags || []).join(', ')}
                 onChange={(e) => updateField('skillTags', e.target.value.split(',').map(item => item.trim()).filter(Boolean))}
                 placeholder="Kubernetes, kubectl, namespace"
-                description="用于教师观察台薄弱点统计，多个标签用英文逗号分隔"
+                description={t('skillTagsHelp')}
               />
             </div>
 
             <div>
-              <div className="text-sm font-medium mb-2">验证规则</div>
+              <div className="text-sm font-medium mb-2">{t('verificationRules')}</div>
               {renderVerificationEditor()}
             </div>
           </>
         ) : (
           <Textarea
-            label="JSON 数据"
+            label={t('jsonData')}
             value={JSON.stringify({ content: step.content, quickQuestions: step.quickQuestions, verification: step.verification, skillTags: step.skillTags || [] }, null, 2)}
             onChange={(e) => {
               try {

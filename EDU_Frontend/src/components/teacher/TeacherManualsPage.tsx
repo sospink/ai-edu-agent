@@ -5,16 +5,20 @@ import { BookOpen, FolderGit, RefreshCw } from 'lucide-react';
 import AgentManualEditor from '@/components/admin/AgentManualEditor';
 import { ToolbarSearchField } from '@/components/common/ToolbarControls';
 import { teacherManualApi, type TeacherManualListItem } from '@/services/teacherManual';
+import { useTranslation } from 'react-i18next';
 
 const TeacherManualsPage: React.FC = () => {
+  const { t } = useTranslation('teacherManuals');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<TeacherManualListItem[]>([]);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<TeacherManualListItem | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     const response = await teacherManualApi.list({ page: 1, pageSize: 50, q: query });
     if (response.success && response.data) {
       setItems(response.data.list);
@@ -22,6 +26,7 @@ const TeacherManualsPage: React.FC = () => {
     } else {
       setItems([]);
       setSelected(null);
+      setError(response.error || t('loadFailed'));
     }
     setLoading(false);
   };
@@ -36,11 +41,12 @@ const TeacherManualsPage: React.FC = () => {
         <div className="border-b border-default-200 px-5 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-semibold text-foreground">实训手册</h2>
-              <p className="mt-1 text-xs text-default-500">选择已有手册进入编辑</p>
+              <h2 className="font-semibold text-foreground">{t('title')}</h2>
+              <p className="mt-1 text-xs text-default-500">{t('subtitle')}</p>
             </div>
             <button
               onClick={() => void load()}
+              title={t('refresh')}
               className="rounded-lg border border-default-200 p-2 text-default-500 hover:bg-default-50"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -50,7 +56,7 @@ const TeacherManualsPage: React.FC = () => {
             value={query}
             onChange={setQuery}
             onEnter={() => void load()}
-            placeholder="搜索手册标题或描述"
+            placeholder={t('searchPlaceholder')}
             className="mt-4"
           />
         </div>
@@ -71,14 +77,14 @@ const TeacherManualsPage: React.FC = () => {
                 <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
                   item.isPublished ? 'bg-success-50 text-success-700' : 'bg-default-100 text-default-600'
                 }`}>
-                  {item.isPublished ? '已发布' : '草稿'}
+                  {item.isPublished ? t('published') : t('draft')}
                 </span>
               </div>
             </button>
           ))}
           {!loading && items.length === 0 && (
             <div className="px-5 py-10 text-center">
-              <div className="text-sm text-default-500">暂无手册。新的手册可以先在课程管理或项目管理里创建。</div>
+              <div className="text-sm text-default-500">{error || t('empty')}</div>
               <div className="mt-4 grid gap-2">
                 <button
                   type="button"
@@ -86,7 +92,7 @@ const TeacherManualsPage: React.FC = () => {
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-default-200 px-3 py-2 text-sm font-medium text-default-600 transition hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700"
                 >
                   <BookOpen className="h-4 w-4" />
-                  去课程管理
+                  {t('goCourses')}
                 </button>
                 <button
                   type="button"
@@ -94,7 +100,7 @@ const TeacherManualsPage: React.FC = () => {
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-default-200 px-3 py-2 text-sm font-medium text-default-600 transition hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700"
                 >
                   <FolderGit className="h-4 w-4" />
-                  去项目管理
+                  {t('goProjects')}
                 </button>
               </div>
             </div>
@@ -111,7 +117,7 @@ const TeacherManualsPage: React.FC = () => {
           />
         ) : (
           <div className="flex min-h-[400px] items-center justify-center text-sm text-default-400">
-            选择左侧手册后开始编辑
+            {t('selectPrompt')}
           </div>
         )}
       </div>

@@ -21,7 +21,7 @@ func NewTeacherHandler(service *Service) *TeacherHandler {
 func (h *TeacherHandler) List(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
@@ -49,22 +49,22 @@ func (h *TeacherHandler) List(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"list":     list,
 		"total":    total,
 		"page":     q.Page,
 		"pageSize": q.PageSize,
-	}, "获取课程列表成功")
+	}, "course.listLoaded", nil)
 }
 
 func (h *TeacherHandler) GetByID(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
-	id, ok := parseUintParam(c, "id", "无效的课程ID")
+	id, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -75,17 +75,17 @@ func (h *TeacherHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, detail, "获取课程成功")
+	response.SuccessKey(c, detail, "course.detailLoaded", nil)
 }
 
 func (h *TeacherHandler) GetStages(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -96,17 +96,17 @@ func (h *TeacherHandler) GetStages(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, stages, "获取阶段列表成功")
+	response.SuccessKey(c, stages, "course.stagesLoaded", nil)
 }
 
 func (h *TeacherHandler) GetLessons(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
-	courseID, ok := parseUintParam(c, "id", "无效的课程ID")
+	courseID, ok := parseUintParam(c, "id", "course.invalidId")
 	if !ok {
 		return
 	}
@@ -117,17 +117,17 @@ func (h *TeacherHandler) GetLessons(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, lessons, "获取课时列表成功")
+	response.SuccessKey(c, lessons, "course.lessonsLoaded", nil)
 }
 
 func (h *TeacherHandler) GetStageLessons(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
-	stageID, ok := parseUintParam(c, "stageId", "无效的阶段ID")
+	stageID, ok := parseUintParam(c, "stageId", "course.invalidStageId")
 	if !ok {
 		return
 	}
@@ -138,17 +138,17 @@ func (h *TeacherHandler) GetStageLessons(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, lessons, "获取课时列表成功")
+	response.SuccessKey(c, lessons, "course.lessonsLoaded", nil)
 }
 
 func (h *TeacherHandler) GetLessonByID(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -159,17 +159,17 @@ func (h *TeacherHandler) GetLessonByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, lesson, "获取课时成功")
+	response.SuccessKey(c, lesson, "course.lessonLoaded", nil)
 }
 
 func (h *TeacherHandler) GetLessonMaterials(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 
-	lessonID, ok := parseUintParam(c, "lessonId", "无效的课时ID")
+	lessonID, ok := parseUintParam(c, "lessonId", "course.invalidLessonId")
 	if !ok {
 		return
 	}
@@ -180,5 +180,5 @@ func (h *TeacherHandler) GetLessonMaterials(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, materials, "获取学习资料成功")
+	response.SuccessKey(c, materials, "course.materialsLoaded", nil)
 }

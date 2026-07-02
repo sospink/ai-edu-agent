@@ -41,6 +41,8 @@ import type { User } from '@/types';
 import { RoleType, UserStatus } from '@/types';
 import { userService } from '@/services/user';
 import { emptyLearningOverview, learningOverviewApi, type LearningOverview } from '@/services/learningOverview';
+import { useTranslation } from 'react-i18next';
+import { getCurrentLocale } from '@/i18n';
 
 // GitHub 贡献数据类型
 interface GitHubContribution {
@@ -66,6 +68,7 @@ const extractGitHubUsername = (githubLink: string): string | null => {
 const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
   githubLink,
 }) => {
+  const { t } = useTranslation('profile');
   const [contributions, setContributions] = useState<GitHubContribution[]>([]);
   const [totalContributions, setTotalContributions] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -92,7 +95,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
           `https://github-contributions-api.jogruber.de/v4/${username}?y=last`
         );
         if (!response.ok) {
-          throw new Error('获取 GitHub 贡献数据失败');
+          throw new Error(t('githubLoadFailed'));
         }
         const data: GitHubContributionsData = await response.json();
         setContributions(data.contributions || []);
@@ -103,7 +106,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
         setTotalContributions(total);
       } catch (err) {
         console.error('Failed to fetch GitHub contributions:', err);
-        setError('无法加载 GitHub 贡献数据');
+        setError(t('githubLoadFailed'));
         setContributions([]);
       } finally {
         setIsLoading(false);
@@ -111,7 +114,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
     };
 
     fetchContributions();
-  }, [username]);
+  }, [t, username]);
 
   // 模拟数据
   const simulatedData = useMemo(() => {
@@ -172,7 +175,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
               />
             </div>
             <p className="text-primary-600 text-sm font-medium animate-pulse">
-              正在同步 GitHub 数据...
+              {t('githubSyncing')}
             </p>
           </div>
         </div>
@@ -212,7 +215,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
                 {username ? `@${username}` : 'Contribution Graph'}
               </h4>
               <p className="text-default-400 text-xs">
-                {username ? '过去一年的代码贡献' : '模拟数据展示'}
+                {username ? t('pastYear') : t('simulated')}
               </p>
             </div>
           </div>
@@ -227,7 +230,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
                 {totalContributions.toLocaleString()}
               </span>
               <span className="text-default-500 text-xs font-medium">
-                contributions
+                {t('contributions', { ns: 'uiReview' })}
               </span>
             </motion.div>
           )}
@@ -276,7 +279,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
               className="absolute bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl z-20 bg-white shadow-xl border border-default-200"
             >
               <p className="text-foreground text-sm font-semibold">
-                {hoveredDay.count} contributions
+                {hoveredDay.count} {t('contributions', { ns: 'uiReview' })}
               </p>
               <p className="text-default-400 text-xs">{hoveredDay.date}</p>
             </motion.div>
@@ -286,7 +289,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
         {/* 图例和链接 */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-default-100">
           <div className="flex items-center gap-2">
-            <span className="text-default-400 text-xs">Less</span>
+            <span className="text-default-400 text-xs">{t('less', { ns: 'uiReview' })}</span>
             {[0, 1, 2, 3, 4].map((level) => {
               const style = getLevelStyle(level);
               return (
@@ -300,7 +303,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
                 />
               );
             })}
-            <span className="text-default-400 text-xs">More</span>
+            <span className="text-default-400 text-xs">{t('more', { ns: 'uiReview' })}</span>
           </div>
           {username ? (
             <a
@@ -309,7 +312,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs text-primary-500 hover:text-primary-600 transition-colors font-medium"
             >
-              <span>View on GitHub</span>
+              <span>{t('viewOnGithub', { ns: 'uiReview' })}</span>
               <svg
                 className="w-3 h-3"
                 fill="none"
@@ -326,7 +329,7 @@ const GitHubContributionGraph: React.FC<{ githubLink?: string }> = ({
             </a>
           ) : (
             <span className="text-xs text-default-400">
-              设置 GitHub 链接显示真实数据
+              {t('setGithub')}
             </span>
           )}
         </div>
@@ -347,10 +350,11 @@ interface ProfilePageProps {
 
 // 角色徽章组件
 const RoleBadge: React.FC<{ type: RoleType }> = ({ type }) => {
+  const { t } = useTranslation('profile');
   const config = {
-    [RoleType.STUDENT]: { label: "学生", color: "bg-primary-50 text-primary-600 border-primary-100", icon: <GraduationCap size={14} /> },
-    [RoleType.TEACHER]: { label: "教师", color: "bg-success-50 text-success-600 border-success-100", icon: <School size={14} /> },
-    [RoleType.ADMIN]: { label: "管理员", color: "bg-danger-50 text-danger-600 border-danger-100", icon: <ShieldAlert size={14} /> },
+    [RoleType.STUDENT]: { label: t('student'), color: "bg-primary-50 text-primary-600 border-primary-100", icon: <GraduationCap size={14} /> },
+    [RoleType.TEACHER]: { label: t('teacher'), color: "bg-success-50 text-success-600 border-success-100", icon: <School size={14} /> },
+    [RoleType.ADMIN]: { label: t('admin'), color: "bg-danger-50 text-danger-600 border-danger-100", icon: <ShieldAlert size={14} /> },
   };
   const current = config[type] || config[RoleType.STUDENT];
   return (
@@ -363,10 +367,11 @@ const RoleBadge: React.FC<{ type: RoleType }> = ({ type }) => {
 
 // 状态徽章
 const StatusBadge: React.FC<{ status: UserStatus }> = ({ status }) => {
+  const { t } = useTranslation('profile');
   const config = {
-    [UserStatus.ACTIVE]: { label: "正常", color: "bg-success" },
-    [UserStatus.FROZEN]: { label: "冻结", color: "bg-warning-500" },
-    [UserStatus.DELETED]: { label: "注销", color: "bg-default-400" },
+    [UserStatus.ACTIVE]: { label: t('active'), color: "bg-success" },
+    [UserStatus.FROZEN]: { label: t('frozen'), color: "bg-warning-500" },
+    [UserStatus.DELETED]: { label: t('deleted'), color: "bg-default-400" },
   };
   const current = config[status] || config[UserStatus.ACTIVE];
   return (
@@ -411,6 +416,7 @@ const Input: React.FC<{
 );
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserUpdate }) => {
+  const { t } = useTranslation('profile');
   const [user, setUser] = useState<User>(currentUser);
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'settings'>('overview');
@@ -452,13 +458,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
         setOverview(response.data);
       } else {
         setOverview(emptyLearningOverview);
-        setOverviewError(response.error || '学习概览暂时不可用');
+        setOverviewError(response.error || t('overviewUnavailable'));
       }
       setOverviewLoading(false);
     };
 
     void fetchOverview();
-  }, [currentUser.id, currentUser.roleType]);
+  }, [currentUser.id, currentUser.roleType, t]);
 
   // 自动隐藏消息
   useEffect(() => {
@@ -477,13 +483,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
         setUser(response.data);
         onUserUpdate?.(response.data);
         setIsEditing(false);
-        setMessage({ type: 'success', text: '个人资料更新成功！' });
+        setMessage({ type: 'success', text: t('updateSuccess') });
       } else {
-        setMessage({ type: 'error', text: response.error || '更新失败，请重试' });
+        setMessage({ type: 'error', text: response.error || t('updateFailed') });
       }
     } catch (error) {
       console.error('Failed to update profile:', error);
-      setMessage({ type: 'error', text: '网络错误，请稍后重试' });
+      setMessage({ type: 'error', text: t('networkError') });
     } finally {
       setIsLoading(false);
     }
@@ -534,8 +540,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
             className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           >
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">个人中心</h1>
-              <p className="text-sm text-default-500 mt-1">管理您的账户和个人信息</p>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">{t('title')}</h1>
+              <p className="text-sm text-default-500 mt-1">{t('subtitle')}</p>
             </div>
             <div className="flex gap-2">
               <button 
@@ -543,7 +549,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-default-600 hover:bg-default-100 rounded-xl transition-colors"
               >
                 <X size={16} />
-                返回
+                {t('back')}
               </button>
               {!isEditing ? (
                 <button 
@@ -551,7 +557,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                   className="flex items-center gap-2 px-4 py-2 bg-primary-50 text-primary-600 text-sm font-medium rounded-xl hover:bg-primary-100 transition-colors"
                 >
                   <Edit3 size={16} />
-                  编辑资料
+                  {t('editProfile')}
                 </button>
               ) : (
                 <>
@@ -559,7 +565,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                     onClick={handleCancel}
                     className="px-4 py-2 text-sm font-medium text-danger-600 hover:bg-danger-50 rounded-xl transition-colors"
                   >
-                    取消
+                    {t('cancel')}
                   </button>
                   <button 
                     onClick={handleSave}
@@ -567,7 +573,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                     className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-50"
                   >
                     <Save size={16} />
-                    保存
+                    {t('save')}
                   </button>
                 </>
               )}
@@ -649,7 +655,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                     )}
                     <div className="flex items-center gap-3">
                       <Calendar size={16} className="text-default-400" />
-                      <span>加入于 {new Date(user.createdAt).toLocaleDateString('zh-CN')}</span>
+                      <span>{t('joinedAt', { date: new Date(user.createdAt).toLocaleDateString(getCurrentLocale()) })}</span>
                     </div>
                   </div>
                 </div>
@@ -666,11 +672,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
               >
                 <div className="p-6">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-semibold text-white drop-shadow-sm">Agent Rank</h3>
+                    <h3 className="font-semibold text-white drop-shadow-sm">{t('agentRank', { ns: 'uiReview' })}</h3>
                     <Cpu size={20} className="text-white/80" />
                   </div>
                   <div className="flex items-end gap-2">
-                    <span className="text-4xl font-bold text-white drop-shadow-sm">Lv. {overviewLoading ? '...' : overview.level}</span>
+                    <span className="text-4xl font-bold text-white drop-shadow-sm">{t('level', { ns: 'uiReview' })} {overviewLoading ? '...' : overview.level}</span>
                     <span className="mb-1.5 text-sm font-medium text-white/90">{overview.levelName}</span>
                   </div>
                   
@@ -684,7 +690,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                     />
                   </div>
                   <p className="mt-2 text-xs text-white/80 font-medium">
-                    {overview.completedLessons} / {overview.totalLessons} 课时完成 · {overview.overallProgressPercent}%
+                    {t('lessonsProgress', { completed: overview.completedLessons, total: overview.totalLessons, progress: overview.overallProgressPercent })}
                   </p>
                   {overviewError && (
                     <p className="mt-2 text-xs text-white/80">{overviewError}</p>
@@ -704,8 +710,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
               <div className="border-b border-default-200">
                 <div className="flex gap-8">
                   {[
-                    { key: 'overview', label: '概览', icon: Terminal },
-                    { key: 'settings', label: '设置', icon: Edit3 },
+                    { key: 'overview', label: t('overview'), icon: Terminal },
+                    { key: 'settings', label: t('settings'), icon: Edit3 },
                   ].map((tab) => (
                     <button
                       key={tab.key}
@@ -738,7 +744,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                     {/* 个人简介 */}
                     <Card>
                       <div className="px-6 pt-6 pb-2">
-                        <p className="text-lg font-bold text-foreground">个人简介</p>
+                        <p className="text-lg font-bold text-foreground">{t('bio')}</p>
                       </div>
                       <div className="px-6 pb-6">
                         {isEditing ? (
@@ -747,11 +753,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                             rows={4}
                             value={editForm.bio}
                             onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                            placeholder="介绍一下自己..."
+                            placeholder={t('bioPlaceholder')}
                           />
                         ) : (
                           <p className="text-default-600 leading-relaxed">
-                            {user.bio || '这个人很懒，还没有填写简介~'}
+                            {user.bio || t('noBio')}
                           </p>
                         )}
                       </div>
@@ -760,9 +766,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
 	                    {/* 统计数据 */}
 	                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 	                      {[
-	                        { label: "完成课时", value: overviewLoading ? "..." : String(overview.completedLessons), icon: CheckCircle2, color: "text-success-600", bg: "bg-success-50" },
-	                        { label: "提交成果", value: overviewLoading ? "..." : String(overview.outcomeSummary.submittedAssignments), icon: Terminal, color: "text-primary-600", bg: "bg-primary-50" },
-	                        { label: "Agent 步骤", value: overviewLoading ? "..." : String(overview.outcomeSummary.agentCompletedSteps), icon: Cpu, color: "text-secondary-600", bg: "bg-secondary-50" },
+	                        { label: t('completedLessons'), value: overviewLoading ? "..." : String(overview.completedLessons), icon: CheckCircle2, color: "text-success-600", bg: "bg-success-50" },
+	                        { label: t('submittedWork'), value: overviewLoading ? "..." : String(overview.outcomeSummary.submittedAssignments), icon: Terminal, color: "text-primary-600", bg: "bg-primary-50" },
+	                        { label: t('agentSteps'), value: overviewLoading ? "..." : String(overview.outcomeSummary.agentCompletedSteps), icon: Cpu, color: "text-secondary-600", bg: "bg-secondary-50" },
 	                      ].map((stat, idx) => (
                         <Card key={idx} className="hover:-translate-y-1 transition-transform duration-300">
                           <div className="flex items-center gap-4 p-5">
@@ -791,32 +797,32 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                       <div className="p-8 flex flex-col gap-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <Input 
-                            label="用户名" 
+                            label={t('username')}
                             value={user.username} 
                             disabled 
-                            description="用户名不可修改" 
+                            description={t('usernameImmutable')}
                           />
                           <Input 
-                            label="真实姓名" 
+                            label={t('fullName')}
                             value={editForm.fullName}
                             onChange={(v) => setEditForm({ ...editForm, fullName: v })}
                             disabled={!isEditing}
                           />
                           <Input 
-                            label="邮箱" 
+                            label={t('email')}
                             value={user.email} 
                             disabled 
                             icon={<Mail size={16} />} 
                           />
                           <Input 
-                            label="手机号" 
+                            label={t('phone')}
                             value={editForm.phone}
                             onChange={(v) => setEditForm({ ...editForm, phone: v })}
                             disabled={!isEditing}
                             icon={<Phone size={16} />} 
                           />
                           <Input 
-                            label="学号/工号" 
+                            label={t('identityNumber')}
                             value={user.studentId || ''} 
                             disabled 
                           />
@@ -837,7 +843,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onClose, onUserU
                                 disabled={isLoading}
                                 className="px-6 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-50"
                               >
-                                保存修改
+                                {t('saveChanges')}
                               </button>
                             </div>
                           </>

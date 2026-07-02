@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   Terminal, Globe, Code2, Layout, Server, Container, 
   Shield, CheckCircle2, Flame, Award, Zap,
@@ -16,7 +17,7 @@ import { studentClassApi } from '@/services/studentClass';
 import { ClassStatus, type ClassItem } from '@/services/classroom';
 import { 
   CourseDifficulty, CourseStatus, LessonType,
-  lessonTypeToString, formatDuration, levelLabelToLevel, getDifficultyName
+  lessonTypeToString, formatDuration, levelLabelToLevel
 } from '@/types/skill';
 
 interface SkillListProps {
@@ -72,7 +73,20 @@ const avatarColors = [
 
 const getInitial = (name: string): string => {
   const trimmed = name.trim();
-  return trimmed ? trimmed.slice(0, 1).toUpperCase() : '学';
+  return trimmed ? trimmed.slice(0, 1).toUpperCase() : 'S';
+};
+
+const getDifficultyKey = (difficulty: CourseDifficulty): string => {
+  switch (difficulty) {
+    case CourseDifficulty.BEGINNER:
+      return 'beginner';
+    case CourseDifficulty.INTERMEDIATE:
+      return 'intermediate';
+    case CourseDifficulty.ADVANCED:
+      return 'advanced';
+    default:
+      return 'beginner';
+  }
 };
 
 // 将API课程数据转换为前端Skill类型
@@ -126,47 +140,51 @@ interface ClassContextTabsProps {
   onSelectExplore: () => void;
 }
 
-const ClassContextTabs: React.FC<ClassContextTabsProps> = ({ classes, selectedClassId, onSelectClass, onSelectExplore }) => (
-  <section className="relative mb-8">
-    <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-background to-transparent" />
-    <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-background to-transparent" />
-    <div className="flex gap-3 overflow-x-auto px-1 pb-2">
-      {classes.map((item) => {
-        const active = selectedClassId === item.id;
-        return (
-          <button
-            key={item.id}
-            onClick={() => onSelectClass(item.id)}
-            className={`relative min-w-[120px] shrink-0 rounded-2xl px-4 py-3 text-left transition-all ${
-              active
-                ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
-                : 'card-surface text-slate-700 hover:-translate-y-0.5 hover:shadow-lg'
-            }`}
-          >
-            {item.pendingTaskCount > 0 && !active && (
-              <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/40" />
-            )}
-            <div className="max-w-[180px] truncate text-sm font-black">{item.name}</div>
-            <div className={`mt-1 max-w-[180px] truncate text-xs ${active ? 'text-slate-300' : 'text-slate-400'}`}>
-              {item.termCode} · {item.ownerTeacherName || '未设置教师'}
-            </div>
-          </button>
-        );
-      })}
-      <button
-        onClick={onSelectExplore}
-        className={`min-w-[120px] shrink-0 rounded-2xl px-4 py-3 text-left transition-all ${
-          selectedClassId === null
-            ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
-            : 'card-surface text-slate-700 hover:-translate-y-0.5 hover:shadow-lg'
-        }`}
-      >
-        <div className="text-sm font-black">自主探索</div>
-        <div className={`mt-1 text-xs ${selectedClassId === null ? 'text-primary-100' : 'text-slate-400'}`}>浏览公共课程</div>
-      </button>
-    </div>
-  </section>
-);
+const ClassContextTabs: React.FC<ClassContextTabsProps> = ({ classes, selectedClassId, onSelectClass, onSelectExplore }) => {
+  const { t } = useTranslation('study');
+
+  return (
+    <section className="relative mb-8">
+      <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-background to-transparent" />
+      <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-background to-transparent" />
+      <div className="flex gap-3 overflow-x-auto px-1 pb-2">
+        {classes.map((item) => {
+          const active = selectedClassId === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onSelectClass(item.id)}
+              className={`relative min-w-[120px] shrink-0 rounded-2xl px-4 py-3 text-left transition-all ${
+                active
+                  ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/15'
+                  : 'card-surface text-slate-700 hover:-translate-y-0.5 hover:shadow-lg'
+              }`}
+            >
+              {item.pendingTaskCount > 0 && !active && (
+                <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/40" />
+              )}
+              <div className="max-w-[180px] truncate text-sm font-black" data-i18n-skip>{item.name}</div>
+              <div className={`mt-1 max-w-[180px] truncate text-xs ${active ? 'text-slate-300' : 'text-slate-400'}`}>
+                <span data-i18n-skip>{item.termCode}</span> · <span data-i18n-skip={Boolean(item.ownerTeacherName)}>{item.ownerTeacherName || t('classes.noTeacher')}</span>
+              </div>
+            </button>
+          );
+        })}
+        <button
+          onClick={onSelectExplore}
+          className={`min-w-[120px] shrink-0 rounded-2xl px-4 py-3 text-left transition-all ${
+            selectedClassId === null
+              ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
+              : 'card-surface text-slate-700 hover:-translate-y-0.5 hover:shadow-lg'
+          }`}
+        >
+          <div className="text-sm font-black">{t('classes.explore')}</div>
+          <div className={`mt-1 text-xs ${selectedClassId === null ? 'text-primary-100' : 'text-slate-400'}`}>{t('classes.browsePublic')}</div>
+        </button>
+      </div>
+    </section>
+  );
+};
 
 interface ClassCoursesSectionProps {
   skills: Skill[];
@@ -180,9 +198,12 @@ interface SkillGridProps {
   onSkillSelect: (skill: Skill) => void;
 }
 
-const SkillGrid: React.FC<SkillGridProps> = ({ skills, onSkillSelect }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-    {skills.map((skill, i) => (
+const SkillGrid: React.FC<SkillGridProps> = ({ skills, onSkillSelect }) => {
+  const { t } = useTranslation('study');
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+      {skills.map((skill, i) => (
       <motion.div
         key={skill.id}
         initial={{ opacity: 0, y: 10 }}
@@ -197,21 +218,21 @@ const SkillGrid: React.FC<SkillGridProps> = ({ skills, onSkillSelect }) => (
 
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start">
-            <h3 className="text-base font-bold text-slate-900 truncate mb-1">{skill.title}</h3>
+            <h3 className="text-base font-bold text-slate-900 truncate mb-1" data-i18n-skip>{skill.title}</h3>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
               skill.difficulty === CourseDifficulty.BEGINNER ? 'bg-emerald-50 text-emerald-600' :
               skill.difficulty === CourseDifficulty.INTERMEDIATE ? 'bg-blue-50 text-blue-600' :
               'bg-purple-50 text-purple-600'
             }`}>
-              {getDifficultyName(skill.difficulty)}
+              {t(`difficulty.${getDifficultyKey(skill.difficulty)}`)}
             </span>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
             <span className="flex items-center gap-1">
-              <Zap className="w-3 h-3" /> {skill.stats.skills} 技能
+              <Zap className="w-3 h-3" /> {skill.stats.skills} {t('stats.skills')}
             </span>
             <span className="flex items-center gap-1">
-              <BookOpen className="w-3 h-3" /> {skill.stats.lessons} 课时
+              <BookOpen className="w-3 h-3" /> {skill.stats.lessons} {t('stats.lessons')}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" /> {skill.stats.hours}h
@@ -227,21 +248,25 @@ const SkillGrid: React.FC<SkillGridProps> = ({ skills, onSkillSelect }) => (
           )}
         </div>
       </motion.div>
-    ))}
-  </div>
-);
-
-const ClassCoursesSection: React.FC<ClassCoursesSectionProps> = ({ skills, loading, error, onSkillSelect }) => (
-  <section className="mb-12">
-    <div className="mb-8 flex justify-between items-end">
-      <div>
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-          <BookOpen className="h-3.5 w-3.5" />
-          班级课程
-        </div>
-        <h2 className="text-2xl font-bold text-slate-900">当前班级分配课程</h2>
-      </div>
+      ))}
     </div>
+  );
+};
+
+const ClassCoursesSection: React.FC<ClassCoursesSectionProps> = ({ skills, loading, error, onSkillSelect }) => {
+  const { t } = useTranslation('study');
+
+  return (
+    <section className="mb-12">
+      <div className="mb-8 flex justify-between items-end">
+        <div>
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+            <BookOpen className="h-3.5 w-3.5" />
+            {t('classes.assignedBadge')}
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900">{t('classes.assignedTitle')}</h2>
+        </div>
+      </div>
     {loading ? (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
         {Array.from({ length: 2 }).map((_, index) => (
@@ -260,15 +285,17 @@ const ClassCoursesSection: React.FC<ClassCoursesSectionProps> = ({ skills, loadi
       <div className="rounded-2xl bg-rose-50 p-4 text-sm font-medium text-rose-700">{error}</div>
     ) : skills.length === 0 ? (
       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-        当前班级暂未分配课程，请等待教师发布作业。
+        {t('classes.emptyAssigned')}
       </div>
     ) : (
       <SkillGrid skills={skills} onSkillSelect={onSkillSelect} />
     )}
-  </section>
-);
+    </section>
+  );
+};
 
 const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => {
+  const { t } = useTranslation('study');
   const [searchParams, setSearchParams] = useSearchParams();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -305,11 +332,11 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
           const convertedSkills = response.data.list.map(convertCourseToSkill);
           setSkills(convertedSkills);
         } else {
-          setError(response.error || '获取课程列表失败');
+          setError(response.error || t('errors.loadCourses'));
         }
       } catch (err) {
         console.error('获取课程列表失败:', err);
-        setError('网络错误，请稍后重试');
+        setError(t('errors.network'));
       } finally {
         setLoading(false);
       }
@@ -355,7 +382,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
         setOverview(response.data);
       } else {
         setOverview(emptyLearningOverview);
-        setOverviewError(response.error || '学习概览暂时不可用');
+        setOverviewError(response.error || t('errors.overviewUnavailable'));
       }
       setOverviewLoading(false);
     };
@@ -390,7 +417,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
       } else {
         setClasses([]);
         setSelectedClassId(null);
-        setClassError(response.error || '获取我的班级失败');
+        setClassError(response.error || t('errors.loadClasses'));
       }
       setClassesLoading(false);
     };
@@ -429,7 +456,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
         setAssignedSkills(response.data.map(convertCourseToSkill));
       } else {
         setAssignedSkills([]);
-        setAssignedError(response.error || '获取班级课程失败');
+        setAssignedError(response.error || t('errors.loadAssignedCourses'));
       }
       setAssignedLoading(false);
     };
@@ -443,7 +470,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
       <div className="w-full min-h-screen pt-24 pb-20 px-6 md:px-12 max-w-7xl mx-auto flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-          <p className="text-slate-500">加载课程中...</p>
+          <p className="text-slate-500">{t('loadingCourses')}</p>
         </div>
       </div>
     );
@@ -460,7 +487,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
           >
-            重新加载
+            {t('reload')}
           </button>
         </div>
       </div>
@@ -468,6 +495,15 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
   }
 
   const progressOffset = 226 - (226 * Math.min(100, Math.max(0, overview.overallProgressPercent))) / 100;
+  const weekDays = [
+    t('weekdays.sun'),
+    t('weekdays.mon'),
+    t('weekdays.tue'),
+    t('weekdays.wed'),
+    t('weekdays.thu'),
+    t('weekdays.fri'),
+    t('weekdays.sat'),
+  ];
 
   return (
     <div className="w-full min-h-screen pt-24 pb-20 px-6 md:px-12 max-w-7xl mx-auto">
@@ -478,9 +514,12 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
         animate={{ opacity: 1, y: 0 }}
         className="mb-16"
       >
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-8">
-            欢迎回来, <span className="text-primary-600">学习者!</span>
-        </h1>
+        <div className="mb-8 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+                {t('welcomePrefix')} <span className="text-primary-600">{t('learner')}</span>
+            </h1>
+            <span className="text-sm font-medium text-slate-400">{t('demoDisclaimer')}</span>
+        </div>
         
         {/* Stats Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -494,19 +533,19 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-700">
                              <span className="text-xl font-bold">{overviewLoading ? '...' : overview.level}</span>
-                             <span className="text-[10px] text-slate-400">Level</span>
+                             <span className="text-[10px] text-slate-400">{t('level')}</span>
                         </div>
                     </div>
                     <div>
-                        <h3 className="font-bold text-slate-800 text-lg">下一个里程碑</h3>
-                        <p className="mt-1 text-xs font-semibold text-primary-500">{overview.levelName}</p>
+                        <h3 className="font-bold text-slate-800 text-lg">{t('nextMilestone')}</h3>
+                        <p className="mt-1 text-xs font-semibold text-primary-500" data-i18n-skip>{overview.levelName}</p>
                         {(overview.milestones || emptyLearningOverview.milestones).map((milestone) => {
                           const Icon = milestone.type === 'streak' ? Flame : Award;
                           const iconClass = milestone.type === 'streak' ? 'text-rose-500' : 'text-amber-500';
                           return (
                             <div key={milestone.type} className="flex items-center gap-2 mt-2">
                                  <Icon className={`w-5 h-5 ${iconClass}`} />
-                                 <span className="text-sm text-slate-600">{milestone.label}</span>
+                                 <span className="text-sm text-slate-600">{t(`milestones.${milestone.type}`, { count: milestone.target })}</span>
                                  <span className="text-xs text-slate-400 ml-auto">{milestone.current}/{milestone.target}</span>
                             </div>
                           );
@@ -524,20 +563,20 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
                 <div className="grid grid-cols-3 gap-4 mb-4 pb-4 border-b border-slate-100">
                     <div className="text-center">
                         <div className="text-2xl font-bold text-primary-600">{skills.length}</div>
-                        <div className="text-xs text-slate-500">可学课程</div>
+                        <div className="text-xs text-slate-500">{t('stats.availableCourses')}</div>
                     </div>
                     <div className="text-center">
                         <div className="text-2xl font-bold text-emerald-600">{overviewLoading ? '...' : overview.completedCourses}</div>
-                        <div className="text-xs text-slate-500">已完成</div>
+                        <div className="text-xs text-slate-500">{t('stats.completed')}</div>
                     </div>
                     <div className="text-center">
                         <div className="text-2xl font-bold text-amber-600">{overviewLoading ? '...' : overview.inProgressCourses}</div>
-                        <div className="text-xs text-slate-500">进行中</div>
+                        <div className="text-xs text-slate-500">{t('stats.inProgress')}</div>
                     </div>
                 </div>
                 {/* 每日打卡 */}
                 <div className="flex justify-between items-center px-3">
-                    {['日', '一', '二', '三', '四', '五', '六'].map((day, i) => {
+                    {weekDays.map((day, i) => {
                         const today = new Date().getDay();
                         const isToday = i === today;
                         return (
@@ -576,22 +615,22 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
                             <div className="flex items-center gap-3">
                                 <span className="text-xs font-mono text-slate-400 w-10 shrink-0">#{u.rank}</span>
                                 {u.avatarUrl ? (
-                                    <img src={u.avatarUrl} alt={u.displayName} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                    <img src={u.avatarUrl} alt={u.displayName} className="w-6 h-6 rounded-full object-cover shrink-0" data-i18n-skip />
                                 ) : (
                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${u.isCurrentUser ? 'bg-amber-500' : avatarColors[i % avatarColors.length]}`}>
                                         {getInitial(u.displayName || u.username)}
                                     </div>
                                 )}
-                                <span className={`text-sm font-bold truncate max-w-[120px] ${u.isCurrentUser ? 'text-amber-900' : 'text-slate-600'}`}>
+                                <span className={`text-sm font-bold truncate max-w-[120px] ${u.isCurrentUser ? 'text-amber-900' : 'text-slate-600'}`} data-i18n-skip>
                                     {u.displayName || u.username}
                                 </span>
                             </div>
-                            <span className="text-xs font-medium text-slate-400 whitespace-nowrap">{u.skillsCount} 技能</span>
+                            <span className="text-xs font-medium text-slate-400 whitespace-nowrap">{u.skillsCount} {t('stats.skills')}</span>
                         </div>
                     ))
                     ) : (
                         <div className="h-[132px] rounded-2xl border border-dashed border-amber-200 bg-white/50 flex items-center justify-center text-sm text-slate-500">
-                            暂无学习者数据
+                            {t('leaderboard.empty')}
                         </div>
                     )}
                 </div>
@@ -620,7 +659,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
 
           {!classesLoading && classes.length === 0 && (
             <div className="card-surface mb-8 rounded-3xl p-6 text-center text-sm text-slate-500">
-              当前还没有加入任何班级，可以先在自主探索中浏览课程。
+              {t('classes.emptyClasses')}
             </div>
           )}
 
@@ -646,15 +685,15 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
       >
         <div className="flex justify-between items-end mb-8">
             <div>
-                <h2 className="text-2xl font-bold text-slate-900">自主探索</h2>
-                <p className="text-slate-500 text-sm mt-1">浏览平台已发布课程；班级 Tab 中的课程才代表老师分配内容。</p>
+                <h2 className="text-2xl font-bold text-slate-900">{t('explore.title')}</h2>
+                <p className="text-slate-500 text-sm mt-1">{t('explore.desc')}</p>
             </div>
         </div>
 
         {skills.length === 0 ? (
           <div className="text-center py-16">
             <BookOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500">暂无可用课程</p>
+            <p className="text-slate-500">{t('explore.empty')}</p>
           </div>
         ) : (
           <SkillGrid skills={skills} onSkillSelect={onSkillSelect} />

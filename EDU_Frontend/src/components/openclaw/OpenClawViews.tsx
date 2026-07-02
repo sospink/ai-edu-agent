@@ -32,12 +32,15 @@ import type {
   ExecutingViewEvent,
   ThinkingViewMessage,
 } from '@/services/openclawView';
-import { COMPLETED_STEPS } from './constants';
 import type { ChatMessage } from './useOpenClawSession';
 import { AnimatedOrb } from './chat/AnimatedOrb';
 import { ChatMarkdownRenderer } from './chat/ChatMarkdownRenderer';
 import { AudioWaveform } from './chat/AudioWaveform';
 import { DottedSurface } from '@/components/ui/DottedSurface';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import { getCurrentLocale } from '@/i18n';
+import { OPENCLAW_CARD_MESSAGE_MARKER, OPENCLAW_FILE_MESSAGE_PREFIX } from './constants';
 
 interface CompletedWorkspaceProps {
   data?: CompletedView | null;
@@ -69,6 +72,7 @@ interface ApprovalObservabilityWorkspaceProps {
 }
 
 export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, isLoading, error }) => {
+  const { t } = useTranslation('openclaw');
   // 空状态：没有数据且没有在加载
   if (!data && !isLoading) {
     return (
@@ -77,8 +81,8 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
           <CheckCircle2 className="h-10 w-10 text-slate-300" />
         </div>
         <div className="text-center">
-          <h3 className="text-lg font-bold text-slate-700">暂无完成记录</h3>
-          <p className="mt-1 text-sm text-slate-400">当任务执行完成后，结果和产物将显示在此页面</p>
+          <h3 className="text-lg font-bold text-slate-700">{t('noCompleted')}</h3>
+          <p className="mt-1 text-sm text-slate-400">{t('noCompletedDesc')}</p>
         </div>
         {error && (
           <p className="mt-2 rounded-lg bg-rose-50 px-4 py-2 text-xs text-rose-600">{error}</p>
@@ -131,7 +135,7 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
     );
   }
 
-  const summaryText = data?.summary?.trim() || '已完成执行，产物可下载。';
+  const summaryText = data?.summary?.trim() || t('completedSummary');
   const artifacts = data?.artifacts?.length ? data.artifacts : [];
   const latestFinalMessage = data?.finalMessages?.[data.finalMessages.length - 1]?.content || '';
   const steps = data?.steps || [];
@@ -159,19 +163,19 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
             </div>
             <div>
               <h2 className="text-xl font-bold tracking-tight text-slate-800">
-                运行完成
+                {t('runCompleted')}
               </h2>
-              <p className="mt-0.5 text-sm font-medium text-slate-500">{error ? '已完成（获取产物存在异常）' : '该序列自动生成的数字资产和日志已归档'}</p>
+              <p className="mt-0.5 text-sm font-medium text-slate-500">{error ? t('artifactsWarning') : t('archivedDesc')}</p>
             </div>
           </div>
           <div className="hidden gap-8 pr-4 md:flex">
             <div className="text-right">
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">总处理用时</p>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('totalDuration')}</p>
               <p className="font-mono text-xl font-medium tracking-tight text-slate-700">{formatDuration(metrics.durationSeconds)}</p>
             </div>
             <div className="w-px bg-slate-200" />
             <div className="text-right">
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">执行成功率</p>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('successRate')}</p>
               <p className={`font-mono text-xl font-medium tracking-tight ${metrics.successRate >= 90 ? 'text-emerald-600' : metrics.successRate >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
                 {metrics.successRate}%
               </p>
@@ -185,13 +189,13 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
           <div className="flex flex-col gap-6 xl:col-span-4 xl:col-start-1 xl:row-start-1">
             <div className="flex min-h-[500px] flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] animate-[fadeSlideIn_0.3s_ease-out_0.1s_both]">
               <div className="flex items-center border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-                <span className="text-sm font-bold tracking-wide text-slate-800">输出结果分析</span>
+                <span className="text-sm font-bold tracking-wide text-slate-800">{t('outputAnalysis')}</span>
               </div>
 
               <div className="flex flex-1 flex-col p-6">
                 {/* 产物文件列表 */}
                 <div className="flex-1">
-                  <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">构建产物 ({artifacts.length})</p>
+                  <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('artifactsCount', { count: artifacts.length })}</p>
                   <div className="space-y-3">
                     {artifacts.length > 0 ? (
                       artifacts.map((artifact) => {
@@ -219,7 +223,7 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
                     ) : (
                       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 py-10 text-slate-400">
                         <FileText className="mb-2 h-8 w-8 text-slate-300" />
-                        <p className="text-xs font-medium">暂无产物文件生成</p>
+                        <p className="text-xs font-medium">{t('noArtifacts')}</p>
                       </div>
                     )}
                   </div>
@@ -227,22 +231,22 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
 
                 {/* 指标摘要 */}
                 <div className="mt-8 border-t border-slate-100 pt-6">
-                  <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">运行指标评估</p>
+                  <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('metrics')}</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded bg-primary-50 p-2">
-                      <p className="text-[10px] text-primary-500">总步骤</p>
+                      <p className="text-[10px] text-primary-500">{t('totalSteps')}</p>
                       <p className="text-lg font-bold text-primary-700">{metrics.totalSteps}</p>
                     </div>
                     <div className="rounded bg-primary-50 p-2">
-                      <p className="text-[10px] text-primary-500">总事件</p>
+                      <p className="text-[10px] text-primary-500">{t('totalEvents')}</p>
                       <p className="text-lg font-bold text-primary-700">{metrics.totalEvents}</p>
                     </div>
                     <div className="rounded bg-primary-50 p-2">
-                      <p className="text-[10px] text-primary-500">活跃技能</p>
+                      <p className="text-[10px] text-primary-500">{t('activeSkills')}</p>
                       <p className="text-lg font-bold text-primary-700">{metrics.activeSkills}</p>
                     </div>
                     <div className="rounded bg-primary-50 p-2">
-                      <p className="text-[10px] text-primary-500">成功率</p>
+                      <p className="text-[10px] text-primary-500">{t('successRate')}</p>
                       <p className="text-lg font-bold text-primary-700">{metrics.successRate}%</p>
                     </div>
                   </div>
@@ -257,11 +261,11 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
               <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                 <h3 className="flex items-center gap-2 text-sm font-bold tracking-wide text-slate-800">
                   <BarChart3 className="h-4 w-4 text-primary-500" />
-                  流程执行时间轴
+                  {t('timeline')}
                 </h3>
                 {steps.length > 0 && (
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold tracking-wide text-slate-600">
-                    共 {steps.length} 步
+                    {t('stepCount', { count: steps.length })}
                   </span>
                 )}
               </div>
@@ -294,7 +298,7 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
                               <div className="min-w-0">
                                 <div className="mb-1 flex items-center gap-2">
                                   <span className="rounded bg-slate-200/50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                                    Step {idx + 1}
+                                    {t('step', { ns: 'uiReview' })} {idx + 1}
                                   </span>
                                   <p className="truncate text-sm font-bold text-slate-700">{step.title}</p>
                                 </div>
@@ -303,7 +307,7 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
                                 )}
                               </div>
                               <span className="shrink-0 font-mono text-[10px] font-medium text-slate-400">
-                                {new Date(step.ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                {new Date(step.ts).toLocaleTimeString(getCurrentLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                               </span>
                             </div>
                           </div>
@@ -314,8 +318,8 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
                 ) : (
                   <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                     <BarChart3 className="mb-4 h-12 w-12 text-slate-200" />
-                    <p className="text-sm font-semibold tracking-wide text-slate-600">暂无执行步骤记录</p>
-                    <p className="mt-1 text-xs font-medium text-slate-400">任务执行完成后，流程进度将在此展示</p>
+                    <p className="text-sm font-semibold tracking-wide text-slate-600">{t('noSteps')}</p>
+                    <p className="mt-1 text-xs font-medium text-slate-400">{t('noStepsDesc')}</p>
                   </div>
                 )}
               </div>
@@ -325,7 +329,7 @@ export const CompletedWorkspace: React.FC<CompletedWorkspaceProps> = ({ data, is
       </main>
 
       <footer className="border-t border-slate-200 p-8 text-center text-sm text-slate-400">
-        {`OpenClaw 实训环境 © ${new Date().getFullYear()}。所有自动化序列已受安全保护。`}
+        {t('secureFooter', { year: new Date().getFullYear() })}
       </footer>
     </div>
   );
@@ -355,6 +359,7 @@ export const StatusChip: React.FC<{ icon: React.ReactNode; label: string; online
 };
 
 export const IdleDesktop: React.FC = () => {
+  const { t } = useTranslation('openclaw');
   const pixelOfficeUrl = import.meta.env.VITE_OPENCLAW_PIXEL_OFFICE_URL || 'http://139.199.68.121:26080/';
   const frameViewportRef = useRef<HTMLDivElement>(null);
   const [frameLayout, setFrameLayout] = useState({ scale: 1, left: 0, top: 0 });
@@ -409,7 +414,7 @@ export const IdleDesktop: React.FC = () => {
       <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
         <div className="flex items-center gap-2 text-slate-700">
           <Monitor className="h-4 w-4" />
-          <span className="text-xs font-medium">OpenClaw 办公室</span>
+          <span className="text-xs font-medium">{t('office')}</span>
         </div>
       </div>
 
@@ -430,7 +435,7 @@ export const IdleDesktop: React.FC = () => {
             }}
           >
             <iframe
-              title="OpenClaw Pixel Office"
+      title={t('pixelOffice', { ns: 'uiReview' })}
               src={pixelOfficeUrl}
               className="h-full w-full border-0"
               referrerPolicy="no-referrer"
@@ -454,6 +459,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
   isWaitingReply: externalIsWaiting,
   setIsWaitingReply: externalSetIsWaiting,
 }) => {
+  const { t, i18n } = useTranslation('openclaw');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
   const [inputText, setInputText] = useState(initialPrompt || '');
@@ -501,7 +507,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
       const r = new SR();
       r.continuous = true;
       r.interimResults = true;
-      r.lang = 'zh-CN';
+      r.lang = getCurrentLocale();
       r.onresult = (e: any) => {
         let text = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -517,7 +523,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
       recognitionRef.current = r;
     }
     return () => { if (recognitionRef.current) recognitionRef.current.stop(); };
-  }, []);
+  }, [i18n.language]);
 
   const toggleRecording = useCallback(() => {
     if (!recognitionRef.current) return;
@@ -549,7 +555,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
         time: toHourMinute(message.ts),
         isFile: Boolean(isFile),
         downloadUrl,
-        fileName: message.fileName || message.content.replace('[文件] ', ''),
+        fileName: message.fileName || message.content.replace(OPENCLAW_FILE_MESSAGE_PREFIX, ''),
       };
     });
   }, [messages]);
@@ -640,7 +646,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
     }
     const lastId = externalMessages.length > 0 ? externalMessages[externalMessages.length - 1].id : 0;
     const uid = Math.max(lastId, Date.now()) + 1;
-    setLocalUserMessages(prev => [...prev, { id: uid, role: 'user' as const, text, time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }]);
+    setLocalUserMessages(prev => [...prev, { id: uid, role: 'user' as const, text, time: new Date().toLocaleTimeString(getCurrentLocale(), { hour: '2-digit', minute: '2-digit' }) }]);
     waitingMessageCountRef.current = externalMessages.length;
     setIsWaitingReply(true);
     setIsSending(true);
@@ -679,10 +685,10 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
               <AnimatedOrb size={128} />
             </div>
             <p className={`text-lg font-medium text-slate-500 relative z-10 ${hasAnimated ? 'text-blur-intro' : ''}`}>
-              Hi，我是 OpenClaw
+              {t('chatHello')}
             </p>
             <p className={`text-sm mt-1 text-slate-400 relative z-10 ${hasAnimated ? 'text-blur-intro-delay' : ''}`}>
-              发送指令开始与 AI 智能体对话
+              {t('chatEmpty')}
             </p>
           </div>
         )}
@@ -711,7 +717,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
 
             {/* 气泡 */}
             <div className="flex flex-col" style={{ maxWidth: '100%' }}>
-              <span className="text-xs text-slate-400 mb-1">{msg.role === 'user' ? '你' : 'OpenClaw'}</span>
+              <span className="text-xs text-slate-400 mb-1">{msg.role === 'user' ? t('you') : 'OpenClaw'}</span>
               <div
                 className={cn(
                   'rounded-2xl overflow-hidden',
@@ -724,14 +730,14 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
                 }}
               >
                 <div className="px-4 py-3">
-                  {msg.text === '[卡片消息]' ? (
+                  {msg.text === OPENCLAW_CARD_MESSAGE_MARKER ? (
                     <div className="flex items-center gap-3 rounded-lg border border-primary-200 bg-primary-50/50 p-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100">
                         <BarChart3 className="h-5 w-5 text-primary-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-primary-700">飞书卡片消息</p>
-                        <p className="text-[10px] text-slate-400">请在飞书中查看完整内容</p>
+                        <p className="text-sm font-bold text-primary-700">{t('feishuCard')}</p>
+                        <p className="text-[10px] text-slate-400">{t('feishuCardDesc')}</p>
                       </div>
                     </div>
                   ) : msg.isFile ? (
@@ -741,7 +747,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-slate-800 group-hover:text-primary-700">{msg.fileName}</p>
-                        <p className="text-[10px] text-slate-400">点击下载文件</p>
+                        <p className="text-[10px] text-slate-400">{t('downloadFile')}</p>
                       </div>
                       <ExternalLink className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-primary-500" />
                     </a>
@@ -772,7 +778,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
                 {/* 增加显性的文字提示，缓解等待焦虑 */}
-                <span className="text-xs font-medium text-slate-500 ml-1">正在分析任务边界并规划执行路径...</span>
+                <span className="text-xs font-medium text-slate-500 ml-1">{t('analyzing')}</span>
               </div>
             </div>
           </div>
@@ -802,7 +808,7 @@ export const RunningDesktop: React.FC<RunningDesktopProps> = ({
                 value={inputText}
                 onChange={(e) => { setInputText(e.target.value); handleTextareaInput(); }}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder={isRecording ? '正在聆听...' : '输入消息与 OpenClaw 对话...'}
+                placeholder={isRecording ? t('listening') : t('messagePlaceholder')}
                 disabled={isSending}
                 rows={2}
                 className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none disabled:opacity-50 max-h-[96px] overflow-y-auto"
@@ -853,6 +859,7 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
   isLoading,
   error,
 }) => {
+  const { t } = useTranslation('openclaw');
   const timelineItems = useMemo(() => {
     if (!events || events.length === 0) return [];
 
@@ -861,18 +868,18 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
       desc: event.desc,
       time: formatClock(event.ts),
       icon: pickEventIcon(event),
-      stage: pickEventStage(event),
+      stage: pickEventStage(event, t),
       active: index === events.length - 1,
       level: event.level,
       kind: event.kind,
     }));
-  }, [events]);
+  }, [events, t]);
 
   const safeProgress = Number.isFinite(progress || 0)
     ? Math.max(0, Math.min(100, progress || 0))
     : 60;
 
-  const latestDesc = timelineItems[timelineItems.length - 1]?.desc || '等待执行事件';
+  const latestDesc = timelineItems[timelineItems.length - 1]?.desc || t('waitingEvent');
   const currentStatus = status?.trim() || 'running';
   const toolchainItems = useMemo(() => {
     if (!toolchain || toolchain.length === 0) {
@@ -901,16 +908,16 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
         <section className="flex-1 min-h-0 overflow-y-auto bg-slate-50 p-3 md:p-4">
           <div className="mx-auto w-full max-w-3xl space-y-4">
             <div className="mb-6 flex items-center justify-between">
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">运行日志</h1>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">{t('runtimeLogs')}</h1>
               <span className={`rounded border px-2 py-1 text-[10px] font-medium transition-colors duration-300 ${
                 isLoading ? 'border-primary-200 bg-primary-50 text-primary-600' : 'border-slate-200 bg-white text-slate-500'
               }`}>
                 {isLoading ? (
                   <span className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-primary-500 animate-pulse" />
-                    同步中
+                    {t('syncing')}
                   </span>
-                ) : '实时同步'}
+                ) : t('liveSync')}
               </span>
             </div>
 
@@ -948,7 +955,7 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
 
               {!isLoading && !error && timelineItems.length === 0 && (
                 <div className="relative -ml-8 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-400 shadow-sm">
-                  暂无执行事件（当前仅展示真实执行数据）
+                  {t('noEvents')}
                 </div>
               )}
             </div>
@@ -957,7 +964,7 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
 
         <aside className="w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-slate-50/50 p-3 md:w-80 md:p-4">
           <div className="space-y-5">
-            <h3 className="px-1 text-xs font-bold uppercase tracking-widest text-slate-400">实时决策分析</h3>
+            <h3 className="px-1 text-xs font-bold uppercase tracking-widest text-slate-400">{t('decisionAnalysis')}</h3>
 
             {/* 决策卡片：加载骨架 */}
             {isLoading && !currentStep && !status ? (
@@ -994,27 +1001,27 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
                     <ShieldCheck className="h-4.5 w-4.5 text-primary-600" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-800">决策卡片</p>
-                    <p className="text-[10px] text-slate-400">实时状态追踪</p>
+                    <p className="text-sm font-bold text-slate-800">{t('decisionCard')}</p>
+                    <p className="text-[10px] text-slate-400">{t('liveTracking')}</p>
                   </div>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                     error ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
                   }`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${error ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                    {error ? '异常' : '正常'}
+                    {error ? t('abnormal') : t('normal')}
                   </span>
                 </div>
 
                 {/* 当前目标 */}
                 <div className="mx-5 rounded-xl bg-slate-50 px-4 py-3">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">当前目标</p>
-                  <p className="text-[13px] font-medium leading-snug text-slate-700">{currentStep || '获取执行中任务上下文'}</p>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('currentGoal')}</p>
+                  <p className="text-[13px] font-medium leading-snug text-slate-700">{currentStep || t('fetchingContext')}</p>
                 </div>
 
                 {/* 状态 + 风险 */}
                 <div className="flex gap-3 px-5 pt-3 pb-5">
                   <div className="flex-1 rounded-xl bg-slate-50 px-4 py-3">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">动作状态</p>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('actionStatus')}</p>
                     <p className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700">
                       {currentStatus}
                       <span className={`h-2 w-2 rounded-full ${
@@ -1023,11 +1030,11 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
                     </p>
                   </div>
                   <div className="flex-1 rounded-xl bg-slate-50 px-4 py-3">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">风险等级</p>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('riskLevel')}</p>
                     <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold ${
                       error ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                     }`}>
-                      {error ? '⚠ 中' : '✓ 低'}
+                      {error ? `⚠ ${t('riskMedium')}` : `✓ ${t('riskLow')}`}
                     </span>
                   </div>
                 </div>
@@ -1036,7 +1043,7 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
 
             {/* 工具链状态 */}
             <div className="space-y-3">
-              <h3 className="px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">工具链状态</h3>
+              <h3 className="px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{t('toolchainStatus')}</h3>
 
               <div className="rounded-2xl bg-white shadow-sm">
                 <div className="divide-y divide-slate-50 p-2">
@@ -1076,7 +1083,7 @@ export const ApprovalObservabilityWorkspace: React.FC<ApprovalObservabilityWorks
                   ))}
                   {!isLoading && toolchainItems.length === 0 && (
                     <div className="px-3 py-4 text-center text-xs text-slate-400">
-                      暂无技能状态
+                      {t('noSkills')}
                     </div>
                   )}
                 </div>
@@ -1117,21 +1124,21 @@ function getEventColor(kind?: string, level?: string): { border: string; bg: str
 }
 
 /** 事件类型中文标签 */
-function getEventKindLabel(kind?: string): string {
+function getEventKindLabel(kind: string | undefined, t: TFunction<'openclaw'>): string {
   switch (kind) {
-    case 'user_input': return '用户输入';
-    case 'tool_call': return '工具调用';
-    case 'tool_result': return '工具输出';
-    case 'agent_reply': return 'Agent 回复';
-    case 'assistant_output': return 'Agent 输出';
-    case 'gateway_res': return '网关响应';
-    case 'feishu_inbound': return '用户指令';
-    case 'feishu_dispatch': return '任务分派';
-    case 'feishu_stream_start': return '开始输出';
-    case 'feishu_stream_end': return '输出结束';
-    case 'feishu_dispatch_complete': return '下发完成';
-    case 'system': return '系统事件';
-    default: return '事件';
+    case 'user_input': return t('eventUserInput');
+    case 'tool_call': return t('eventToolCall');
+    case 'tool_result': return t('eventToolResult');
+    case 'agent_reply': return t('eventAgentReply');
+    case 'assistant_output': return t('eventAgentOutput');
+    case 'gateway_res': return t('eventGatewayResponse');
+    case 'feishu_inbound': return t('eventUserInstruction');
+    case 'feishu_dispatch': return t('eventTaskDispatch');
+    case 'feishu_stream_start': return t('eventStreamStart');
+    case 'feishu_stream_end': return t('eventStreamEnd');
+    case 'feishu_dispatch_complete': return t('eventDispatchComplete');
+    case 'system': return t('eventSystem');
+    default: return t('eventDefault');
   }
 }
 
@@ -1185,6 +1192,7 @@ const TimelineEventItem: React.FC<{
   idx: number;
   safeProgress: number;
 }> = ({ item, idx, safeProgress }) => {
+  const { t } = useTranslation('openclaw');
   const [expanded, setExpanded] = useState(false);
   const colors = getEventColor(item.kind, item.level);
   const isReply = isAgentReplyKind(item.kind);
@@ -1232,7 +1240,7 @@ const TimelineEventItem: React.FC<{
               }`}
             >
               <MessageCircle className="h-3 w-3" />
-              {expanded ? '收起回复内容' : '查看回复内容'}
+              {expanded ? t('collapseReply') : t('viewReply')}
               <span className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}>▾</span>
             </button>
             {expanded && (
@@ -1303,13 +1311,13 @@ function pickEventIcon(event: ExecutingViewEvent) {
   return MessageCircle;
 }
 
-function pickEventStage(event: ExecutingViewEvent): string {
-  if (event.kind === 'feishu_inbound') return '用户指令';
-  if (event.kind === 'feishu_dispatch') return '任务分派';
-  if (event.kind === 'feishu_stream_start') return '开始输出';
-  if (event.kind === 'feishu_stream_end') return '输出结束';
-  if (event.kind === 'feishu_dispatch_complete') return '下发完成';
-  if (event.kind === 'gateway_res') return event.method || '网关响应';
+function pickEventStage(event: ExecutingViewEvent, t: TFunction<'openclaw'>): string {
+  if (event.kind === 'feishu_inbound') return t('eventUserInstruction');
+  if (event.kind === 'feishu_dispatch') return t('eventTaskDispatch');
+  if (event.kind === 'feishu_stream_start') return t('eventStreamStart');
+  if (event.kind === 'feishu_stream_end') return t('eventStreamEnd');
+  if (event.kind === 'feishu_dispatch_complete') return t('eventDispatchComplete');
+  if (event.kind === 'gateway_res') return event.method || t('eventGatewayResponse');
   return '';
 }
 

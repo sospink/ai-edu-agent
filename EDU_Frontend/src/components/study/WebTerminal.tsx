@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '@/config';
+import { useTranslation } from 'react-i18next';
 
 // 模块级别的连接追踪，防止 StrictMode 双连接
 // 使用 Set 记录正在连接的 key，连接完成后移除
@@ -35,6 +36,7 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
   connectNonce = 0,
   restartToken = 0,
 }) => {
+  const { t, i18n } = useTranslation('lab');
   const INIT_GRACE_MS = 30000;
   const INIT_RETRY_INTERVAL_MS = 2000;
   const transportEnv = ((import.meta.env as any).VITE_TERMINAL_TRANSPORT || '').toLowerCase();
@@ -67,9 +69,10 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const mountedRef = useRef<boolean>(false);
+  const currentLocale = i18n.resolvedLanguage || i18n.language;
   
   // 生成唯一连接 key
-  const connectionKey = `${sessionId}-${terminalId}-${mode}-${connectNonce}`;
+  const connectionKey = `${sessionId}-${terminalId}-${mode}-${connectNonce}-${currentLocale}`;
 
   const logInputStats = (kind: 'data' | 'binary', bytes: number) => {
     if (!TERMINAL_DEBUG) return;
@@ -208,7 +211,7 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
     initRetryCountRef.current = nextRetry;
     setInitRetryCount(nextRetry);
     setStatus('connecting');
-    setErrorMessage(`环境初始化中，正在等待 SSH 服务启动...（重试 ${nextRetry}）`);
+    setErrorMessage(t('terminalWaiting', { count: nextRetry }));
 
     if (initRetryTimerRef.current) {
       clearTimeout(initRetryTimerRef.current);
@@ -303,7 +306,7 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
     const token = localStorage.getItem('authToken');
     if (!token) {
       setStatus('error');
-      setErrorMessage('未登录，请先登录');
+      setErrorMessage(t('terminalLoginRequired'));
       pendingConnections.delete(connectionKey);
       return;
     }
@@ -325,6 +328,7 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
     // 构建 WebSocket URL，包含 mode 和 command 参数
     let wsUrl = `${wsProtocol}//${wsHost}/ws/terminal?token=${token}&sessionId=${numericSessionId}&terminalId=${terminalId}&mode=${mode}`;
     wsUrl += `&transport=${USE_RAW_TRANSPORT ? 'raw' : 'json'}`;
+    wsUrl += `&locale=${encodeURIComponent(currentLocale)}`;
     if (mode === 'exec') {
       wsUrl += `&command=${encodeURIComponent(command)}`;
       wsUrl += `&sessionPolicy=${encodeURIComponent(effectiveSessionPolicy)}`;
@@ -372,19 +376,19 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
                 fitAddon.current.fit();
                 syncRemoteSize(ws);
               }
-              terminalInstance.current.writeln('\x1b[32m✓ 终端已连接\x1b[0m\r\n');
+              terminalInstance.current.writeln(`\x1b[32m✓ ${t('terminalConnected')}\x1b[0m\r\n`);
             }
           }, 100);
         } else if (msg.type === 'output') {
           terminalInstance.current?.write(msg.data);
         } else if (msg.type === 'error') {
-          const message = String(msg.message || '连接失败');
+          const message = String(msg.message || t('terminalConnectionFailed'));
           if (scheduleInitRetry(message)) {
             return;
           }
           setStatus('error');
           setErrorMessage(message);
-          terminalInstance.current?.writeln(`\x1b[31m✗ 错误: ${message}\x1b[0m`);
+          terminalInstance.current?.writeln(`\x1b[31m✗ ${t('terminalErrorPrefix')}: ${message}\x1b[0m`);
         } else if (msg.type === 'output') {
           terminalInstance.current?.write(msg.data || '');
         }
@@ -397,27 +401,27 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
       // 连接关闭时移除 pending 状态
       pendingConnections.delete(connectionKey);
       if (!wsConnectedRef.current) {
-        if (scheduleInitRetry('SSH 连接失败: 服务尚未就绪')) {
+        if (scheduleInitRetry(t('terminalSshNotReady'))) {
           return;
         }
         setStatus('error');
-        setErrorMessage('SSH 连接失败，请稍后重试');
+        setErrorMessage(t('terminalSshFailed'));
         return;
       }
       if (wsConnectedRef.current) {
         setStatus('disconnected');
-        terminalInstance.current?.writeln('\r\n\x1b[33m⚠ 连接已断开\x1b[0m');
+        terminalInstance.current?.writeln(`\r\n\x1b[33m⚠ ${t('terminalDisconnected')}\x1b[0m`);
       }
     };
 
     ws.onerror = () => {
       // 连接错误时移除 pending 状态
       pendingConnections.delete(connectionKey);
-      if (scheduleInitRetry('WebSocket 连接失败')) {
+      if (scheduleInitRetry(t('terminalWebSocketFailed'))) {
         return;
       }
       setStatus('error');
-      setErrorMessage('WebSocket 连接失败');
+      setErrorMessage(t('terminalWebSocketFailed'));
     };
 
     dataListenerRef.current?.dispose();
@@ -688,9 +692,9 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
       {status === 'connecting' && (
         <div className="absolute inset-0 bg-[#0c0c0c] flex flex-col items-center justify-center z-10">
           <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-4" />
-          <p className="text-slate-400 text-sm">{errorMessage || '正在连接终端...'}</p>
+          <p className="text-slate-400 text-sm">{errorMessage || t('terminalConnecting')}</p>
           {mode === 'ssh' && initRetryCount > 0 && (
-            <p className="text-slate-500 text-xs mt-2">容器初始化中，最多等待 30 秒</p>
+            <p className="text-slate-500 text-xs mt-2">{t('terminalInitHint')}</p>
           )}
         </div>
       )}
@@ -698,13 +702,13 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
       {status === 'error' && (
         <div className="absolute inset-0 bg-[#0c0c0c] flex flex-col items-center justify-center z-10">
           <AlertCircle className="w-8 h-8 text-red-500 mb-4" />
-          <p className="text-red-400 text-sm mb-4">{errorMessage || '连接失败'}</p>
+          <p className="text-red-400 text-sm mb-4">{errorMessage || t('connectionFailed')}</p>
           <button
             onClick={handleReconnect}
             className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            重新连接
+            {t('reconnect')}
           </button>
         </div>
       )}
@@ -716,7 +720,7 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
             className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs transition-colors"
           >
             <RefreshCw className="w-3 h-3" />
-            重新连接
+            {t('reconnect')}
           </button>
         </div>
       )}

@@ -2,38 +2,32 @@ import React, { useMemo, useState } from 'react';
 import { AlertTriangle, BarChart3, Briefcase, Bug, Check, CheckCircle2, Code2, Cpu, GitBranch, Layers, Megaphone, MessageSquare, Play, Send, ShieldCheck, Terminal } from 'lucide-react';
 import WorkSceneFolder, { type WorkSceneFolderItem } from '@/components/ui/work-scene-folder';
 import type { ExecutingView, ExecutingViewEvent, ThinkingViewMessage } from '@/services/openclawView';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
-const workSceneCards: WorkSceneFolderItem[] = [
+const createWorkSceneCards = (t: TFunction<'openclaw'>): WorkSceneFolderItem[] => [
   {
     icon: <Briefcase className="size-4 text-sky-100" />,
-    title: '售前工程师工作台',
-    subtitle: '方案设计 / 需求分析',
-    description: '围绕客户需求梳理、技术路线设计、解决方案书与商务报价进行一体化输出。',
+    title: t('scene.presalesTitle'), subtitle: t('scene.presalesSubtitle'), description: t('scene.presalesDesc'),
     directories: ['ABOUT ME', 'TEMPLATES', 'KNOWLEDGE BASE', 'CLAUDE OUTPUTS'],
     accentClassName: 'bg-sky-500',
   },
   {
     icon: <Megaphone className="size-4 text-emerald-100" />,
-    title: '品牌营销工作台',
-    subtitle: '品牌定位 / 传播策略',
-    description: '聚焦品牌定位、市场洞察、传播策略和年度营销方案的结构化协同产出。',
+    title: t('scene.marketingTitle'), subtitle: t('scene.marketingSubtitle'), description: t('scene.marketingDesc'),
     directories: ['ABOUT ME', 'KNOWLEDGE BASE', 'PROJECTS', 'CLAUDE OUTPUTS'],
     accentClassName: 'bg-emerald-500',
   },
   {
     icon: <Code2 className="size-4 text-amber-100" />,
-    title: '项目开发工作台',
-    subtitle: '源码开发 / 部署上线',
-    description: '覆盖市场调研、需求分析、源码实现、构建产物、测试报告与部署方案全链路。',
-    directories: ['01_市场调研', '04_源代码', '05_构建产物', '07_部署方案'],
+    title: t('scene.developmentTitle'), subtitle: t('scene.developmentSubtitle'), description: t('scene.developmentDesc'),
+    directories: [t('scene.dirMarketResearch'), t('scene.dirSourceCode'), t('scene.dirBuildArtifacts'), t('scene.dirDeploymentPlan')],
     accentClassName: 'bg-amber-500',
   },
   {
     icon: <Bug className="size-4 text-violet-100" />,
-    title: '软件质量工程师工作台',
-    subtitle: '缺陷评估 / 回归验证',
-    description: '聚焦代码缺陷评估、回归测试、修复方案验证与最终交付质量闭环。',
-    directories: ['01_源码', '02_评估文档', '03_测试报告', '04_修复方案'],
+    title: t('scene.qaTitle'), subtitle: t('scene.qaSubtitle'), description: t('scene.qaDesc'),
+    directories: [t('scene.dirSource'), t('scene.dirAssessment'), t('scene.dirTestReport'), t('scene.dirFixPlan')],
     accentClassName: 'bg-violet-500',
   },
 ];
@@ -43,7 +37,10 @@ interface IdleProcessPanelProps {
 }
 
 export const IdleProcessPanel: React.FC<IdleProcessPanelProps> = ({ onStartScene }) => {
+  const { t } = useTranslation('openclaw');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const workSceneCards = createWorkSceneCards(t);
+  const sceneNames = [t('scene.presalesName'), t('scene.marketingName'), t('scene.developmentName'), t('scene.qaName')];
 
   const accentColors = ['sky', 'emerald', 'amber', 'violet'];
   const accent = accentColors[selectedIndex] || 'sky';
@@ -54,7 +51,7 @@ export const IdleProcessPanel: React.FC<IdleProcessPanelProps> = ({ onStartScene
         <nav className="flex gap-6 px-4">
           <div className="flex items-center border-b-2 border-primary-600 py-4 text-sm font-bold text-primary-600">
             <BarChart3 className="mr-2 h-4 w-4" />
-            工作场景
+            {t('workScenes')}
           </div>
         </nav>
       </div>
@@ -79,7 +76,7 @@ export const IdleProcessPanel: React.FC<IdleProcessPanelProps> = ({ onStartScene
               }}
             >
               <Play className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              开始 {workSceneCards[selectedIndex]?.title?.replace('工作台', '') || '工作'}
+              {t('startScene', { name: sceneNames[selectedIndex] || t('startWork') })}
             </button>
           </div>
         </div>
@@ -101,15 +98,8 @@ const PHASE_ICONS: Record<string, React.ReactNode> = {
   'phase-processing': <Cpu className="h-5 w-5" />,
   'phase-delivery': <Send className="h-5 w-5" />,
 };
-const PHASE_DESCS: Record<string, string> = {
-  'phase-inbound': '正在解析自然语言指令...',
-  'phase-dispatch': '智能编排任务逻辑中...',
-  'phase-processing': '深度神经网络计算处理...',
-  'phase-delivery': '安全下发执行结果...',
-};
-
 /** 从事件列表自动推导出 4 阶段任务管线 */
-function derivePhases(events: ExecutingViewEvent[] | undefined, progress: number) {
+function derivePhases(events: ExecutingViewEvent[] | undefined, progress: number, t: TFunction<'openclaw'>) {
   const hasKind = (kind: string) => events?.some((e) => e.kind === kind);
 
   const hasUserInput = hasKind('user_input');
@@ -125,26 +115,26 @@ function derivePhases(events: ExecutingViewEvent[] | undefined, progress: number
   const phase1Done = phase2Done || Boolean(hasUserInput);
 
   const phases = [
-    { id: 'phase-inbound', title: '接收用户指令', done: phase1Done },
-    { id: 'phase-dispatch', title: 'Agent 任务分派', done: phase2Done },
-    { id: 'phase-processing', title: 'AI 分析与处理', done: phase3Done, running: Boolean(hasToolCall) && !hasAgentReply },
-    { id: 'phase-delivery', title: '结果下发', done: phase4Done },
+    { id: 'phase-inbound', title: t('phaseInbound'), desc: t('phaseInboundDesc'), done: phase1Done },
+    { id: 'phase-dispatch', title: t('phaseDispatch'), desc: t('phaseDispatchDesc'), done: phase2Done },
+    { id: 'phase-processing', title: t('phaseProcessing'), desc: t('phaseProcessingDesc'), done: phase3Done, running: Boolean(hasToolCall) && !hasAgentReply },
+    { id: 'phase-delivery', title: t('phaseDelivery'), desc: t('phaseDeliveryDesc'), done: phase4Done },
   ];
 
   let foundRunning = false;
   return phases.map((p) => {
     if (p.done) {
-      return { ...p, status: 'completed' as const, statusLabel: '已完成' };
+      return { ...p, status: 'completed' as const, statusLabel: t('statusCompleted') };
     }
     if ('running' in p && p.running) {
       foundRunning = true;
-      return { ...p, status: 'running' as const, statusLabel: '处理中—' };
+      return { ...p, status: 'running' as const, statusLabel: t('statusProcessing') };
     }
     if (!foundRunning) {
       foundRunning = true;
-      return { ...p, status: 'running' as const, statusLabel: '处理中' };
+      return { ...p, status: 'running' as const, statusLabel: t('statusProcessing') };
     }
-    return { ...p, status: 'waiting' as const, statusLabel: '等待中' };
+    return { ...p, status: 'waiting' as const, statusLabel: t('statusWaiting') };
   });
 }
 
@@ -153,23 +143,24 @@ export const RunningProcessPanel: React.FC<RunningProcessPanelProps> = ({
   executingView,
   thinkingMessages,
 }) => {
+  const { t } = useTranslation('openclaw');
   const events = executingView?.events;
   const progress = executingView?.progress ?? 0;
 
-  const phases = useMemo(() => derivePhases(events, progress), [events, progress]);
+  const phases = useMemo(() => derivePhases(events, progress, t), [events, progress, t]);
 
   const userInstruction = useMemo(() => {
     const inbound = events?.find((e) => e.kind === 'user_input');
     if (inbound?.desc) return inbound.desc;
     if (thinkingMessages?.length) return thinkingMessages[thinkingMessages.length - 1].content;
-    return '等待接收用户指令…';
-  }, [events, thinkingMessages]);
+    return t('waitingInstruction');
+  }, [events, thinkingMessages, t]);
 
-  const currentAction = executingView?.currentStep || '等待执行…';
+  const currentAction = executingView?.currentStep || t('waitingExecution');
   const hasError = events?.some((e) => e.level === 'error');
-  const riskLevel = hasError ? '中' : '低';
+  const riskLevel = hasError ? t('riskMedium') : t('riskLow');
   const riskColor = hasError ? 'bg-amber-50 text-amber-700' : 'bg-primary-50 text-primary-700';
-  const statusLabel = executingView?.status || (sessionState === 'running' ? '思考中' : '执行中');
+  const statusLabel = executingView?.status || (sessionState === 'running' ? t('thinking') : t('executing'));
   const activeSkillCount = executingView?.toolchain?.filter((s) => s.active).length ?? 0;
 
   return (
@@ -183,11 +174,11 @@ export const RunningProcessPanel: React.FC<RunningProcessPanelProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-2 relative z-10">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight">任务执行管线</h3>
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight">{t('taskPipeline')}</h3>
           </div>
           <div className="px-2.5 py-1 bg-slate-50 rounded-full border border-slate-100 flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">实时同步</span>
+            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{t('liveSync')}</span>
           </div>
         </div>
 
@@ -248,7 +239,7 @@ export const RunningProcessPanel: React.FC<RunningProcessPanelProps> = ({
                     <p className={`text-[11px] mt-0.5 font-medium transition-all duration-300 ${
                       isProcessing ? 'text-slate-500 opacity-100' : 'text-slate-400 opacity-0 h-0'
                     }`}>
-                      {PHASE_DESCS[phase.id]}
+                      {phase.desc}
                     </p>
                   </div>
                 </div>
@@ -266,13 +257,13 @@ export const RunningProcessPanel: React.FC<RunningProcessPanelProps> = ({
 
         {/* Header */}
         <div className="flex items-center justify-between relative z-10 shrink-0 mb-2">
-          <h3 className="text-sm font-bold text-slate-800 tracking-tight">OpenClaw 控制中心</h3>
+          <h3 className="text-sm font-bold text-slate-800 tracking-tight">{t('controlCenter')}</h3>
           <div className="flex items-center gap-1.5 rounded-full border border-slate-100 bg-slate-50 px-2 py-0.5 shadow-sm">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </span>
-            <span className="text-[9px] font-bold text-slate-600">{hasError ? '连接异常' : '实时连接中'}</span>
+            <span className="text-[9px] font-bold text-slate-600">{hasError ? t('connectionErrorStatus') : t('connectingLive')}</span>
           </div>
         </div>
 
@@ -281,7 +272,7 @@ export const RunningProcessPanel: React.FC<RunningProcessPanelProps> = ({
           {/* 1. 运行状态 */}
           <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2 transition-all hover:border-primary/30 glass-panel flex flex-col">
             <div className="flex items-start justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">运行状态</span>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{t('runtimeStatus')}</span>
               <ShieldCheck className={`h-3 w-3 ${hasError ? 'text-amber-400' : 'text-emerald-500'}`} />
             </div>
             <div className="mt-auto">
@@ -297,19 +288,19 @@ export const RunningProcessPanel: React.FC<RunningProcessPanelProps> = ({
           {/* 2. 队列任务 — 蓝色强调 */}
           <div className="rounded-xl bg-primary p-2 text-white shadow-lg shadow-primary/20 transition-transform hover:scale-[1.02] flex flex-col">
             <div className="flex items-start justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-white/60">队列任务</span>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-white/60">{t('queuedTasks')}</span>
               <Terminal className="h-3 w-3 text-white/80" />
             </div>
             <div className="mt-auto flex items-baseline gap-1">
               <div className="font-mono text-xl md:text-2xl font-black leading-none">{events?.length ?? 0}</div>
-              <div className="text-[9px] font-bold text-white/60">单元</div>
+              <div className="text-[9px] font-bold text-white/60">{t('units')}</div>
             </div>
           </div>
 
           {/* 3. 执行进度 — 波形图标 */}
           <div className="group rounded-xl border border-slate-100 bg-white p-2 shadow-sm glass-panel flex flex-col">
             <div className="flex items-start justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">执行进度</span>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{t('executionProgress')}</span>
               <div className="flex items-end gap-0.5 h-2">
                 <div className="wave-bar" style={{ animationDelay: '0.1s' }} />
                 <div className="wave-bar" style={{ animationDelay: '0.3s' }} />
@@ -327,7 +318,7 @@ export const RunningProcessPanel: React.FC<RunningProcessPanelProps> = ({
           {/* 4. 活跃技能 — 圆点指示灯 */}
           <div className="rounded-xl border border-slate-100 bg-white p-2 shadow-sm glass-panel flex flex-col">
             <div className="flex items-start justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">活跃技能</span>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{t('activeSkills')}</span>
               <Layers className="h-3 w-3 text-amber-400" />
             </div>
             <div className="mt-auto">

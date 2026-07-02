@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config';
+import i18n, { getCurrentLocale } from '@/i18n';
 import type { ApiResponse } from '@/types';
 
 class ApiService {
@@ -29,6 +30,7 @@ class ApiService {
     
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
+      'X-Locale': getCurrentLocale(),
     };
 
     // 添加 Authorization header
@@ -50,7 +52,7 @@ class ApiService {
       const rawText = await response.text();
       let data: ApiResponse<T> = {
         success: false,
-        error: 'Invalid response format',
+        error: i18n.t('errors:INVALID_RESPONSE'),
       };
 
       if (rawText) {
@@ -59,13 +61,13 @@ class ApiService {
         } catch {
           data = {
             success: false,
-            error: rawText.slice(0, 200) || `HTTP ${response.status}`,
+            error: i18n.t('errors:INVALID_RESPONSE'),
           };
         }
       } else {
         data = {
           success: false,
-          error: `Empty response body (HTTP ${response.status})`,
+          error: i18n.t('errors:EMPTY_RESPONSE', { status: response.status }),
         };
       }
       
@@ -85,7 +87,7 @@ class ApiService {
       console.error('[API] 请求失败:', endpoint, error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Network error',
+        error: i18n.t('errors:NETWORK_ERROR'),
       };
     }
   }
@@ -124,6 +126,7 @@ class ApiService {
     const url = `${this.baseUrl}${endpoint}`;
     
     const headers: HeadersInit = {};
+    headers['X-Locale'] = getCurrentLocale();
     const token = this.getToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -150,7 +153,7 @@ class ApiService {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Upload failed',
+        error: i18n.t('errors:UPLOAD_FAILED'),
       };
     }
   }

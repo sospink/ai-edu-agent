@@ -6,17 +6,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"edu-platform/internal/infra/authz"
 	"edu-platform/internal/domain/user"
+	"edu-platform/internal/infra/authz"
 	"edu-platform/internal/middleware"
 	apperrors "edu-platform/pkg/errors"
 	"edu-platform/pkg/response"
 )
 
 type Handler struct {
-	authService     *Service
-	userService     *user.Service
-	tokenBlacklist  *authz.TokenBlacklist
+	authService    *Service
+	userService    *user.Service
+	tokenBlacklist *authz.TokenBlacklist
 }
 
 func NewHandler(authService *Service, userService *user.Service, tokenBlacklist *authz.TokenBlacklist) *Handler {
@@ -33,7 +33,7 @@ func (h *Handler) Login(c *gin.Context) {
 		Password string `json:"password"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.Username == "" || req.Password == "" {
-		response.BadRequest(c, "用户名和密码为必填项")
+		response.BadRequestKey(c, "auth.credentialsRequired", nil)
 		return
 	}
 	u, token, err := h.authService.Login(req.Username, req.Password)
@@ -41,21 +41,21 @@ func (h *Handler) Login(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{
+	response.SuccessKey(c, gin.H{
 		"user":  u,
 		"token": token,
-	}, "登录成功")
+	}, "auth.loginSucceeded", nil)
 }
 
 func (h *Handler) Logout(c *gin.Context) {
 	token, ok := middleware.CurrentToken(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	if h.tokenBlacklist != nil && h.tokenBlacklist.Enabled() && claims.ExpiresAt != nil {
@@ -67,7 +67,7 @@ func (h *Handler) Logout(c *gin.Context) {
 			}
 		}
 	}
-	response.Success[any](c, nil, "退出登录成功")
+	response.SuccessKey[any](c, nil, "auth.logoutSucceeded", nil)
 }
 
 func (h *Handler) Me(c *gin.Context) {
@@ -78,19 +78,19 @@ func (h *Handler) Me(c *gin.Context) {
 			_ = c.Error(err)
 			return
 		}
-		response.Success(c, u, "获取用户信息成功")
+		response.SuccessKey(c, u, "auth.userLoaded", nil)
 		return
 	}
 
 	rawUserID := c.Query("userId")
 	if rawUserID == "" {
-		response.BadRequest(c, "缺少用户ID")
+		response.BadRequestKey(c, "user.idRequired", nil)
 		return
 	}
 
 	userID, err := strconv.ParseUint(rawUserID, 10, 64)
 	if err != nil {
-		response.BadRequest(c, "缺少用户ID")
+		response.BadRequestKey(c, "user.idRequired", nil)
 		return
 	}
 
@@ -100,13 +100,13 @@ func (h *Handler) Me(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, u, "获取用户信息成功")
+	response.SuccessKey(c, u, "auth.userLoaded", nil)
 }
 
 func (h *Handler) Refresh(c *gin.Context) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok {
-		response.Unauthorized(c, "请先登录")
+		response.UnauthorizedKey(c, "auth.required", nil)
 		return
 	}
 	u, err := h.userService.FindByID(claims.UserID)
@@ -123,5 +123,5 @@ func (h *Handler) Refresh(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{"token": token}, "Token 刷新成功")
+	response.SuccessKey(c, gin.H{"token": token}, "auth.tokenRefreshed", nil)
 }

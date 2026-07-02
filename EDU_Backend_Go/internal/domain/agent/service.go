@@ -21,6 +21,8 @@ import (
 	appredact "edu-platform/pkg/redact"
 )
 
+var ErrManualExists = errors.New("手册已存在")
+
 type Service struct {
 	db      *gorm.DB
 	logger  *zap.Logger
@@ -855,7 +857,7 @@ func (s *Service) CreateManual(ctx context.Context, manual AgentManual) (*AgentM
 		Where("source_type = ? AND source_id = ?", manual.SourceType, manual.SourceID).
 		First(&existing).Error
 	if err == nil {
-		return nil, fmt.Errorf("手册已存在")
+		return nil, ErrManualExists
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err

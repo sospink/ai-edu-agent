@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	apperrors "edu-platform/pkg/errors"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/response"
 )
 
@@ -24,7 +25,7 @@ func ErrorHandler() gin.HandlerFunc {
 		if errWithPayload, ok := lastErr.(payloadError); ok {
 			c.JSON(errWithPayload.StatusCode(), response.APIResponse[any]{
 				Success: false,
-				Error:   errWithPayload.Error(),
+				Error:   i18n.T(c.Request.Context(), errWithPayload.Error()),
 				Code:    errWithPayload.Code(),
 				Data:    errWithPayload.Payload(),
 			})

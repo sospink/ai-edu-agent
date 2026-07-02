@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "i18n:check": "node scripts/check-i18n.mjs --strict",
+    "i18n:check:teacher": "node scripts/check-i18n.mjs --scope=teacher --strict",
+    "i18n:check:admin": "node scripts/check-i18n.mjs --scope=admin --strict",
+    "i18n:check:strict": "node scripts/check-i18n.mjs --strict"
   },
   "dependencies": {
     "@heroui/react": "^2.8.7",
@@ -21,11 +25,13 @@
     "docx-preview": "^0.3.7",
     "framer-motion": "^11.0.8",
     "highlight.js": "^11.11.1",
+    "i18next": "^26.3.1",
     "lucide-react": "^0.344.0",
     "mermaid": "^11.13.0",
     "pdfjs-dist": "^5.4.530",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.8",
     "react-markdown": "^10.1.0",
     "react-pdf": "^10.3.0",
     "react-router-dom": "^7.12.0",

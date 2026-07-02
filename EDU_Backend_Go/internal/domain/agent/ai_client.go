@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"edu-platform/internal/config"
+	"edu-platform/pkg/i18n"
 )
 
 const defaultQwenBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -124,6 +125,7 @@ func (c *AIClient) ModelName() string {
 
 func (c *AIClient) Complete(ctx context.Context, systemPrompt, userPrompt string) (CompletionResult, error) {
 	startedAt := time.Now()
+	systemPrompt = withLanguageInstruction(ctx, systemPrompt)
 	completion, err := c.createCompletion(ctx, chatCompletionRequest{
 		Model: c.model,
 		Messages: []chatMessageParam{
@@ -156,7 +158,7 @@ func (c *AIClient) Complete(ctx context.Context, systemPrompt, userPrompt string
 }
 
 func (c *AIClient) Chat(ctx context.Context, req ChatRequest) (string, error) {
-	messages := c.buildChatMessages(req)
+	messages := c.buildChatMessages(ctx, req)
 	completion, err := c.createCompletion(ctx, chatCompletionRequest{
 		Model:    c.model,
 		Messages: messages,
@@ -169,7 +171,7 @@ func (c *AIClient) Chat(ctx context.Context, req ChatRequest) (string, error) {
 		answer = strings.TrimSpace(completion.Choices[0].Message.Content)
 	}
 	if answer == "" {
-		answer = "抱歉，我暂时无法回答这个问题。"
+		answer = i18n.T(ctx, "抱歉，我暂时无法回答这个问题。")
 	}
 	return answer, nil
 }
@@ -181,7 +183,7 @@ func (c *AIClient) ChatStream(ctx context.Context, req ChatRequest, onChunk func
 
 	body, err := json.Marshal(chatCompletionRequest{
 		Model:    c.model,
-		Messages: c.buildChatMessages(req),
+		Messages: c.buildChatMessages(ctx, req),
 		Stream:   true,
 	})
 	if err != nil {
@@ -255,11 +257,11 @@ func (c *AIClient) ExplainCode(ctx context.Context, code, language string) (stri
 		Messages: []chatMessageParam{
 			{
 				Role:    "system",
-				Content: "你是一个编程教学助手，请用简洁易懂的语言解释代码，适合初学者理解。",
+				Content: withLanguageInstruction(ctx, "你是一个编程教学助手，请用简洁易懂的语言解释代码，适合初学者理解。"),
 			},
 			{
 				Role:    "user",
-				Content: fmt.Sprintf("请解释这段 %s 代码：\n```%s\n%s\n```", language, language, code),
+				Content: fmt.Sprintf("%s\n\n请解释这段 %s 代码：\n```%s\n%s\n```", i18n.LanguageInstruction(ctx), language, language, code),
 			},
 		},
 	})
@@ -267,7 +269,7 @@ func (c *AIClient) ExplainCode(ctx context.Context, code, language string) (stri
 		return "", err
 	}
 	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
-		return "无法解释这段代码。", nil
+		return i18n.T(ctx, "无法解释这段代码。"), nil
 	}
 	return completion.Choices[0].Message.Content, nil
 }
@@ -295,7 +297,7 @@ func (c *AIClient) GetVerificationHelp(ctx context.Context, req VerificationHelp
 		Messages: []chatMessageParam{
 			{
 				Role:    "system",
-				Content: "你是一个编程教学助手，帮助学生排查实验中遇到的问题。请给出简洁、实用的建议。",
+				Content: withLanguageInstruction(ctx, "你是一个编程教学助手，帮助学生排查实验中遇到的问题。请给出简洁、实用的建议。"),
 			},
 			{
 				Role:    "user",
@@ -307,7 +309,7 @@ func (c *AIClient) GetVerificationHelp(ctx context.Context, req VerificationHelp
 		return "", err
 	}
 	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
-		return "暂时无法提供建议，请检查当前步骤与验证命令是否正确。", nil
+		return i18n.T(ctx, "暂时无法提供建议，请检查当前步骤与验证命令是否正确。"), nil
 	}
 	return completion.Choices[0].Message.Content, nil
 }
@@ -341,6 +343,7 @@ func (c *AIClient) PromptEnhance(ctx context.Context, req PromptEnhanceRequest) 
   "score": 85,
   "suggestions": ["改进建议1", "改进建议2"]
 }`, mode, modeGuide[mode])
+	systemPrompt = withLanguageInstruction(ctx, systemPrompt)
 
 	temperature := 0.7
 	completion, err := c.createCompletion(ctx, chatCompletionRequest{
@@ -373,7 +376,7 @@ func (c *AIClient) PromptEnhance(ctx context.Context, req PromptEnhanceRequest) 
 			Content:     raw,
 			Score:       85,
 			Tokens:      tokens,
-			Suggestions: []string{"建议补充更多上下文与结果约束，以获得更稳定的输出。"},
+			Suggestions: []string{i18n.T(ctx, "建议补充更多上下文与结果约束，以获得更稳定的输出。")},
 		}, nil
 	}
 
@@ -433,10 +436,10 @@ func (c *AIClient) createCompletion(ctx context.Context, reqBody chatCompletionR
 	return &parsed, nil
 }
 
-func (c *AIClient) buildChatMessages(req ChatRequest) []chatMessageParam {
+func (c *AIClient) buildChatMessages(ctx context.Context, req ChatRequest) []chatMessageParam {
 	messages := []chatMessageParam{{
 		Role:    "system",
-		Content: c.buildSystemPrompt(req.StepContext),
+		Content: c.buildSystemPrompt(ctx, req.StepContext),
 	}}
 
 	for _, msg := range req.ChatHistory {
@@ -461,14 +464,22 @@ func (c *AIClient) buildChatMessages(req ChatRequest) []chatMessageParam {
 	return messages
 }
 
-func (c *AIClient) buildSystemPrompt(stepContext string) string {
+func (c *AIClient) buildSystemPrompt(ctx context.Context, stepContext string) string {
 	prompt := `你是一个专业的编程教学助手，帮助学生学习编程知识。
 请用简洁、清晰的语言回答问题，必要时提供代码示例。
 回答要有条理，适合初学者理解。`
 	if strings.TrimSpace(stepContext) != "" {
 		prompt += "\n\n当前学习内容：\n" + stepContext
 	}
-	return prompt
+	return withLanguageInstruction(ctx, prompt)
+}
+
+func withLanguageInstruction(ctx context.Context, prompt string) string {
+	instruction := i18n.LanguageInstruction(ctx)
+	if strings.Contains(prompt, instruction) {
+		return prompt
+	}
+	return instruction + "\n\n" + prompt
 }
 
 func (c *AIClient) endpointURL(path string) string {

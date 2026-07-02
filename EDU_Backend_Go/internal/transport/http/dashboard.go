@@ -24,6 +24,7 @@ import (
 	"edu-platform/internal/domain/project"
 	"edu-platform/internal/domain/user"
 	"edu-platform/internal/middleware"
+	"edu-platform/pkg/i18n"
 	"edu-platform/pkg/response"
 )
 
@@ -198,20 +199,20 @@ type dashboardFilters struct {
 func (h *IntegrationsHandler) DashboardOverview(c *gin.Context) {
 	payload, err := h.buildDashboardOverview(c.Request.Context())
 	if err != nil {
-		response.Error(c, http.StatusServiceUnavailable, "加载 K8S 概览失败: "+err.Error(), "DASHBOARD_OVERVIEW_FAILED")
+		response.ErrorKeyWithDetail(c, http.StatusServiceUnavailable, "DASHBOARD_OVERVIEW_FAILED", "dashboard.overviewFailed", nil, err)
 		return
 	}
-	response.Success(c, payload, "K8S 运行概览已加载")
+	response.SuccessKey(c, payload, "dashboard.overviewLoaded", nil)
 }
 
 func (h *IntegrationsHandler) DashboardSessions(c *gin.Context) {
 	filters := parseDashboardFilters(c)
 	payload, err := h.buildDashboardSessions(c.Request.Context(), filters)
 	if err != nil {
-		response.Error(c, http.StatusServiceUnavailable, "加载会话工作台失败: "+err.Error(), "DASHBOARD_SESSIONS_FAILED")
+		response.ErrorKeyWithDetail(c, http.StatusServiceUnavailable, "DASHBOARD_SESSIONS_FAILED", "dashboard.sessionsFailed", nil, err)
 		return
 	}
-	response.Success(c, payload, "会话工作台已加载")
+	response.SuccessKey(c, payload, "dashboard.sessionsLoaded", nil)
 }
 
 func (h *IntegrationsHandler) RuntimeSessions(c *gin.Context) {
@@ -221,20 +222,20 @@ func (h *IntegrationsHandler) RuntimeSessions(c *gin.Context) {
 func (h *IntegrationsHandler) DashboardSessionDetail(c *gin.Context) {
 	sessionID, err := strconv.ParseUint(strings.TrimSpace(c.Param("sessionId")), 10, 64)
 	if err != nil || sessionID == 0 {
-		response.BadRequest(c, "无效的会话 ID")
+		response.BadRequestKey(c, "dashboard.invalidSessionId", nil)
 		return
 	}
 
 	payload, err := h.buildDashboardSessionDetail(c.Request.Context(), sessionID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.NotFound(c, "会话不存在")
+			response.NotFoundKey(c, "dashboard.sessionNotFound", nil)
 			return
 		}
-		response.Error(c, http.StatusServiceUnavailable, "加载会话详情失败: "+err.Error(), "DASHBOARD_SESSION_DETAIL_FAILED")
+		response.ErrorKeyWithDetail(c, http.StatusServiceUnavailable, "DASHBOARD_SESSION_DETAIL_FAILED", "dashboard.detailFailed", nil, err)
 		return
 	}
-	response.Success(c, payload, "会话详情已加载")
+	response.SuccessKey(c, payload, "dashboard.detailLoaded", nil)
 }
 
 func (h *IntegrationsHandler) RuntimeSessionDetail(c *gin.Context) {
@@ -244,7 +245,7 @@ func (h *IntegrationsHandler) RuntimeSessionDetail(c *gin.Context) {
 func (h *IntegrationsHandler) DashboardSessionLogs(c *gin.Context) {
 	sessionID, err := strconv.ParseUint(strings.TrimSpace(c.Param("sessionId")), 10, 64)
 	if err != nil || sessionID == 0 {
-		response.BadRequest(c, "无效的会话 ID")
+		response.BadRequestKey(c, "dashboard.invalidSessionId", nil)
 		return
 	}
 
@@ -258,7 +259,7 @@ func (h *IntegrationsHandler) DashboardSessionLogs(c *gin.Context) {
 	payload, err := h.buildDashboardSessionLogs(c.Request.Context(), sessionID, tail)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.NotFound(c, "会话不存在")
+			response.NotFoundKey(c, "dashboard.sessionNotFound", nil)
 			return
 		}
 		status := http.StatusServiceUnavailable
@@ -268,11 +269,12 @@ func (h *IntegrationsHandler) DashboardSessionLogs(c *gin.Context) {
 		} else if errors.Is(err, errDashboardSessionStopped) {
 			status = http.StatusBadRequest
 		}
-		response.Error(c, status, "加载会话日志失败: "+err.Error(), code)
+		// 透传具体原因（会话已停止 / Pod 已不存在等），response.Error 按语言翻译，保留可操作信息。
+		response.Error(c, status, err.Error(), code)
 		return
 	}
 
-	response.Success(c, payload, "会话日志已加载")
+	response.SuccessKey(c, payload, "dashboard.logsLoaded", nil)
 }
 
 func (h *IntegrationsHandler) RuntimeSessionLogs(c *gin.Context) {
@@ -282,29 +284,29 @@ func (h *IntegrationsHandler) RuntimeSessionLogs(c *gin.Context) {
 func (h *IntegrationsHandler) RuntimeSessionEvents(c *gin.Context) {
 	sessionID, err := strconv.ParseUint(strings.TrimSpace(c.Param("sessionId")), 10, 64)
 	if err != nil || sessionID == 0 {
-		response.BadRequest(c, "无效的会话 ID")
+		response.BadRequestKey(c, "dashboard.invalidSessionId", nil)
 		return
 	}
 	if h.operations == nil {
-		response.Error(c, http.StatusServiceUnavailable, "运维事件服务未初始化", "OPERATIONS_SERVICE_UNAVAILABLE")
+		response.ErrorKey(c, http.StatusServiceUnavailable, "OPERATIONS_SERVICE_UNAVAILABLE", "dashboard.eventsUnavailable", nil)
 		return
 	}
 	events, err := h.operations.ListRuntimeEvents(c.Request.Context(), sessionID)
 	if err != nil {
-		response.Internal(c, "加载会话事件失败: "+err.Error())
+		response.ErrorKeyWithDetail(c, http.StatusInternalServerError, "DASHBOARD_EVENTS_FAILED", "dashboard.eventsFailed", nil, err)
 		return
 	}
-	response.Success(c, events, "会话事件已加载")
+	response.SuccessKey(c, events, "dashboard.eventsLoaded", nil)
 }
 
 func (h *IntegrationsHandler) DashboardStopSession(c *gin.Context) {
 	sessionID, err := strconv.ParseUint(strings.TrimSpace(c.Param("sessionId")), 10, 64)
 	if err != nil || sessionID == 0 {
-		response.BadRequest(c, "无效的会话 ID")
+		response.BadRequestKey(c, "dashboard.invalidSessionId", nil)
 		return
 	}
 	if h.labService == nil {
-		response.Error(c, http.StatusServiceUnavailable, "Lab 服务未初始化", "LAB_SERVICE_UNAVAILABLE")
+		response.ErrorKey(c, http.StatusServiceUnavailable, "LAB_SERVICE_UNAVAILABLE", "dashboard.labUnavailable", nil)
 		return
 	}
 	claims, _ := middleware.CurrentClaims(c)
@@ -314,10 +316,10 @@ func (h *IntegrationsHandler) DashboardStopSession(c *gin.Context) {
 	}
 	result, err := h.labService.AdminStopSession(c.Request.Context(), actorID, sessionID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "停止会话失败: "+err.Error(), "DASHBOARD_STOP_SESSION_FAILED")
+		response.ErrorKeyWithDetail(c, http.StatusBadRequest, "DASHBOARD_STOP_SESSION_FAILED", "dashboard.stopFailed", nil, err)
 		return
 	}
-	response.Success(c, result, "会话停止请求已处理")
+	response.SuccessKey(c, result, "dashboard.stopHandled", nil)
 }
 
 func (h *IntegrationsHandler) RuntimeStopSession(c *gin.Context) {
@@ -325,7 +327,7 @@ func (h *IntegrationsHandler) RuntimeStopSession(c *gin.Context) {
 }
 
 func (h *IntegrationsHandler) IntegratedHealth(c *gin.Context) {
-	response.Success(c, h.buildIntegrationCards(c.Request.Context()), "集成健康状态已加载")
+	response.SuccessKey(c, h.buildIntegrationCards(c.Request.Context()), "dashboard.integrationsLoaded", nil)
 }
 
 func (h *IntegrationsHandler) buildDashboardOverview(ctx context.Context) (dashboardOverviewPayload, error) {
@@ -375,7 +377,7 @@ func (h *IntegrationsHandler) buildDashboardOverview(ctx context.Context) (dashb
 	runtimeSummary.RuntimeModes = namedCountsFromMap(runtimeModes)
 
 	integrations := h.buildIntegrationCards(ctx)
-	highlights = append(highlights, integrationHighlights(integrations)...)
+	highlights = append(highlights, integrationHighlights(ctx, integrations)...)
 	highlights = sortHighlights(highlights)
 
 	_ = pods
@@ -495,7 +497,7 @@ func (h *IntegrationsHandler) buildDashboardSessionDetail(ctx context.Context, s
 	if payload.Service != nil && svc != nil {
 		services = append(services, *svc)
 	}
-	payload.ExposureRisks = buildLabExposureSummary(ns, pods, services, nil).Risks
+	payload.ExposureRisks = buildLabExposureSummary(ctx, ns, pods, services, nil).Risks
 
 	return payload, nil
 }
@@ -663,8 +665,8 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 		return nil, nil, summary, []dashboardHighlight{{
 			ID:          "k8s-disabled",
 			Level:       "warning",
-			Title:       "K8S 客户端未启用",
-			Description: "当前工作台无法读取运行时资源状态。",
+			Title:       i18n.Message(ctx, "dashboard.k8sDisabledTitle", nil),
+			Description: i18n.Message(ctx, "dashboard.k8sDisabledDescription", nil),
 		}}, nil
 	}
 
@@ -678,11 +680,11 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 	}
 	ingresses, ingressErr := h.deps.K8S.NetworkingV1().Ingresses(summary.RuntimeNamespace).List(ctx, metav1.ListOptions{})
 	if ingressErr == nil {
-		summary.Exposure = buildLabExposureSummary(summary.RuntimeNamespace, pods.Items, services.Items, ingresses.Items)
+		summary.Exposure = buildLabExposureSummary(ctx, summary.RuntimeNamespace, pods.Items, services.Items, ingresses.Items)
 	} else {
-		summary.Exposure = newLabExposureSummary(summary.RuntimeNamespace)
+		summary.Exposure = newLabExposureSummary(ctx, summary.RuntimeNamespace)
 		summary.Exposure.Status = "warning"
-		summary.Exposure.Message = "Lab 暴露面扫描未能读取 Ingress: " + ingressErr.Error()
+		summary.Exposure.Message = i18n.Message(ctx, "dashboard.ingressScanFailed", nil)
 	}
 
 	summary.PodCount = len(pods.Items)
@@ -721,8 +723,8 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 			highlights = append(highlights, dashboardHighlight{
 				ID:          fmt.Sprintf("missing-pod-%d", session.ID),
 				Level:       "warning",
-				Title:       "会话缺少 Pod",
-				Description: fmt.Sprintf("会话 #%d 当前没有对应的运行 Pod。", session.ID),
+				Title:       i18n.Message(ctx, "dashboard.missingPodTitle", nil),
+				Description: i18n.Message(ctx, "dashboard.missingPodDescription", i18n.Params{"id": session.ID}),
 				SessionID:   session.ID,
 			})
 			continue
@@ -731,8 +733,8 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 			highlights = append(highlights, dashboardHighlight{
 				ID:          fmt.Sprintf("pod-not-ready-%d", session.ID),
 				Level:       "warning",
-				Title:       "Pod 尚未 Ready",
-				Description: fmt.Sprintf("%s 当前状态为 %s。", pod.Name, pod.Status.Phase),
+				Title:       i18n.Message(ctx, "dashboard.podNotReadyTitle", nil),
+				Description: i18n.Message(ctx, "dashboard.podNotReadyDescription", i18n.Params{"name": pod.Name, "status": pod.Status.Phase}),
 				SessionID:   session.ID,
 			})
 		}
@@ -740,8 +742,8 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 			highlights = append(highlights, dashboardHighlight{
 				ID:          fmt.Sprintf("missing-service-%d", session.ID),
 				Level:       "warning",
-				Title:       "会话缺少 Service",
-				Description: fmt.Sprintf("会话 #%d 当前没有对应的访问 Service。", session.ID),
+				Title:       i18n.Message(ctx, "dashboard.missingServiceTitle", nil),
+				Description: i18n.Message(ctx, "dashboard.missingServiceDescription", i18n.Params{"id": session.ID}),
 				SessionID:   session.ID,
 			})
 		}
@@ -749,8 +751,8 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 			highlights = append(highlights, dashboardHighlight{
 				ID:          fmt.Sprintf("expired-session-%d", session.ID),
 				Level:       "danger",
-				Title:       "会话已过期待回收",
-				Description: fmt.Sprintf("会话 #%d 已过期，但状态仍为 %s。", session.ID, session.StatusText),
+				Title:       i18n.Message(ctx, "dashboard.expiredTitle", nil),
+				Description: i18n.Message(ctx, "dashboard.expiredDescription", i18n.Params{"id": session.ID, "status": session.StatusText}),
 				SessionID:   session.ID,
 			})
 		}
@@ -758,8 +760,8 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 			highlights = append(highlights, dashboardHighlight{
 				ID:          fmt.Sprintf("gateway-missing-%d", session.ID),
 				Level:       "warning",
-				Title:       "OpenClaw Gateway 未就绪",
-				Description: fmt.Sprintf("OpenClaw 会话 #%d 没有暴露 Gateway 端口。", session.ID),
+				Title:       i18n.Message(ctx, "dashboard.gatewayMissingTitle", nil),
+				Description: i18n.Message(ctx, "dashboard.gatewayMissingDescription", i18n.Params{"id": session.ID}),
 				SessionID:   session.ID,
 			})
 		}
@@ -768,7 +770,7 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 		highlights = append(highlights, dashboardHighlight{
 			ID:          fmt.Sprintf("lab-exposure-%s-%s", strings.ToLower(risk.Kind), strings.ReplaceAll(risk.Name, "/", "-")),
 			Level:       risk.Level,
-			Title:       "Lab 暴露面风险",
+			Title:       i18n.Message(ctx, "dashboard.exposureRiskTitle", nil),
 			Description: risk.Message,
 			SessionID:   risk.SessionID,
 		})
@@ -788,8 +790,8 @@ func (h *IntegrationsHandler) buildIntegrationCards(ctx context.Context) []dashb
 		Key:        "k8s",
 		Label:      "K8S",
 		Status:     "success",
-		Summary:    "运行时可达",
-		Message:    "集群接口连接正常",
+		Summary:    i18n.Message(ctx, "dashboard.runtimeReachable", nil),
+		Message:    i18n.Message(ctx, "dashboard.clusterHealthy", nil),
 		LastCheck:  now,
 		CanRefresh: true,
 		Details: map[string]any{
@@ -799,28 +801,28 @@ func (h *IntegrationsHandler) buildIntegrationCards(ctx context.Context) []dashb
 	}
 	if h.deps.K8S == nil {
 		k8sStatus.Status = "warning"
-		k8sStatus.Summary = "未启用"
-		k8sStatus.Message = "当前未初始化 K8S client"
+		k8sStatus.Summary = i18n.Message(ctx, "dashboard.notEnabled", nil)
+		k8sStatus.Message = i18n.Message(ctx, "dashboard.k8sNotInitialized", nil)
 	} else if version, err := h.deps.K8S.Discovery().ServerVersion(); err == nil {
 		k8sStatus.Details["gitVersion"] = version.GitVersion
 	} else {
 		k8sStatus.Status = "warning"
-		k8sStatus.Summary = "连接异常"
-		k8sStatus.Message = err.Error()
+		k8sStatus.Summary = i18n.Message(ctx, "dashboard.connectionError", nil)
+		k8sStatus.Message = i18n.Message(ctx, "dashboard.k8sProbeFailed", nil)
 	}
 	cards = append(cards, k8sStatus)
 
 	openclawData, openclawErr := h.openclawView.GetOpenClawHealth(ctx)
 	feishuData, feishuErr := h.openclawView.GetFeishuHealth(ctx)
-	cards = append(cards, integrationCardFromHealth("openclaw", "OpenClaw", now, openclawData, openclawErr))
-	cards = append(cards, integrationCardFromHealth("feishu", "飞书", now, feishuData, feishuErr))
+	cards = append(cards, integrationCardFromHealth(ctx, "openclaw", "OpenClaw", now, openclawData, openclawErr))
+	cards = append(cards, integrationCardFromHealth(ctx, "feishu", i18n.Message(ctx, "dashboard.feishu", nil), now, feishuData, feishuErr))
 
 	configCard := dashboardIntegrationCard{
 		Key:        "config",
 		Label:      "Config",
 		Status:     "success",
-		Summary:    "关键配置已加载",
-		Message:    "当前后端配置摘要可读取",
+		Summary:    i18n.Message(ctx, "dashboard.configLoaded", nil),
+		Message:    i18n.Message(ctx, "dashboard.configReadable", nil),
 		LastCheck:  now,
 		CanRefresh: true,
 		Details: map[string]any{
@@ -873,13 +875,13 @@ func (h *IntegrationsHandler) loadPodEvents(ctx context.Context, podName string)
 	return items, nil
 }
 
-func integrationCardFromHealth(key, label, now string, data map[string]any, err error) dashboardIntegrationCard {
+func integrationCardFromHealth(ctx context.Context, key, label, now string, data map[string]any, err error) dashboardIntegrationCard {
 	card := dashboardIntegrationCard{
 		Key:        key,
 		Label:      label,
 		Status:     "success",
-		Summary:    "连接正常",
-		Message:    "最近一次探测成功",
+		Summary:    i18n.Message(ctx, "dashboard.connectionHealthy", nil),
+		Message:    i18n.Message(ctx, "dashboard.lastProbeSuccessful", nil),
 		LastCheck:  now,
 		CanRefresh: true,
 		Details:    data,
@@ -889,17 +891,17 @@ func integrationCardFromHealth(key, label, now string, data map[string]any, err 
 	}
 
 	card.Status = "warning"
-	card.Summary = "待关注"
-	card.Message = err.Error()
+	card.Summary = i18n.Message(ctx, "dashboard.needsAttention", nil)
+	card.Message = i18n.Message(ctx, "dashboard.integrationProbeFailed", nil)
 	card.Details = map[string]any{}
 	if strings.Contains(strings.ToLower(err.Error()), "未配置") {
 		card.Status = "neutral"
-		card.Summary = "未配置"
+		card.Summary = i18n.Message(ctx, "dashboard.notConfigured", nil)
 	}
 	return card
 }
 
-func integrationHighlights(cards []dashboardIntegrationCard) []dashboardHighlight {
+func integrationHighlights(ctx context.Context, cards []dashboardIntegrationCard) []dashboardHighlight {
 	items := make([]dashboardHighlight, 0)
 	for _, card := range cards {
 		if card.Status == "success" {
@@ -912,7 +914,7 @@ func integrationHighlights(cards []dashboardIntegrationCard) []dashboardHighligh
 		items = append(items, dashboardHighlight{
 			ID:          "integration-" + card.Key,
 			Level:       level,
-			Title:       fmt.Sprintf("%s 状态需要关注", card.Label),
+			Title:       i18n.Message(ctx, "dashboard.integrationNeedsAttention", i18n.Params{"name": card.Label}),
 			Description: card.Message,
 		})
 	}
@@ -921,10 +923,10 @@ func integrationHighlights(cards []dashboardIntegrationCard) []dashboardHighligh
 
 func (h *IntegrationsHandler) inspectLabExposure(ctx context.Context) (labExposureSummary, error) {
 	ns := runtimeNamespace(h.deps)
-	summary := newLabExposureSummary(ns)
+	summary := newLabExposureSummary(ctx, ns)
 	if h.deps.K8S == nil {
 		summary.Status = "warning"
-		summary.Message = "K8S client 未启用，无法扫描 Lab 暴露面"
+		summary.Message = i18n.Message(ctx, "dashboard.exposureUnavailable", nil)
 		return summary, nil
 	}
 
@@ -940,21 +942,21 @@ func (h *IntegrationsHandler) inspectLabExposure(ctx context.Context) (labExposu
 	if err != nil {
 		return summary, err
 	}
-	return buildLabExposureSummary(ns, pods.Items, services.Items, ingresses.Items), nil
+	return buildLabExposureSummary(ctx, ns, pods.Items, services.Items, ingresses.Items), nil
 }
 
-func newLabExposureSummary(namespace string) labExposureSummary {
+func newLabExposureSummary(ctx context.Context, namespace string) labExposureSummary {
 	return labExposureSummary{
 		Status:            "success",
-		Message:           "Lab 运行时未发现公网直连暴露面",
+		Message:           i18n.Message(ctx, "dashboard.noPublicExposure", nil),
 		RuntimeNamespace:  namespace,
-		NetworkPolicyNote: "当前防护不依赖 NetworkPolicy；flannel 场景下 NetworkPolicy 可能不会生效，仅能作为补充防线。",
+		NetworkPolicyNote: i18n.Message(ctx, "dashboard.networkPolicyNote", nil),
 		Risks:             []labExposureRisk{},
 	}
 }
 
-func buildLabExposureSummary(namespace string, pods []corev1.Pod, services []corev1.Service, ingresses []networkingv1.Ingress) labExposureSummary {
-	summary := newLabExposureSummary(namespace)
+func buildLabExposureSummary(ctx context.Context, namespace string, pods []corev1.Pod, services []corev1.Service, ingresses []networkingv1.Ingress) labExposureSummary {
+	summary := newLabExposureSummary(ctx, namespace)
 	for _, service := range services {
 		sessionID := parseSessionIDLabelValue(service.Labels["edu/session-id"])
 		if service.Spec.Type != "" && service.Spec.Type != corev1.ServiceTypeClusterIP {
@@ -964,7 +966,7 @@ func buildLabExposureSummary(namespace string, pods []corev1.Pod, services []cor
 				Namespace: service.Namespace,
 				Name:      service.Name,
 				SessionID: sessionID,
-				Message:   fmt.Sprintf("Lab Service %s 类型为 %s，可能绕过平台代理暴露到公网。", service.Name, service.Spec.Type),
+				Message:   i18n.Message(ctx, "dashboard.serviceTypeRisk", i18n.Params{"name": service.Name, "type": service.Spec.Type}),
 			})
 		}
 		if len(service.Spec.ExternalIPs) > 0 {
@@ -974,7 +976,7 @@ func buildLabExposureSummary(namespace string, pods []corev1.Pod, services []cor
 				Namespace: service.Namespace,
 				Name:      service.Name,
 				SessionID: sessionID,
-				Message:   fmt.Sprintf("Lab Service %s 配置了 externalIPs=%s，可能绕过平台代理。", service.Name, strings.Join(service.Spec.ExternalIPs, ",")),
+				Message:   i18n.Message(ctx, "dashboard.externalIPRisk", i18n.Params{"name": service.Name, "ips": strings.Join(service.Spec.ExternalIPs, ",")}),
 			})
 		}
 		for _, port := range service.Spec.Ports {
@@ -985,7 +987,7 @@ func buildLabExposureSummary(namespace string, pods []corev1.Pod, services []cor
 					Namespace: service.Namespace,
 					Name:      service.Name,
 					SessionID: sessionID,
-					Message:   fmt.Sprintf("Lab Service %s 端口 %s 配置了 NodePort %d，可能被公网直连。", service.Name, firstNonEmpty(port.Name, strconv.Itoa(int(port.Port))), port.NodePort),
+					Message:   i18n.Message(ctx, "dashboard.nodePortRisk", i18n.Params{"name": service.Name, "port": firstNonEmpty(port.Name, strconv.Itoa(int(port.Port))), "nodePort": port.NodePort}),
 				})
 			}
 		}
@@ -999,7 +1001,7 @@ func buildLabExposureSummary(namespace string, pods []corev1.Pod, services []cor
 				Namespace: pod.Namespace,
 				Name:      pod.Name,
 				SessionID: sessionID,
-				Message:   fmt.Sprintf("Lab Pod %s 启用了 hostNetwork，可能绕过 ClusterIP 与平台代理。", pod.Name),
+				Message:   i18n.Message(ctx, "dashboard.hostNetworkRisk", i18n.Params{"name": pod.Name}),
 			})
 		}
 		for _, container := range append(append([]corev1.Container{}, pod.Spec.InitContainers...), pod.Spec.Containers...) {
@@ -1011,7 +1013,7 @@ func buildLabExposureSummary(namespace string, pods []corev1.Pod, services []cor
 						Namespace: pod.Namespace,
 						Name:      pod.Name,
 						SessionID: sessionID,
-						Message:   fmt.Sprintf("Lab Pod %s 容器 %s 配置了 HostPort %d，可能被公网直连。", pod.Name, container.Name, port.HostPort),
+						Message:   i18n.Message(ctx, "dashboard.hostPortRisk", i18n.Params{"pod": pod.Name, "container": container.Name, "port": port.HostPort}),
 					})
 				}
 			}
@@ -1024,13 +1026,13 @@ func buildLabExposureSummary(namespace string, pods []corev1.Pod, services []cor
 			Namespace: ingress.Namespace,
 			Name:      ingress.Name,
 			SessionID: parseSessionIDLabelValue(ingress.Labels["edu/session-id"]),
-			Message:   fmt.Sprintf("Runtime namespace 存在 Ingress %s，需确认没有把 Lab noVNC/App 入口暴露到公网。", ingress.Name),
+			Message:   i18n.Message(ctx, "dashboard.ingressRisk", i18n.Params{"name": ingress.Name}),
 		})
 	}
 	summary.RiskCount = len(summary.Risks)
 	if summary.RiskCount > 0 {
 		summary.Status = "danger"
-		summary.Message = fmt.Sprintf("发现 %d 个 Lab 公网直连风险，请优先移除 NodePort/LoadBalancer/Ingress/HostPort/hostNetwork。", summary.RiskCount)
+		summary.Message = i18n.Message(ctx, "dashboard.exposureRisksFound", i18n.Params{"count": summary.RiskCount})
 	}
 	return summary
 }

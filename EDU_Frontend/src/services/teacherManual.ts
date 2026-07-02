@@ -1,5 +1,6 @@
 import { createScopedApi } from './api';
 import type { ApiResponse, PaginatedResponse } from '@/types';
+import i18n from '@/i18n';
 
 const teacherApi = createScopedApi('/teacher');
 
@@ -128,7 +129,7 @@ export function exportToMarkdown(manual: { title: string; description?: string; 
     lines.push('');
   }
   manual.steps.forEach((step, index) => {
-    lines.push(`## 步骤 ${index + 1}: ${step.title}`);
+    lines.push(`## ${i18n.t('manualExport:step', { number: index + 1, title: step.title })}`);
     lines.push('');
     step.content.forEach(block => {
       switch (block.type) {
@@ -146,7 +147,7 @@ export function exportToMarkdown(manual: { title: string; description?: string; 
           if (block.items?.length) lines.push('');
           break;
         case 'image':
-          if (block.src) lines.push(`![image](${block.src})`, '');
+          if (block.src) lines.push(`![${i18n.t('manualExport:imageAlt')}](${block.src})`, '');
           break;
       }
     });

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 export interface WorkSceneFolderItem {
   title: string;
@@ -21,6 +22,7 @@ interface WorkSceneFolderProps {
 }
 
 export default function WorkSceneFolder({ items, className, onIndexChange }: WorkSceneFolderProps) {
+  const { t } = useTranslation('common');
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -49,9 +51,9 @@ export default function WorkSceneFolder({ items, className, onIndexChange }: Wor
     <div className={cn("w-full flex flex-col", className)}>
       {/* Header: title area */}
       <div className="mb-6 px-1">
-        <p className="text-base font-bold tracking-tight text-slate-900">四类工作场景导航</p>
+        <p className="text-base font-bold tracking-tight text-slate-900">{t('workScene.title')}</p>
         <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
-          点击文件夹展开查看目录，左右切换不同岗位工作台。
+          {t('workScene.description')}
         </p>
       </div>
 
@@ -60,7 +62,7 @@ export default function WorkSceneFolder({ items, className, onIndexChange }: Wor
         {/* Floating left button */}
         <button
           type="button"
-          aria-label="上一个工作场景"
+          aria-label={t('workScene.previous')}
           onClick={() => paginate(-1)}
           className="absolute -left-2 top-1/2 z-40 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-500 shadow-lg backdrop-blur-sm transition-all hover:scale-110 hover:border-primary-300 hover:text-primary-600 active:scale-95 sm:-left-6"
         >
@@ -70,7 +72,7 @@ export default function WorkSceneFolder({ items, className, onIndexChange }: Wor
         {/* Floating right button */}
         <button
           type="button"
-          aria-label="下一个工作场景"
+          aria-label={t('workScene.next')}
           onClick={() => paginate(1)}
           className="absolute -right-2 top-1/2 z-40 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-500 shadow-lg backdrop-blur-sm transition-all hover:scale-110 hover:border-primary-300 hover:text-primary-600 active:scale-95 sm:-right-6"
         >
@@ -200,7 +202,7 @@ export default function WorkSceneFolder({ items, className, onIndexChange }: Wor
                       
                       {/* Click hint */}
                       <p className="mt-4 text-[10px] font-medium text-slate-400 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                        {isOpen ? '点击收起' : '点击展开目录'}
+                        {isOpen ? t('workScene.collapse') : t('workScene.expand')}
                       </p>
                     </div>
                   </div>
@@ -225,6 +227,8 @@ function PageCard({
   title: string;
   accentClassName: string;
 }) {
+  const { t } = useTranslation('common');
+
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl border-2 border-slate-200/90 bg-slate-100/80 px-2.5 py-2 backdrop-blur-sm shadow-[0_14px_28px_-18px_rgba(15,23,42,0.6)] transition-all duration-500 after:absolute after:-right-1 after:top-[-5%] after:h-[110%] after:w-[55%] after:bg-gradient-to-l after:from-white/70 after:to-transparent after:content-[''] group-hover:border-white/70 group-hover:bg-slate-100/95">
       <div className="relative z-10 flex h-full flex-col justify-between">
@@ -247,7 +251,7 @@ function PageCard({
           ))}
         </div>
 
-        <p className="mt-1 text-[9px] font-medium tracking-wide text-slate-400">Workspace Card</p>
+        <p className="mt-1 text-[9px] font-medium tracking-wide text-slate-400">{t('workspaceCard', { ns: 'uiReview' })}</p>
       </div>
     </div>
   );

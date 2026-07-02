@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, Check, Play, Sparkles, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface CodeBlockProps {
   language: string;
@@ -16,6 +17,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   onRun, 
   onExplain 
 }) => {
+  const { t } = useTranslation('agent');
   const [copied, setCopied] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [runResult, setRunResult] = useState<{ output: string; exitCode: number; error?: string } | null>(null);
@@ -43,7 +45,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       setRunResult({
         output: '',
         exitCode: 1,
-        error: err instanceof Error ? err.message : '执行失败'
+        error: err instanceof Error ? err.message : t('verifyError')
       });
     } finally {
       setIsRunning(false);
@@ -67,7 +69,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
               onClick={handleRun}
               disabled={isRunning}
               className="p-1.5 hover:bg-slate-600 rounded transition-colors text-slate-400 hover:text-emerald-400 disabled:opacity-50"
-              title="运行代码"
+              title={t('runCode')}
             >
               {isRunning ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -79,7 +81,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
           <button 
             onClick={handleCopy}
             className="p-1.5 hover:bg-slate-600 rounded transition-colors text-slate-400 hover:text-white"
-            title="复制代码"
+            title={t('copyCode')}
           >
             {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
           </button>
@@ -104,20 +106,20 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         }`}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <span className="text-slate-400">输出:</span>
+              <span className="text-slate-400">{t('output')}</span>
               {runResult.exitCode !== 0 && (
-                <span className="text-red-400 text-[10px]">退出码: {runResult.exitCode}</span>
+                <span className="text-red-400 text-[10px]">{t('exitCode', { code: runResult.exitCode })}</span>
               )}
             </div>
             <button
               onClick={() => setRunResult(null)}
               className="text-slate-500 hover:text-slate-300 text-[10px]"
             >
-              清除
+              {t('clear')}
             </button>
           </div>
           <pre className="whitespace-pre-wrap break-words">
-            {runResult.error || runResult.output || '(无输出)'}
+            {runResult.error || runResult.output || t('noOutput')}
           </pre>
         </div>
       )}
@@ -130,7 +132,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
             className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-400 hover:text-white transition-colors rounded hover:bg-slate-700"
           >
             <Sparkles size={12} />
-            <span>解释代码</span>
+            <span>{t('explain')}</span>
           </button>
         </div>
       )}

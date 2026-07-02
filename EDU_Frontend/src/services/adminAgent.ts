@@ -1,4 +1,5 @@
 import { api } from './api';
+import i18n from '@/i18n';
 import {
   downloadMarkdown,
   exportToMarkdown,
@@ -90,7 +91,7 @@ export async function parseMarkdownPreview(markdown: string): Promise<ParsedManu
   const response = await teacherManualApi.parseMarkdownPreview(markdown);
   const preview = response.data || (response as unknown as ParsedManualPreview);
   if (response.error || !preview || !Array.isArray(preview.steps)) {
-    throw new Error(response.error || '解析预览失败');
+    throw new Error(response.error || i18n.t('agentManualEditor:parseFailed'));
   }
   return preview;
 }
@@ -103,7 +104,7 @@ export async function importMarkdown(
   const response = await teacherManualApi.importMarkdown(sourceType, sourceId, markdown);
   const result = response.data || (response as unknown as ImportResult);
   if (response.error || !result || !result.id) {
-    throw new Error(response.error || '导入手册失败');
+    throw new Error(response.error || i18n.t('agentManualEditor:importFailed'));
   }
   return result;
 }

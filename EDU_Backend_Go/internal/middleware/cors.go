@@ -14,14 +14,15 @@ func CORSMiddleware(cfg *config.Config) gin.HandlerFunc {
 			c.Writer.Header().Set("Vary", "Origin")
 		}
 		if origin != "" && !allowed {
-			response.Forbidden(c, "Origin 不在允许列表中")
+			response.ForbiddenKey(c, "common.originForbidden", nil)
 			c.Abort()
 			return
 		}
 		if origin != "" {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		}
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With, X-Locale")
+		c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Language")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
