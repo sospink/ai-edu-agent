@@ -25,6 +25,7 @@ interface SkillListProps {
   onSkillSelect: (skill: Skill) => void;
   currentUser: User | null;
   onLoginRequired: () => void;
+  initialCourseId?: number | null;
 }
 
 // 图标映射
@@ -295,7 +296,7 @@ const ClassCoursesSection: React.FC<ClassCoursesSectionProps> = ({ skills, loadi
   );
 };
 
-const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => {
+const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser, initialCourseId }) => {
   const { t, i18n } = useTranslation('study');
   const [searchParams, setSearchParams] = useSearchParams();
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -464,6 +465,14 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
 
     void loadAssignedCourses();
   }, [selectedClassId, canUseClassContext, i18n.language]);
+
+  useEffect(() => {
+    if (!initialCourseId || skills.length === 0) return;
+    const matched = skills.find((item) => item.id === initialCourseId);
+    if (matched) {
+      onSkillSelect(matched);
+    }
+  }, [initialCourseId, skills, onSkillSelect]);
 
   // 加载状态
   if (loading) {

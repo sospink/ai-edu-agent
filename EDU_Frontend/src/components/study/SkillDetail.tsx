@@ -13,6 +13,7 @@ import {
   lessonTypeToString, levelLabelToLevel
 } from '@/types/skill';
 import { useTranslation } from 'react-i18next';
+import { ToastContainer, useToast } from '@/components/common/Toast';
 
 interface SkillDetailProps {
   skill: Skill;
@@ -28,15 +29,75 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
   const [error, setError] = useState<string | null>(null);
   const [lessonRecords, setLessonRecords] = useState<Record<number, LessonRecord>>({});
   const [loadingRecords, setLoadingRecords] = useState(false);
+  const { toast, success, error: showError, hideToast } = useToast();
 
   const isLoggedIn = !!currentUser;
 
-  // 处理需要登录的操作
-  const handleActionClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const getAllLessons = () => skill.stages?.flatMap(stage => stage.lessons) || [];
+
+  const copyShareUrl = async (value: string) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (!copied) {
+      throw new Error('copy failed');
+    }
+  };
+
+  const buildShareUrl = () => {
+    const url = new URL(window.location.href);
+    url.pathname = '/study';
+    url.searchParams.set('courseId', String(skill.id));
+    return url.toString();
+  };
+
+  const handleShareSkill = async () => {
+    const url = buildShareUrl();
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: skill.title, text: skill.description, url });
+        success(t('skillDetail.shareCopied'));
+        return;
+      }
+      await copyShareUrl(url);
+      success(t('skillDetail.shareCopied'));
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      try {
+        await copyShareUrl(url);
+        success(t('skillDetail.shareCopied'));
+      } catch (copyErr) {
+        console.error('分享课程失败:', copyErr);
+        showError(t('skillDetail.shareFailed'));
+      }
+    }
+  };
+
+  const handleStartCourse = () => {
     if (!isLoggedIn) {
       onLoginRequired();
+      return;
     }
+    const lessons = getAllLessons();
+    const targetLesson =
+      lessons.find(lesson => getLessonStatus(lesson.id) === LessonRecordStatus.IN_PROGRESS) ||
+      lessons.find(lesson => getLessonStatus(lesson.id) === LessonRecordStatus.NOT_STARTED) ||
+      lessons[0];
+    if (!targetLesson) {
+      showError(t('skillDetail.noLessons'));
+      return;
+    }
+    void handleStartLesson(targetLesson.id, targetLesson.title, targetLesson.type);
   };
 
   // 加载完整课程数据（包含阶段和课时）
@@ -275,6 +336,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
 
   return (
     <div className="w-full min-h-screen pt-24 pb-20 px-6 md:px-12 max-w-7xl mx-auto">
+      <ToastContainer toast={toast} onClose={hideToast} />
       
       {/* Header Area */}
       <div className="flex flex-col items-center text-center mb-16 relative">
@@ -335,7 +397,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
 
           <div className="flex gap-4">
               <button 
-                onClick={handleActionClick}
+                onClick={handleStartCourse}
                 className="flex items-center gap-2 px-8 py-3 bg-primary-600 text-white rounded-xl font-bold shadow-xl shadow-primary-600/20 hover:scale-105 transition-transform"
               >
                   {isLoggedIn ? (
@@ -349,7 +411,10 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                     </>
                   )}
               </button>
-              <button className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+              <button
+                onClick={() => void handleShareSkill()}
+                className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+              >
                   <Share2 className="w-4 h-4" />
                   {t('skillDetail.share')}
               </button>

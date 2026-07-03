@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Background } from '@/components/common/Background';
@@ -85,6 +85,8 @@ interface StudyPageProps {
 const StudyPage: React.FC<StudyPageProps> = ({ currentUser, onLoginRequired }) => {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sharedCourseId = Number(searchParams.get('courseId')) || null;
 
   // 当路由变化时重置选中的技能
   useEffect(() => {
@@ -95,7 +97,12 @@ const StudyPage: React.FC<StudyPageProps> = ({ currentUser, onLoginRequired }) =
     return (
       <SkillDetail
         skill={selectedSkill}
-        onBack={() => setSelectedSkill(null)}
+        onBack={() => {
+          const next = new URLSearchParams(searchParams);
+          next.delete('courseId');
+          setSearchParams(next, { replace: true });
+          setSelectedSkill(null);
+        }}
         currentUser={currentUser}
         onLoginRequired={onLoginRequired}
       />
@@ -107,6 +114,7 @@ const StudyPage: React.FC<StudyPageProps> = ({ currentUser, onLoginRequired }) =
       onSkillSelect={(skill) => setSelectedSkill(skill)}
       currentUser={currentUser}
       onLoginRequired={onLoginRequired}
+      initialCourseId={sharedCourseId}
     />
   );
 };
