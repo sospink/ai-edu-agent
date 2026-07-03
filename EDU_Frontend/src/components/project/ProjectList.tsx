@@ -13,6 +13,7 @@ interface ProjectListProps {
   onProjectSelect: (project: Project) => void;
   currentUser: User | null;
   onLoginRequired: () => void;
+  initialProjectId?: number | null;
 }
 
 const getLevelBadge = (level: ProjectDifficulty, t: TFunction<'project'>) => {
@@ -42,7 +43,7 @@ const isOpenClawProject = (project: Project): boolean =>
   project.labRuntimeMode === 'openclaw' ||
   (project.tags || []).some((tag) => tag.name.trim().toLowerCase().replace(/[\s_-]/g, '') === 'openclaw');
 
-const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
+const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProjectId }) => {
   const { t, i18n } = useTranslation('project');
   const [projects, setProjects] = useState<Project[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -52,6 +53,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [openedInitialProjectId, setOpenedInitialProjectId] = useState<number | null>(null);
 
   const loadProjects = async (keyword?: string, tagId?: number) => {
     setLoading(true);
@@ -92,6 +94,24 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
     loadProjects();
     loadTags();
   }, [i18n.language]);
+
+  useEffect(() => {
+    if (!initialProjectId || loading || openedInitialProjectId === initialProjectId) return;
+    const matched = projects.find((project) => Number(project.id) === initialProjectId);
+    if (matched) {
+      setOpenedInitialProjectId(initialProjectId);
+      onProjectSelect(matched);
+      return;
+    }
+    const loadInitialProject = async () => {
+      setOpenedInitialProjectId(initialProjectId);
+      const response = await projectApi.getById(initialProjectId);
+      if (response.success && response.data) {
+        onProjectSelect(response.data as Project);
+      }
+    };
+    void loadInitialProject();
+  }, [initialProjectId, loading, openedInitialProjectId, projects, onProjectSelect]);
 
   const handleSearch = () => {
     loadProjects(searchQuery, activeFilter || undefined);

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Share2, Award, BookOpen, Terminal, 
   CheckCircle2, Lock, MessageSquare, ChevronRight,
-  Layout, Zap, Clock, Loader2, AlertCircle, LogIn, Circle, PlayCircle
+  Zap, Clock, Loader2, AlertCircle, LogIn, Circle, PlayCircle, Boxes
 } from 'lucide-react';
 import { courseApi, LessonRecordStatus, type LessonRecord } from '@/services/course';
 import type { Skill, SkillStage, SkillLevel } from '@/types/skill';
@@ -14,6 +15,9 @@ import {
 } from '@/types/skill';
 import { useTranslation } from 'react-i18next';
 import { ToastContainer, useToast } from '@/components/common/Toast';
+import { projectApi, type Project as RelatedProject } from '@/services/project';
+import { getDifficultyLevel } from '@/types/project';
+import { getImageUrlCandidates, handleImageFallback } from '@/config';
 
 interface SkillDetailProps {
   skill: Skill;
@@ -24,11 +28,15 @@ interface SkillDetailProps {
 
 const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, currentUser, onLoginRequired }) => {
   const { t, i18n } = useTranslation('student');
+  const navigate = useNavigate();
   const [skill, setSkill] = useState<Skill>(initialSkill);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lessonRecords, setLessonRecords] = useState<Record<number, LessonRecord>>({});
   const [loadingRecords, setLoadingRecords] = useState(false);
+  const [relatedProjects, setRelatedProjects] = useState<RelatedProject[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedError, setRelatedError] = useState('');
   const { toast, success, error: showError, hideToast } = useToast();
 
   const isLoggedIn = !!currentUser;
@@ -98,6 +106,50 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
       return;
     }
     void handleStartLesson(targetLesson.id, targetLesson.title, targetLesson.type);
+  };
+
+  const scoreRelatedProject = (project: RelatedProject) => {
+    const courseTitle = skill.title.toLowerCase();
+    const courseTokens = courseTitle
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter(token => token.length > 2);
+    const projectText = [
+      project.title,
+      project.subtitle,
+      project.description,
+      ...(project.tags || []).map(tag => tag.name),
+    ].join(' ').toLowerCase();
+
+    let score = 0;
+    if (projectText.includes(courseTitle)) score += 8;
+    courseTokens.forEach((token) => {
+      if (projectText.includes(token)) score += 2;
+    });
+    if (projectText.includes('openclaw') && courseTitle.includes('openclaw')) score += 4;
+    return score;
+  };
+
+  const loadRelatedProjects = async () => {
+    setRelatedLoading(true);
+    setRelatedError('');
+    const response = await projectApi.getList({ page: 1, pageSize: 12, status: 1 });
+    if (response.success && response.data) {
+      const ranked = [...response.data.list].sort((a, b) => {
+        const scoreDiff = scoreRelatedProject(b) - scoreRelatedProject(a);
+        if (scoreDiff !== 0) return scoreDiff;
+        return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
+      });
+      setRelatedProjects(ranked.slice(0, 2));
+    } else {
+      setRelatedProjects([]);
+      setRelatedError(response.error || t('skillDetail.relatedLoadFailed'));
+    }
+    setRelatedLoading(false);
+  };
+
+  const openRelatedProject = (project: RelatedProject) => {
+    navigate(`/projects?projectId=${project.id}`);
   };
 
   // 加载完整课程数据（包含阶段和课时）
@@ -186,6 +238,10 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
 
     fetchLessonRecords();
   }, [skill.id, isLoggedIn]);
+
+  useEffect(() => {
+    void loadRelatedProjects();
+  }, [skill.id, skill.title, i18n.language]);
 
   // 获取课时状态
   const getLessonStatus = (lessonId: number): LessonRecordStatus => {
@@ -563,41 +619,88 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
                 {/* Related Projects Section */}
                 <div className="mt-16 pt-16 border-t border-slate-200/60">
                     <h2 className="text-2xl font-bold text-slate-900 mb-8">
-                        {t('skillDetail.projects', { title: skill.title })}
+                        {t('skillDetail.relatedProjects', { title: skill.title })}
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div className="card-surface rounded-3xl p-6 hover:shadow-lg transition-all group cursor-pointer">
-                             <div className="h-32 bg-gradient-to-r from-violet-100 to-fuchsia-100 rounded-2xl mb-6 relative overflow-hidden">
-                                 <div className="absolute right-4 bottom-4 w-16 h-16 bg-white/50 backdrop-blur rounded-xl flex items-center justify-center shadow-sm">
-                                     <Layout className="w-8 h-8 text-violet-500" />
-                                 </div>
-                             </div>
-                             <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-2 block">{t('project', { ns: 'uiReview' })}</span>
-                             <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-primary-600 transition-colors">
-                                 {t('skillDetail.buildProject', { title: skill.title })}
-                             </h3>
-                             <div className="flex items-center gap-2 mt-4">
-                                 <span className="px-2 py-1 bg-slate-100 rounded-md text-[10px] font-bold text-slate-500">{skill.title}</span>
-                                 <span className="ml-auto text-xs text-slate-400">{t('skillDetail.beginner')}</span>
-                             </div>
-                         </div>
-
-                         <div className="card-surface rounded-3xl p-6 hover:shadow-lg transition-all group cursor-pointer">
-                             <div className="h-32 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-2xl mb-6 relative overflow-hidden">
-                                 <div className="absolute right-4 bottom-4 w-16 h-16 bg-white/50 backdrop-blur rounded-xl flex items-center justify-center shadow-sm">
-                                     <Terminal className="w-8 h-8 text-emerald-500" />
-                                 </div>
-                             </div>
-                             <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-2 block">{t('project', { ns: 'uiReview' })}</span>
-                             <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-primary-600 transition-colors">
-                                 {t('skillDetail.advancedProject', { title: skill.title })}
-                             </h3>
-                             <div className="flex items-center gap-2 mt-4">
-                                 <span className="px-2 py-1 bg-slate-100 rounded-md text-[10px] font-bold text-slate-500">{skill.title}</span>
-                                 <span className="ml-auto text-xs text-slate-400">{t('skillDetail.intermediate')}</span>
-                             </div>
-                         </div>
-                    </div>
+                    {relatedLoading ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {Array.from({ length: 2 }).map((_, index) => (
+                          <div key={index} className="card-surface rounded-3xl p-6">
+                            <div className="mb-6 h-32 animate-pulse rounded-2xl bg-slate-100" />
+                            <div className="h-3 w-16 animate-pulse rounded bg-slate-100" />
+                            <div className="mt-3 h-5 w-3/4 animate-pulse rounded bg-slate-100" />
+                            <div className="mt-3 h-3 w-full animate-pulse rounded bg-slate-100" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : relatedError ? (
+                      <div className="rounded-3xl bg-rose-50 p-6 text-sm font-medium text-rose-700">
+                        <div>{relatedError}</div>
+                        <button onClick={() => void loadRelatedProjects()} className="mt-3 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white">
+                          {t('skillDetail.retryRelated')}
+                        </button>
+                      </div>
+                    ) : relatedProjects.length === 0 ? (
+                      <div className="card-surface-muted rounded-3xl p-8 text-center text-sm text-slate-500">
+                        <Boxes className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                        {t('skillDetail.noRelatedProjects')}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {relatedProjects.map((project) => {
+                          const coverCandidates = getImageUrlCandidates(project.coverUrl);
+                          const difficulty = getDifficultyLevel(project.difficulty);
+                          const tag = project.tags?.[0];
+                          return (
+                            <button
+                              key={project.id}
+                              onClick={() => openRelatedProject(project)}
+                              className="card-surface group rounded-3xl p-6 text-left transition-all hover:-translate-y-1 hover:shadow-xl"
+                            >
+                              <div className="relative mb-6 h-32 overflow-hidden rounded-2xl bg-slate-100">
+                                <img
+                                  src={coverCandidates[0]}
+                                  alt={project.title}
+                                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                  loading="lazy"
+                                  onError={(event) => handleImageFallback(event, coverCandidates)}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent" />
+                                <span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                  {t('skillDetail.project')}
+                                </span>
+                                <span className="absolute bottom-3 right-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                                  {difficulty === 'Beginner' ? t('skillDetail.beginner') : difficulty === 'Intermediate' ? t('skillDetail.intermediate') : t('skillDetail.advanced')}
+                                </span>
+                              </div>
+                              <h3 className="line-clamp-2 text-lg font-bold text-slate-900 transition-colors group-hover:text-primary-600">
+                                {project.title}
+                              </h3>
+                              <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm leading-relaxed text-slate-500">
+                                {project.subtitle || project.description || t('skillDetail.noProjectDescription')}
+                              </p>
+                              <div className="mt-5 flex items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  {tag && (
+                                    <span className="inline-flex max-w-[130px] items-center gap-1 truncate rounded-full bg-slate-100 px-2 py-1">
+                                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: tag.styleColor || '#94a3b8' }} />
+                                      <span className="truncate">{tag.name}</span>
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                                    <Terminal className="h-3.5 w-3.5" />
+                                    {t('skillDetail.projectUnits', { count: (project.labsCount || 0) + (project.challengesCount || 0) })}
+                                  </span>
+                                </div>
+                                <span className="inline-flex shrink-0 items-center gap-1 text-primary-600">
+                                  {t('skillDetail.openProject')}
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                 </div>
             </div>
 

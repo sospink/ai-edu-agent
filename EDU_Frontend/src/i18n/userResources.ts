@@ -153,7 +153,8 @@ export const zhUserResources = {
     skillDetail: {
       detailsFailed: '获取课程详情失败', networkError: '网络错误，请稍后重试', challenge: '挑战', text: '文本', quiz: '测验', lab: '实验',
       skillCount: '{{count}} 技能', lessonCount: '{{count}} 课时', hourCount: '{{count}} 小时', minutes: '{{count}} 分钟', startLearning: '开始学习', loginToLearn: '登录后学习', share: '分享技能树', shareCopied: '课程链接已复制', shareFailed: '分享失败，请稍后重试', noLessons: '当前课程还没有可学习课时', loading: '加载课程内容...', empty: '暂无课程内容', start: '开始',
-      projects: '{{title}} 实战项目', buildProject: '使用 {{title}} 构建实战项目', advancedProject: '{{title}} 进阶实战', beginner: '初级', intermediate: '中级', advanced: '高级',
+      projects: '{{title}} 实战项目', relatedProjects: '{{title}} 相关实战项目', buildProject: '使用 {{title}} 构建实战项目', advancedProject: '{{title}} 进阶实战', beginner: '初级', intermediate: '中级', advanced: '高级',
+      project: '项目', openProject: '打开项目', projectUnits: '{{count}} 个单元', noProjectDescription: '暂无项目简介', relatedLoadFailed: '加载相关项目失败', retryRelated: '重试加载', noRelatedProjects: '暂无可推荐的实战项目',
       courseInfo: '课程信息', difficulty: '难度等级', totalLessons: '总课时', lessonsUnit: '{{count}} 节', estimated: '预计时长', skills: '技能点', skillsUnit: '{{count}} 个', certificate: '课程证书', certificateDesc: '完成所有课程以解锁证书', certificateAction: '完成课程获取证书', progress: '总体进度', completed: '已完成 {{count}}', inProgress: '进行中 {{count}}', notStarted: '未开始 {{count}}', community: '加入学习社区', communityDesc: '与其他学习者一起交流讨论', join: '加入讨论',
     },
   },
@@ -742,7 +743,8 @@ export const enUserResources = {
     skillDetail: {
       detailsFailed: 'Failed to load course details', networkError: 'Network error. Please try again later.', challenge: 'Challenge', text: 'Text', quiz: 'Quiz', lab: 'Lab',
       skillCount: '{{count}} skills', lessonCount: '{{count}} lessons', hourCount: '{{count}} hours', minutes: '{{count}} min', startLearning: 'Start Learning', loginToLearn: 'Log in to Learn', share: 'Share Skill Tree', shareCopied: 'Course link copied', shareFailed: 'Sharing failed. Please try again later.', noLessons: 'This course has no lessons yet.', loading: 'Loading course content...', empty: 'No course content yet', start: 'Start',
-      projects: '{{title}} Projects', buildProject: 'Build a Project with {{title}}', advancedProject: 'Advanced {{title}} Project', beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced',
+      projects: '{{title}} Projects', relatedProjects: '{{title}} Related Projects', buildProject: 'Build a Project with {{title}}', advancedProject: 'Advanced {{title}} Project', beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced',
+      project: 'Project', openProject: 'Open Project', projectUnits: '{{count}} units', noProjectDescription: 'No project description yet.', relatedLoadFailed: 'Failed to load related projects', retryRelated: 'Retry', noRelatedProjects: 'No related projects are available yet.',
       courseInfo: 'Course Information', difficulty: 'Difficulty', totalLessons: 'Total Lessons', lessonsUnit: '{{count}} lessons', estimated: 'Estimated Duration', skills: 'Skill Points', skillsUnit: '{{count}} skills', certificate: 'Course Certificate', certificateDesc: 'Complete every lesson to unlock the certificate', certificateAction: 'Complete Course to Earn Certificate', progress: 'Overall Progress', completed: 'Completed {{count}}', inProgress: 'In Progress {{count}}', notStarted: 'Not Started {{count}}', community: 'Join the Learning Community', communityDesc: 'Connect and discuss with other learners', join: 'Join Discussion',
     },
   },

@@ -128,6 +128,8 @@ interface ProjectsPageProps {
 const ProjectsPage: React.FC<ProjectsPageProps> = ({ currentUser, onLoginRequired }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sharedProjectId = Number(searchParams.get('projectId')) || null;
 
   // 当路由变化时重置选中的项目
   useEffect(() => {
@@ -138,7 +140,12 @@ const ProjectsPage: React.FC<ProjectsPageProps> = ({ currentUser, onLoginRequire
     return (
       <ProjectDetail
         project={selectedProject}
-        onBack={() => setSelectedProject(null)}
+        onBack={() => {
+          const next = new URLSearchParams(searchParams);
+          next.delete('projectId');
+          setSearchParams(next, { replace: true });
+          setSelectedProject(null);
+        }}
         currentUser={currentUser}
         onLoginRequired={onLoginRequired}
       />
@@ -150,6 +157,7 @@ const ProjectsPage: React.FC<ProjectsPageProps> = ({ currentUser, onLoginRequire
       onProjectSelect={(project) => setSelectedProject(project)}
       currentUser={currentUser}
       onLoginRequired={onLoginRequired}
+      initialProjectId={sharedProjectId}
     />
   );
 };
