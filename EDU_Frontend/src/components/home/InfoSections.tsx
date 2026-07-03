@@ -25,10 +25,10 @@ export const Scenarios: React.FC = () => {
 export const MarketDemand: React.FC = () => {
     const mt = useMarketingText();
     const stats = [
-        { value: "500+", label: mt("InfoSections.c11") },
-        { value: "2.3x", label: mt("InfoSections.c12") },
-        { value: "600w", label: mt("InfoSections.c13") },
-        { value: "60%", label: mt("InfoSections.c14") },
+        { value: mt("InfoSections.c32"), label: mt("InfoSections.c11") },
+        { value: mt("InfoSections.c33"), label: mt("InfoSections.c12") },
+        { value: mt("InfoSections.c34"), label: mt("InfoSections.c13") },
+        { value: mt("InfoSections.c35"), label: mt("InfoSections.c14") },
     ];
     return (<section className="w-full py-24 bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden rounded-[3rem] mx-auto max-w-[95%] shadow-2xl">
       <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at center, white 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>

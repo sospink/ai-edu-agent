@@ -49,7 +49,17 @@ export const zhMarketingResources = {
     "c47": "工作流搭建",
     "c48": "应用",
     "c49": "沉浸式学习形态",
-    "c50": "适配不同阶段的实训模式"
+    "c50": "适配不同阶段的实训模式",
+    "c51": "提示词工程",
+    "c52": "函数调用",
+    "c53": "分步骤引导",
+    "c54": "智能体编码",
+    "c55": "浏览器在线 IDE",
+    "c56": "角色任务演练",
+    "c57": "拖拽式构建器",
+    "c58": "阶段 01",
+    "c59": "阶段 02",
+    "c60": "阶段 03"
   },
   "Ecosystem": {
     "c1": "阿里云",
@@ -135,7 +145,11 @@ export const zhMarketingResources = {
     "c28": "企业参观，实习推荐。",
     "c29": "服务保障",
     "c30": "准备好开启 AI 教学变革了吗？",
-    "c31": "进入学习中心，立即开始智能体课程与实训探索。"
+    "c31": "进入学习中心，立即开始智能体课程与实训探索。",
+    "c32": "500+",
+    "c33": "2.3x",
+    "c34": "600w",
+    "c35": "60%"
   }
 } as const;
 
@@ -190,12 +204,22 @@ export const enMarketingResources = {
     "c47": "Workflow Builder",
     "c48": "Application",
     "c49": "Immersive Learning Modes",
-    "c50": "Training modes for different learning stages"
+    "c50": "Training modes for different learning stages",
+    "c51": "Prompt Engineering",
+    "c52": "Function Calling",
+    "c53": "Step-by-step guidance",
+    "c54": "Agent Coding",
+    "c55": "Browser-based IDE",
+    "c56": "Role-playing tasks",
+    "c57": "Drag-and-drop builder",
+    "c58": "Phase 01",
+    "c59": "Phase 02",
+    "c60": "Phase 03"
   },
   "Ecosystem": {
     "c1": "Alibaba Cloud",
     "c2": "Tongyi Qianwen",
-    "c3": "智谱 AI",
+    "c3": "Zhipu AI",
     "c4": "Huawei Cloud",
     "c5": "Pangu",
     "c6": "Tencent Cloud",
@@ -206,7 +230,7 @@ export const enMarketingResources = {
     "c11": "Master mainstream enterprise stacks and improve employability.",
     "c12": "Teaching Cost Advantage",
     "c13": "Domestic API pricing can reduce costs by 50-70%.",
-    "c14": "深度集成国内 AI 生态",
+    "c14": "Deep Integration with China’s AI Ecosystem",
     "c15": "Connecting leading vendors to cultivate talent for China’s AI industry"
   },
   "Features": {
@@ -275,7 +299,11 @@ export const enMarketingResources = {
     "c27": "Industry Collaboration",
     "c28": "Company visits and internship recommendations.",
     "c29": "Service Support",
-    "c30": "准备好开启 AI 教学变革了吗？",
-    "c31": "Enter the learning center and start exploring agent courses and labs."
+    "c30": "Ready to Transform AI Teaching?",
+    "c31": "Enter the learning center and start exploring agent courses and labs.",
+    "c32": "500+",
+    "c33": "2.3x",
+    "c34": "6M",
+    "c35": "60%"
   }
 } as const;

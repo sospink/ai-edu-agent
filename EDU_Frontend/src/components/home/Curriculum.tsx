@@ -6,9 +6,9 @@ import { motion } from 'framer-motion';
 export const Curriculum: React.FC = () => {
     const mt = useMarketingText();
     const stages = [
-        { label: "Phase 01", title: mt("Curriculum.c1"), time: mt("Curriculum.c2"), desc: mt("Curriculum.c3"), items: [mt("Curriculum.c4"), mt("Curriculum.c5"), mt("Curriculum.c6"), "Prompt Engineering", mt("Curriculum.c7")] },
-        { label: "Phase 02", title: mt("Curriculum.c8"), time: mt("Curriculum.c9"), desc: mt("Curriculum.c10"), items: ["Function Calling", mt("Curriculum.c11"), mt("Curriculum.c12"), mt("Curriculum.c13"), mt("Curriculum.c14")] },
-        { label: "Phase 03", title: mt("Curriculum.c15"), time: mt("Curriculum.c16"), desc: mt("Curriculum.c17"), items: [mt("Curriculum.c18"), mt("Curriculum.c19"), mt("Curriculum.c20"), mt("Curriculum.c21"), mt("Curriculum.c22")] },
+        { label: mt("Curriculum.c58"), title: mt("Curriculum.c1"), time: mt("Curriculum.c2"), desc: mt("Curriculum.c3"), items: [mt("Curriculum.c4"), mt("Curriculum.c5"), mt("Curriculum.c6"), mt("Curriculum.c51"), mt("Curriculum.c7")] },
+        { label: mt("Curriculum.c59"), title: mt("Curriculum.c8"), time: mt("Curriculum.c9"), desc: mt("Curriculum.c10"), items: [mt("Curriculum.c52"), mt("Curriculum.c11"), mt("Curriculum.c12"), mt("Curriculum.c13"), mt("Curriculum.c14")] },
+        { label: mt("Curriculum.c60"), title: mt("Curriculum.c15"), time: mt("Curriculum.c16"), desc: mt("Curriculum.c17"), items: [mt("Curriculum.c18"), mt("Curriculum.c19"), mt("Curriculum.c20"), mt("Curriculum.c21"), mt("Curriculum.c22")] },
     ];
     return (<Section title={mt("Curriculum.c23")} subtitle={mt("Curriculum.c24")}>
       <div className="relative">
@@ -59,10 +59,10 @@ export const Platform: React.FC = () => {
 export const LearningModes: React.FC = () => {
     const mt = useMarketingText();
     const modes = [
-        { name: mt("Curriculum.c42"), icon: Terminal, desc: "Step-by-step guidance", phase: mt("Curriculum.c43") },
-        { name: "Agent Coding", icon: Code2, desc: "Browser-based IDE", phase: mt("Curriculum.c44") },
-        { name: mt("Curriculum.c45"), icon: GitBranch, desc: "Role-playing tasks", phase: mt("Curriculum.c46") },
-        { name: mt("Curriculum.c47"), icon: Layers, desc: "Drag & drop builder", phase: mt("Curriculum.c48") },
+        { name: mt("Curriculum.c42"), icon: Terminal, desc: mt("Curriculum.c53"), phase: mt("Curriculum.c43") },
+        { name: mt("Curriculum.c54"), icon: Code2, desc: mt("Curriculum.c55"), phase: mt("Curriculum.c44") },
+        { name: mt("Curriculum.c45"), icon: GitBranch, desc: mt("Curriculum.c56"), phase: mt("Curriculum.c46") },
+        { name: mt("Curriculum.c47"), icon: Layers, desc: mt("Curriculum.c57"), phase: mt("Curriculum.c48") },
     ];
     return (<Section title={mt("Curriculum.c49")} subtitle={mt("Curriculum.c50")}>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

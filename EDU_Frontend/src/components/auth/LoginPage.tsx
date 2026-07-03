@@ -196,9 +196,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const inputPaddingClass = isStaff ? 'py-4' : 'py-3';
   const buttonPaddingClass = isStaff ? 'py-4' : 'py-3';
 
-  const toggleRememberMe = () => {
-    if (isLoading) return;
-    const nextRememberMe = !rememberMe;
+  const handleRememberChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextRememberMe = event.target.checked;
     setRememberMe(nextRememberMe);
     if (!nextRememberMe) {
       clearRememberedUsername(loginMode, staffTab);
@@ -259,23 +258,16 @@ const LoginPage: React.FC<LoginPageProps> = ({
       </div>
 
       <div className="flex items-center justify-between px-1 pt-2">
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={rememberMe}
-          disabled={isLoading}
-          onClick={toggleRememberMe}
-          className="group flex cursor-pointer items-center gap-2 rounded-md text-left disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border bg-white transition-colors ${rememberMe ? 'border-primary-500 bg-primary-500' : 'border-slate-300 group-hover:border-primary-500'}`}>
-            {rememberMe && (
-              <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            )}
-          </span>
+        <label className="group flex cursor-pointer items-center gap-2 rounded-md text-left has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={handleRememberChange}
+            disabled={isLoading}
+            className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-primary-600 accent-primary-600 focus:ring-2 focus:ring-primary-500/25 disabled:cursor-not-allowed"
+          />
           <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700">{t('rememberMe')}</span>
-        </button>
+        </label>
         <span className="text-xs font-semibold text-slate-400">{t('forgotPassword')}</span>
       </div>
 
