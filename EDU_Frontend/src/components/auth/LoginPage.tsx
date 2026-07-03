@@ -54,17 +54,41 @@ const TypingEffect = ({ words }: { words: string[] }) => {
   );
 };
 
-const getSavedUsername = () => {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem('rememberedUsername') || '';
+const LEGACY_REMEMBERED_USERNAME_KEY = 'rememberedUsername';
+const REMEMBERED_USERNAME_KEY_PREFIX = 'agent-edu-remembered-username';
+
+const getRememberContext = (loginMode: LoginMode, staffTab: StaffLoginTab): string => {
+  if (loginMode === 'student') return 'student';
+  return staffTab;
 };
 
-const saveRememberedUsername = (rememberMe: boolean, username: string) => {
+const getRememberedUsernameKey = (loginMode: LoginMode, staffTab: StaffLoginTab): string => {
+  return `${REMEMBERED_USERNAME_KEY_PREFIX}:${getRememberContext(loginMode, staffTab)}`;
+};
+
+const getSavedUsername = (loginMode: LoginMode, staffTab: StaffLoginTab) => {
+  if (typeof window === 'undefined') return '';
+  const scopedUsername = localStorage.getItem(getRememberedUsernameKey(loginMode, staffTab)) || '';
+  if (scopedUsername) return scopedUsername;
+
+  // 兼容旧版本全局记住账号；读取一次后会在登录成功或取消勾选时迁移/清理。
+  return localStorage.getItem(LEGACY_REMEMBERED_USERNAME_KEY) || '';
+};
+
+const clearRememberedUsername = (loginMode: LoginMode, staffTab: StaffLoginTab) => {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(getRememberedUsernameKey(loginMode, staffTab));
+  localStorage.removeItem(LEGACY_REMEMBERED_USERNAME_KEY);
+};
+
+const saveRememberedUsername = (loginMode: LoginMode, staffTab: StaffLoginTab, rememberMe: boolean, username: string) => {
+  if (typeof window === 'undefined') return;
   if (rememberMe) {
-    localStorage.setItem('rememberedUsername', username);
+    localStorage.setItem(getRememberedUsernameKey(loginMode, staffTab), username);
+    localStorage.removeItem(LEGACY_REMEMBERED_USERNAME_KEY);
     return;
   }
-  localStorage.removeItem('rememberedUsername');
+  clearRememberedUsername(loginMode, staffTab);
 };
 
 const LoginPage: React.FC<LoginPageProps> = ({
@@ -76,17 +100,25 @@ const LoginPage: React.FC<LoginPageProps> = ({
 }) => {
   const { t } = useTranslation('auth');
   const loginMode: LoginMode = mode || (isAdmin ? 'staff' : 'student');
-  const [staffTab, setStaffTab] = useState<StaffLoginTab>(defaultStaffTab || (isAdmin ? 'admin' : 'teacher'));
-  const [username, setUsername] = useState(() => getSavedUsername());
+  const initialStaffTab = defaultStaffTab || (isAdmin ? 'admin' : 'teacher');
+  const [staffTab, setStaffTab] = useState<StaffLoginTab>(initialStaffTab);
+  const [username, setUsername] = useState(() => getSavedUsername(loginMode, initialStaffTab));
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [rememberMe, setRememberMe] = useState(() => Boolean(getSavedUsername()));
+  const [rememberMe, setRememberMe] = useState(() => Boolean(getSavedUsername(loginMode, initialStaffTab)));
 
   useEffect(() => {
     if (loginMode !== 'staff') return;
     setStaffTab(defaultStaffTab || (isAdmin ? 'admin' : 'teacher'));
   }, [defaultStaffTab, isAdmin, loginMode]);
+
+  useEffect(() => {
+    const savedUsername = getSavedUsername(loginMode, staffTab);
+    setUsername(savedUsername);
+    setRememberMe(Boolean(savedUsername));
+    setPassword('');
+  }, [loginMode, staffTab]);
 
   const validateUser = (user: UserType): string => {
     if (user.status === UserStatus.FROZEN) {
@@ -134,7 +166,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
         return;
       }
 
-      saveRememberedUsername(rememberMe, normalizedUsername);
+      saveRememberedUsername(loginMode, staffTab, rememberMe, normalizedUsername);
       authService.saveSession(response.data);
       onLoginSuccess?.(response.data.user, {
         loginMode,
@@ -163,6 +195,14 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const formSpacingClass = isStaff ? 'space-y-5' : 'space-y-4';
   const inputPaddingClass = isStaff ? 'py-4' : 'py-3';
   const buttonPaddingClass = isStaff ? 'py-4' : 'py-3';
+
+  const handleRememberChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = event.target.checked;
+    setRememberMe(checked);
+    if (!checked) {
+      clearRememberedUsername(loginMode, staffTab);
+    }
+  };
 
   const loginForm = (
     <motion.form
@@ -222,7 +262,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           <input
             type="checkbox"
             checked={rememberMe}
-            onChange={(event) => setRememberMe(event.target.checked)}
+            onChange={handleRememberChange}
             className="sr-only"
             disabled={isLoading}
           />
