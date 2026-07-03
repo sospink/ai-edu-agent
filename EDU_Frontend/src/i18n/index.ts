@@ -32,7 +32,23 @@ export const getCurrentLocale = (): Locale => {
   return isSupportedLocale(language) ? language : DEFAULT_LOCALE;
 };
 
-export const setCurrentLocale = (locale: Locale) => i18n.changeLanguage(locale);
+export const setCurrentLocale = (locale: Locale) => {
+  const current = getCurrentLocale();
+  if (locale === current) {
+    return Promise.resolve(i18n);
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('agent-edu-locale-change-start', {
+      detail: { from: current, to: locale },
+    }));
+    document.documentElement.classList.add('locale-switching');
+  }
+  return i18n.changeLanguage(locale).finally(() => {
+    if (typeof window === 'undefined') return;
+    window.setTimeout(() => {
+      document.documentElement.classList.remove('locale-switching');
+    }, 420);
+  });
+};
 
 export default i18n;
-

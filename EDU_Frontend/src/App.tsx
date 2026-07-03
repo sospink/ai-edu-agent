@@ -15,6 +15,7 @@ import AdminPanel from '@/components/admin/AdminPanel';
 import TeacherPanel from '@/components/teacher/TeacherPanel';
 import BackToTop from '@/components/common/BackToTop';
 import GuideHub from '@/components/guide/GuideHub';
+import LocaleTransition from '@/components/common/LocaleTransition';
 import { ProfilePage } from '@/components/profile';
 import { ProjectList, ProjectDetail } from '@/components/project';
 import { SkillList, SkillDetail, LessonPage, LabPage } from '@/components/study';
@@ -567,6 +568,7 @@ const AppContent: React.FC = () => {
           />
         )}
       </AnimatePresence>
+      <LocaleTransition />
     </div>
   );
 };

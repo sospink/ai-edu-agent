@@ -25,6 +25,24 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html.locale-switching #root main,
+html.locale-switching #root [data-locale-transition-surface] {
+  opacity: 0.94;
+  filter: blur(0.4px);
+  transform: translateY(1px);
+  transition: opacity 220ms ease, filter 220ms ease, transform 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.locale-switching #root main,
+  html.locale-switching #root [data-locale-transition-surface] {
+    opacity: 1;
+    filter: none;
+    transform: none;
+    transition: none;
+  }
+}
+
 ::selection {
   background-color: rgba(59, 130, 246, 0.2);
   color: #1e40af;
