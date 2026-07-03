@@ -69,6 +69,17 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
 
           setSkill(prev => ({
             ...prev,
+            title: course.title,
+            description: course.description,
+            slug: course.slug,
+            coverColor: course.coverColor,
+            difficulty: course.difficulty as CourseDifficulty,
+            status: course.status,
+            stats: {
+              skills: course.totalSkills,
+              lessons: course.totalLessons,
+              hours: course.estimatedHours,
+            },
             stages,
           }));
         } else {
