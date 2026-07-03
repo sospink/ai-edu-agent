@@ -6,6 +6,7 @@ import { studentClassApi } from '@/services/studentClass';
 import type { ClassItem } from '@/services/classroom';
 import { formatDate, getClassStatusMeta } from '@/services/classroom';
 import { useTranslation } from 'react-i18next';
+import { localizeSeededClassName, localizeSeededTermName } from '@/utils/seededContentLocale';
 
 interface StudyClassesSectionProps {
   currentUser: User | null;
@@ -13,7 +14,7 @@ interface StudyClassesSectionProps {
 }
 
 const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, onLoginRequired }) => {
-  const { t } = useTranslation('student');
+  const { t, i18n } = useTranslation('student');
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<ClassItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +38,7 @@ const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, 
       setLoading(false);
     };
     void load();
-  }, [currentUser]);
+  }, [currentUser?.id, currentUser?.roleType, i18n.language]);
 
   return (
     <section className="card-surface mb-10 rounded-[28px] p-6 backdrop-blur-xl">
@@ -104,8 +105,8 @@ const StudyClassesSection: React.FC<StudyClassesSectionProps> = ({ currentUser, 
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">{item.termCode}</div>
-                    <h4 className="mt-2 text-lg font-bold text-slate-900">{item.name}</h4>
-                    <p className="mt-1 text-sm text-slate-500">{item.termName}</p>
+                    <h4 className="mt-2 text-lg font-bold text-slate-900">{localizeSeededClassName(item.name, i18n.language)}</h4>
+                    <p className="mt-1 text-sm text-slate-500">{localizeSeededTermName(item.termName, i18n.language)}</p>
                   </div>
                   <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusMeta.className}`}>
                     {statusMeta.label}

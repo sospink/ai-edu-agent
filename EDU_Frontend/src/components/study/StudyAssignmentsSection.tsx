@@ -7,6 +7,7 @@ import { labApi, type LabSession } from '@/services/lab';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { getCurrentLocale } from '@/i18n';
+import { localizeSeededAssignmentDescription, localizeSeededCourseTitle } from '@/utils/seededContentLocale';
 
 type StudentT = TFunction<'student'>;
 
@@ -40,7 +41,7 @@ interface StudyAssignmentsSectionProps {
 }
 
 const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ classId }) => {
-  const { t } = useTranslation('student');
+  const { t, i18n } = useTranslation('student');
   const statusMeta = getStatusMeta(t);
   const resourceLabel = getResourceLabel(t);
   const navigate = useNavigate();
@@ -88,7 +89,7 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
   useEffect(() => {
     void loadAssignments();
     void loadNotifications();
-  }, [classId]);
+  }, [classId, i18n.language]);
 
   const openDetail = async (item: AssignmentListItem) => {
     await openDetailById(item.id);
@@ -136,6 +137,11 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
       setSelected(response.data);
     }
   };
+
+  useEffect(() => {
+    if (!selected) return;
+    void reloadSelected();
+  }, [i18n.language]);
 
   const submitAssignment = async () => {
     if (!selected) return;
@@ -220,14 +226,16 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
           <div className="grid gap-3 md:grid-cols-2">
             {assignments.map((item) => {
               const meta = statusMeta[item.status] || statusMeta[1];
+              const title = localizeSeededCourseTitle(item.title, i18n.language);
+              const description = localizeSeededAssignmentDescription(item.description, i18n.language);
               return (
                 <button key={item.id} onClick={() => void openDetail(item)} className="card-surface rounded-2xl p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${meta.className}`}>{meta.label}</span>
                     <span className="text-xs font-semibold text-slate-400">{t('assignments.classCount', { count: item.classCount })}</span>
                   </div>
-                  <h3 className="truncate text-base font-bold text-slate-900">{item.title}</h3>
-                  <p className="mt-2 line-clamp-2 text-sm text-slate-500">{item.description || t('assignments.noDescription')}</p>
+                  <h3 className="truncate text-base font-bold text-slate-900">{title}</h3>
+                  <p className="mt-2 line-clamp-2 text-sm text-slate-500">{description || t('assignments.noDescription')}</p>
                   <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-500">
                     <CalendarClock className="h-3.5 w-3.5" />
                     {t('assignments.due', { date: formatDateTime(item.dueAt, t) })}
@@ -247,14 +255,14 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
             <div className="space-y-6">
               <div>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusMeta[selected.status]?.className || statusMeta[1].className}`}>{statusMeta[selected.status]?.label || t('assignments.task')}</span>
-                <h2 className="mt-3 text-2xl font-bold text-slate-900">{selected.title}</h2>
-                <p className="mt-2 text-sm text-slate-500">{selected.description || t('assignments.noDescription')}</p>
+                <h2 className="mt-3 text-2xl font-bold text-slate-900">{localizeSeededCourseTitle(selected.title, i18n.language)}</h2>
+                <p className="mt-2 text-sm text-slate-500">{localizeSeededAssignmentDescription(selected.description, i18n.language) || t('assignments.noDescription')}</p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">{t('assignments.dueAt', { date: formatDateTime(selected.dueAt, t) })}</div>
               <div className="space-y-3">
                 {selected.resources.map((resource) => (
                   <div key={resource.id} className="card-surface-muted rounded-2xl p-4">
-                    <div className="text-sm font-bold text-slate-900">{resource.title}</div>
+                    <div className="text-sm font-bold text-slate-900">{localizeSeededCourseTitle(resource.title, i18n.language)}</div>
                     <button onClick={() => jumpToResource(resource)} disabled={selected.status !== 1 || resource.resourceType === 'manual'} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
                       <ExternalLink className="h-3.5 w-3.5" />
                       {resourceLabel[resource.resourceType] || t('assignments.enterResource')}

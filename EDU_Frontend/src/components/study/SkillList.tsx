@@ -19,6 +19,7 @@ import {
   CourseDifficulty, CourseStatus, LessonType,
   lessonTypeToString, formatDuration, levelLabelToLevel
 } from '@/types/skill';
+import { localizeSeededClassName, localizeSeededClassText } from '@/utils/seededContentLocale';
 
 interface SkillListProps {
   onSkillSelect: (skill: Skill) => void;
@@ -141,7 +142,7 @@ interface ClassContextTabsProps {
 }
 
 const ClassContextTabs: React.FC<ClassContextTabsProps> = ({ classes, selectedClassId, onSelectClass, onSelectExplore }) => {
-  const { t } = useTranslation('study');
+  const { t, i18n } = useTranslation('study');
 
   return (
     <section className="relative mb-8">
@@ -163,9 +164,9 @@ const ClassContextTabs: React.FC<ClassContextTabsProps> = ({ classes, selectedCl
               {item.pendingTaskCount > 0 && !active && (
                 <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/40" />
               )}
-              <div className="max-w-[180px] truncate text-sm font-black" data-i18n-skip>{item.name}</div>
+              <div className="max-w-[180px] truncate text-sm font-black">{localizeSeededClassName(item.name, i18n.language)}</div>
               <div className={`mt-1 max-w-[180px] truncate text-xs ${active ? 'text-slate-300' : 'text-slate-400'}`}>
-                <span data-i18n-skip>{item.termCode}</span> · <span data-i18n-skip={Boolean(item.ownerTeacherName)}>{item.ownerTeacherName || t('classes.noTeacher')}</span>
+                <span data-i18n-skip>{item.termCode}</span> · <span>{item.ownerTeacherName ? localizeSeededClassText(item.ownerTeacherName, i18n.language) : t('classes.noTeacher')}</span>
               </div>
             </button>
           );
@@ -423,7 +424,7 @@ const SkillList: React.FC<SkillListProps> = ({ onSkillSelect, currentUser }) => 
     };
 
     void loadClasses();
-  }, [canUseClassContext, currentUser?.id]);
+  }, [canUseClassContext, currentUser?.id, i18n.language]);
 
   useEffect(() => {
     if (!canUseClassContext || !currentUser) {
