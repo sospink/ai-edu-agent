@@ -890,22 +890,26 @@ func buildManualAdminResponse(manual *AgentManual) gin.H {
 	steps := make([]gin.H, 0, len(manual.Steps))
 	for _, step := range manual.Steps {
 		steps = append(steps, gin.H{
-			"id":             step.ID,
-			"stepOrder":      step.StepOrder,
-			"title":          step.Title,
-			"content":        step.Content,
-			"quickQuestions": defaultQuestions(step.QuickQuestions),
-			"verification":   step.Verification,
-			"skillTags":      defaultStrings(step.SkillTags),
+			"id":                 step.ID,
+			"stepOrder":          step.StepOrder,
+			"title":              step.Title,
+			"content":            step.Content,
+			"quickQuestions":     defaultQuestions(step.QuickQuestions),
+			"verification":       step.Verification,
+			"skillTags":          defaultStrings(step.SkillTags),
+			"locale":             step.Locale,
+			"translationMissing": step.TranslationMissing,
 		})
 	}
 	return gin.H{
-		"exists":      true,
-		"id":          manual.ID,
-		"title":       manual.Title,
-		"description": manual.Description,
-		"isPublished": manual.IsPublished,
-		"steps":       steps,
+		"exists":             true,
+		"id":                 manual.ID,
+		"title":              manual.Title,
+		"description":        manual.Description,
+		"isPublished":        manual.IsPublished,
+		"steps":              steps,
+		"locale":             manual.Locale,
+		"translationMissing": manual.TranslationMissing,
 	}
 }
 

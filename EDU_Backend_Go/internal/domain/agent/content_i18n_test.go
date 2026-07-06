@@ -63,3 +63,76 @@ func TestAgentManualContentLocaleFallbackKeepsStableIDs(t *testing.T) {
 		t.Fatalf("expected step fallback overlay, got %#v", got.Steps[0])
 	}
 }
+
+func TestImportMarkdownForLocalePreservesOtherLocaleTranslations(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&AgentManual{}, &AgentStep{}, &AgentManualTranslation{}, &AgentStepTranslation{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	service := NewService(db, zap.NewNop(), nil)
+
+	enMarkdown := `# English Manual
+> English description
+
+## 1. Prepare
+Run the setup command.
+
+## 2. Verify
+Check the output.
+`
+	manual, err := service.ImportMarkdownForLocale(context.Background(), SourceTypeLesson, 200, enMarkdown, 1, i18n.LocaleEnUS)
+	if err != nil {
+		t.Fatalf("import english markdown: %v", err)
+	}
+	if len(manual.Steps) != 2 {
+		t.Fatalf("expected two english steps, got %d", len(manual.Steps))
+	}
+	firstStepID := manual.Steps[0].ID
+
+	zhMarkdown := `# 中文手册
+> 中文说明
+
+## 步骤 1：准备环境
+执行初始化命令。
+
+## 步骤 2：验证结果
+检查输出内容。
+`
+	if _, err := service.ImportMarkdownForLocale(context.Background(), SourceTypeLesson, 200, zhMarkdown, 1, i18n.LocaleZhCN); err != nil {
+		t.Fatalf("import chinese markdown: %v", err)
+	}
+
+	updatedEnMarkdown := `# English Manual Updated
+> English description updated
+
+## 1. Prepare Updated
+Run the updated setup command.
+
+## 2. Verify Updated
+Check the updated output.
+`
+	updated, err := service.ImportMarkdownForLocale(i18n.WithLocale(context.Background(), i18n.LocaleZhCN), SourceTypeLesson, 200, updatedEnMarkdown, 1, i18n.LocaleEnUS)
+	if err != nil {
+		t.Fatalf("reimport english markdown: %v", err)
+	}
+	if len(updated.Steps) != 2 || updated.Steps[0].ID != firstStepID {
+		t.Fatalf("expected english reimport to preserve step IDs, got %#v", updated.Steps)
+	}
+	if updated.Title != "English Manual Updated" || updated.Steps[0].Title != "Prepare Updated" {
+		t.Fatalf("expected english import to ignore request context locale, got %#v", updated)
+	}
+
+	zhManual, err := service.GetManualByID(i18n.WithLocale(context.Background(), i18n.LocaleZhCN), manual.ID)
+	if err != nil {
+		t.Fatalf("get zh manual: %v", err)
+	}
+	if zhManual.Title != "中文手册" || zhManual.TranslationMissing {
+		t.Fatalf("expected chinese manual translation, got %#v", zhManual)
+	}
+	if len(zhManual.Steps) != 2 || zhManual.Steps[0].ID != firstStepID || zhManual.Steps[0].Title != "准备环境" || zhManual.Steps[0].TranslationMissing {
+		t.Fatalf("expected chinese step translation to remain attached, got %#v", zhManual.Steps)
+	}
+}

@@ -72,11 +72,19 @@ func (s *Service) SaveManualContentTranslation(ctx context.Context, manualID uin
 func (s *Service) ImportMarkdownForLocale(ctx context.Context, sourceType int, sourceID uint64, markdown string, creatorID uint64, locale string) (*AgentManual, error) {
 	normalizedLocale := i18n.NormalizeLocale(locale)
 	if normalizedLocale == i18n.LocaleEnUS {
-		manual, err := s.ImportFromMarkdown(ctx, sourceType, sourceID, markdown, creatorID)
+		sourceCtx := i18n.WithLocale(ctx, i18n.LocaleEnUS)
+		manual, err := s.ImportFromMarkdown(sourceCtx, sourceType, sourceID, markdown, creatorID)
 		if err != nil {
 			return nil, err
 		}
-		localizedManual, err := s.SaveManualContentTranslation(ctx, manual.ID, normalizedLocale, manualTranslationInputFromManual(manual))
+		sourceManual, err := s.FindManualByID(ctx, manual.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.loadManualSteps(ctx, sourceManual); err != nil {
+			return nil, err
+		}
+		localizedManual, err := s.SaveManualContentTranslation(ctx, manual.ID, normalizedLocale, manualTranslationInputFromManual(sourceManual))
 		if err != nil {
 			if isMissingAgentTranslationTableError(err) {
 				return manual, nil

@@ -994,10 +994,66 @@ func (s *Service) ImportFromMarkdown(ctx context.Context, sourceType int, source
 			Verification:   step.Verification,
 		})
 	}
-	if _, err := s.UpdateSteps(ctx, manual.ID, steps); err != nil {
+	if _, err := s.importStepsPreservingIDs(ctx, manual.ID, steps); err != nil {
 		return nil, err
 	}
 	return s.GetManualByID(ctx, manual.ID)
+}
+
+func (s *Service) importStepsPreservingIDs(ctx context.Context, manualID uint64, steps []AgentStep) ([]AgentStep, error) {
+	var existing []AgentStep
+	if err := s.db.WithContext(ctx).
+		Where("manual_id = ?", manualID).
+		Order("step_order ASC").
+		Find(&existing).Error; err != nil {
+		return nil, err
+	}
+
+	saved := make([]AgentStep, 0, len(steps))
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for idx, step := range steps {
+			next := AgentStep{
+				ManualID:       manualID,
+				StepOrder:      idx,
+				Title:          strings.TrimSpace(step.Title),
+				Content:        sanitizeContentBlocks(step.Content),
+				QuickQuestions: sanitizeQuickQuestions(step.QuickQuestions),
+				Verification:   sanitizeVerification(step.Verification),
+			}
+			if idx < len(existing) {
+				next.ID = existing[idx].ID
+				if err := tx.Model(&AgentStep{}).
+					Where("id = ? AND manual_id = ?", next.ID, manualID).
+					Select("step_order", "title", "content", "quick_questions", "verification").
+					Updates(&next).Error; err != nil {
+					return err
+				}
+			} else if err := tx.Create(&next).Error; err != nil {
+				return err
+			}
+			saved = append(saved, next)
+		}
+
+		if len(existing) > len(steps) {
+			removedIDs := make([]uint64, 0, len(existing)-len(steps))
+			for _, step := range existing[len(steps):] {
+				removedIDs = append(removedIDs, step.ID)
+			}
+			if err := tx.Where("step_id IN ?", removedIDs).Delete(&AgentStepSkillTag{}).Error; err != nil && !strings.Contains(strings.ToLower(err.Error()), "agent_step_skill_tags") {
+				return err
+			}
+			if err := tx.Where("entity_id IN ?", removedIDs).Delete(&AgentStepTranslation{}).Error; err != nil && !isMissingAgentTranslationTableError(err) {
+				return err
+			}
+			if err := tx.Where("id IN ? AND manual_id = ?", removedIDs, manualID).Delete(&AgentStep{}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return saved, nil
 }
 
 func (s *Service) loadManualSteps(ctx context.Context, manual *AgentManual) error {
