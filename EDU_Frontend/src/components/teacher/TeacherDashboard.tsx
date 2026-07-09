@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, Bell, Bot, ClipboardCheck, Clock3, Eye, FileWarning, Loader2, RefreshCw, RotateCcw, ShieldAlert, Sparkles, TrendingDown, UsersRound } from 'lucide-react';
+import { AlertTriangle, Bell, Bot, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, Eye, FileWarning, Loader2, RefreshCw, RotateCcw, ShieldAlert, Sparkles, TrendingDown, UsersRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PageDialog from '@/components/common/PageDialog';
 import { ToastContainer, useToast } from '@/components/common/Toast';
@@ -39,6 +39,21 @@ type ActionTarget = {
   studentName?: string;
 };
 
+type DashboardTab = 'todos' | 'agent' | 'risks' | 'progress' | 'lab';
+
+const PAGE_SIZE = {
+  todos: 6,
+  agent: 8,
+  risks: 4,
+  progress: 6,
+  lab: 4,
+} as const;
+
+const paginateItems = <T,>(items: T[], page: number, pageSize: number) => {
+  const start = (page - 1) * pageSize;
+  return items.slice(start, start + pageSize);
+};
+
 const TeacherDashboard: React.FC = () => {
   const { t } = useTranslation('teacherDashboard');
   const navigate = useNavigate();
@@ -64,14 +79,20 @@ const TeacherDashboard: React.FC = () => {
   const [selectedClassId, setSelectedClassId] = useState<number>(0);
   const [agentStepStats, setAgentStepStats] = useState<AgentStepStatsItem[]>([]);
   const [agentStatsLoading, setAgentStatsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('todos');
+  const [todoPage, setTodoPage] = useState(1);
+  const [agentPage, setAgentPage] = useState(1);
+  const [riskPage, setRiskPage] = useState(1);
+  const [progressPage, setProgressPage] = useState(1);
+  const [labPage, setLabPage] = useState(1);
 
   const load = async (nextType = todoType, nextKeyword = keyword) => {
     setLoading(true);
     const [overviewResp, todoResp, riskResp, progressResp] = await Promise.all([
       teacherAssignmentApi.teachingOverview(),
-      teacherAssignmentApi.todoItems({ page: 1, pageSize: 20, type: nextType, q: nextKeyword }),
-      teacherAssignmentApi.riskStudents({ page: 1, pageSize: 8, q: nextKeyword }),
-      teacherAssignmentApi.assignmentProgress({ page: 1, pageSize: 8, q: nextKeyword }),
+      teacherAssignmentApi.todoItems({ page: 1, pageSize: 100, type: nextType, q: nextKeyword }),
+      teacherAssignmentApi.riskStudents({ page: 1, pageSize: 50, q: nextKeyword }),
+      teacherAssignmentApi.assignmentProgress({ page: 1, pageSize: 50, q: nextKeyword }),
     ]);
 
     if (overviewResp.success && overviewResp.data) setOverview(overviewResp.data);
@@ -155,10 +176,70 @@ const TeacherDashboard: React.FC = () => {
   ], [overview, t]);
 
   const handleKpiClick = (key: TodoItemType | 'risk' | 'low') => {
-    if (key === 'risk' || key === 'low') return;
+    if (key === 'risk') {
+      setActiveTab('risks');
+      setRiskPage(1);
+      return;
+    }
+    if (key === 'low') {
+      setActiveTab('progress');
+      setProgressPage(1);
+      return;
+    }
+    setActiveTab(key === 'lab_failed' ? 'lab' : 'todos');
+    setTodoPage(1);
+    setLabPage(1);
     setTodoType(key);
     void load(key, keyword);
   };
+
+  const labTodos = useMemo(() => todos.filter((item) => item.type === 'lab_failed'), [todos]);
+  const pagedTodos = useMemo(() => paginateItems(todos, todoPage, PAGE_SIZE.todos), [todos, todoPage]);
+  const pagedAgentStepStats = useMemo(() => paginateItems(agentStepStats, agentPage, PAGE_SIZE.agent), [agentStepStats, agentPage]);
+  const pagedRisks = useMemo(() => paginateItems(risks, riskPage, PAGE_SIZE.risks), [risks, riskPage]);
+  const pagedProgress = useMemo(() => paginateItems(progress, progressPage, PAGE_SIZE.progress), [progress, progressPage]);
+  const pagedLabTodos = useMemo(() => paginateItems(labTodos, labPage, PAGE_SIZE.lab), [labTodos, labPage]);
+
+  const switchTab = (tab: DashboardTab) => {
+    setActiveTab(tab);
+    if (tab === 'lab') {
+      setTodoType('lab_failed');
+      setLabPage(1);
+      void load('lab_failed', keyword);
+      return;
+    }
+    if (tab === 'todos') {
+      setTodoPage(1);
+      void load(todoType, keyword);
+      return;
+    }
+    if (tab === 'agent') setAgentPage(1);
+    if (tab === 'risks') setRiskPage(1);
+    if (tab === 'progress') setProgressPage(1);
+  };
+
+  const executeSearch = () => {
+    setTodoPage(1);
+    setLabPage(1);
+    setRiskPage(1);
+    setProgressPage(1);
+    void load(activeTab === 'lab' ? 'lab_failed' : todoType, keyword);
+  };
+
+  const refreshDashboard = () => {
+    void load(activeTab === 'lab' ? 'lab_failed' : todoType, keyword);
+    if (activeTab === 'agent') {
+      void loadAgentStepStats();
+    }
+  };
+
+  const dashboardTabs = useMemo(() => [
+    { key: 'todos' as const, label: t('tabs.todos'), count: todoTotal || todos.length, icon: ClipboardCheck },
+    { key: 'agent' as const, label: t('tabs.agent'), count: agentStepStats.length, icon: Bot },
+    { key: 'risks' as const, label: t('tabs.risks'), count: risks.length, icon: AlertTriangle },
+    { key: 'progress' as const, label: t('tabs.progress'), count: progress.length, icon: TrendingDown },
+    { key: 'lab' as const, label: t('tabs.lab'), count: overview?.labFailed || labTodos.length, icon: ShieldAlert },
+  ], [agentStepStats.length, labTodos.length, overview?.labFailed, progress.length, risks.length, t, todoTotal, todos.length]);
 
   const openAction = (target: ActionTarget) => {
     setActionTarget(target);
@@ -263,11 +344,11 @@ const TeacherDashboard: React.FC = () => {
           <ToolbarSearchField
             value={keyword}
             onChange={setKeyword}
-            onEnter={() => void load(todoType, keyword)}
+            onEnter={executeSearch}
             placeholder={t('searchPlaceholder')}
             className="sm:w-72"
           />
-          <button onClick={() => void load()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-default-200 bg-white px-4 text-sm font-semibold text-default-600 hover:bg-default-50">
+          <button onClick={refreshDashboard} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-default-200 bg-white px-4 text-sm font-semibold text-default-600 hover:bg-default-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             {t('refresh')}
           </button>
@@ -286,7 +367,32 @@ const TeacherDashboard: React.FC = () => {
         ))}
       </div>
 
-      <section className="card-surface overflow-hidden rounded-xl">
+      <div className="card-surface rounded-xl p-2">
+        <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-5">
+          {dashboardTabs.map((tab) => {
+            const Icon = tab.icon;
+            const selected = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => switchTab(tab.key)}
+                className={`relative flex min-h-12 items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition ${selected ? 'text-slate-950' : 'text-default-500 hover:bg-default-50 hover:text-default-700'}`}
+              >
+                {selected && <motion.span layoutId="teacher-dashboard-tab" className="absolute inset-0 rounded-lg bg-slate-950/5" />}
+                <span className="relative flex min-w-0 items-center gap-2">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate text-sm font-bold">{tab.label}</span>
+                </span>
+                <span className={`relative shrink-0 rounded-full px-2 py-0.5 text-xs font-black ${selected ? 'bg-slate-950 text-white' : 'bg-default-100 text-default-500'}`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeTab === 'agent' && <section className="card-surface overflow-hidden rounded-xl">
         <div className="flex flex-col gap-3 border-b border-default-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="font-semibold text-foreground">{t('agentBottlenecks')}</h3>
@@ -334,7 +440,7 @@ const TeacherDashboard: React.FC = () => {
                 <tr><td colSpan={6}><LoadingRows /></td></tr>
               ) : agentStepStats.length === 0 ? (
                 <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-default-400">{t('selectStatsPrompt')}</td></tr>
-              ) : agentStepStats.map((item) => {
+              ) : pagedAgentStepStats.map((item) => {
                 const loadingKey = `step-${item.stepId}-${selectedClassId}`;
                 return (
                   <tr key={item.stepId} className="hover:bg-default-50/60">
@@ -372,9 +478,18 @@ const TeacherDashboard: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </section>
+        <PaginationFooter
+          page={agentPage}
+          pageSize={PAGE_SIZE.agent}
+          total={agentStepStats.length}
+          onPageChange={setAgentPage}
+          summary={(from, to, total) => t('pageSummary', { from, to, total })}
+          previousText={t('previous')}
+          nextText={t('next')}
+        />
+      </section>}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.8fr)]">
+      {activeTab === 'todos' && (
         <section className="card-surface overflow-hidden rounded-xl">
           <div className="flex flex-col gap-3 border-b border-default-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -387,6 +502,7 @@ const TeacherDashboard: React.FC = () => {
               onChange={(value) => {
                 const next = value === 'all' ? '' : value as TodoItemType;
                 setTodoType(next);
+                setTodoPage(1);
                 void load(next, keyword);
               }}
               options={[
@@ -402,7 +518,7 @@ const TeacherDashboard: React.FC = () => {
           <div className="divide-y divide-default-100">
             {loading ? <LoadingRows /> : todos.length === 0 ? (
               <div className="p-10 text-center text-sm text-default-400">{t('noTodos')}</div>
-            ) : todos.map((item) => {
+            ) : pagedTodos.map((item) => {
               const todoTypeMeta = getTodoTypeMeta(t);
               const meta = todoTypeMeta[item.type] || todoTypeMeta.pending_review;
               const Icon = meta.icon;
@@ -436,17 +552,28 @@ const TeacherDashboard: React.FC = () => {
               );
             })}
           </div>
+          <PaginationFooter
+            page={todoPage}
+            pageSize={PAGE_SIZE.todos}
+            total={todos.length}
+            onPageChange={setTodoPage}
+            summary={(from, to, total) => t('pageSummary', { from, to, total })}
+            previousText={t('previous')}
+            nextText={t('next')}
+          />
         </section>
+      )}
 
+      {activeTab === 'risks' && (
         <section className="card-surface overflow-hidden rounded-xl">
           <div className="border-b border-default-100 px-5 py-4">
             <h3 className="font-semibold text-foreground">{t('riskStudents')}</h3>
             <p className="mt-1 text-xs text-default-500">{t('riskDescription')}</p>
           </div>
-          <div className="space-y-3 p-4">
+          <div className="grid gap-3 p-4 lg:grid-cols-2">
             {loading ? <LoadingRows /> : risks.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-default-200 p-8 text-center text-sm text-default-400">{t('noRisk')}</div>
-            ) : risks.map((item) => (
+              <div className="rounded-xl border border-dashed border-default-200 p-8 text-center text-sm text-default-400 lg:col-span-2">{t('noRisk')}</div>
+            ) : pagedRisks.map((item) => (
               <div key={`${item.studentId}-${item.classId}`} className="card-surface-muted rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -471,10 +598,19 @@ const TeacherDashboard: React.FC = () => {
               </div>
             ))}
           </div>
+          <PaginationFooter
+            page={riskPage}
+            pageSize={PAGE_SIZE.risks}
+            total={risks.length}
+            onPageChange={setRiskPage}
+            summary={(from, to, total) => t('pageSummary', { from, to, total })}
+            previousText={t('previous')}
+            nextText={t('next')}
+          />
         </section>
-      </div>
+      )}
 
-      <section className="card-surface overflow-hidden rounded-xl">
+      {activeTab === 'progress' && <section className="card-surface overflow-hidden rounded-xl">
         <div className="border-b border-default-100 px-5 py-4">
           <h3 className="font-semibold text-foreground">{t('assignmentProgress')}</h3>
           <p className="mt-1 text-xs text-default-500">{t('assignmentProgressDesc')}</p>
@@ -487,7 +623,9 @@ const TeacherDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-default-100">
-              {progress.map((item) => (
+              {loading ? (
+                <tr><td colSpan={6}><LoadingRows /></td></tr>
+              ) : pagedProgress.map((item) => (
                 <tr key={`${item.assignmentId}-${item.classId}`} className="hover:bg-default-50/60">
                   <td className="px-5 py-4">
                     <div className="font-semibold text-foreground">{item.assignmentTitle}</div>
@@ -519,9 +657,18 @@ const TeacherDashboard: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </section>
+        <PaginationFooter
+          page={progressPage}
+          pageSize={PAGE_SIZE.progress}
+          total={progress.length}
+          onPageChange={setProgressPage}
+          summary={(from, to, total) => t('pageSummary', { from, to, total })}
+          previousText={t('previous')}
+          nextText={t('next')}
+        />
+      </section>}
 
-      <section className="card-surface overflow-hidden rounded-xl">
+      {activeTab === 'lab' && <section className="card-surface overflow-hidden rounded-xl">
         <div className="flex items-center justify-between gap-4 border-b border-default-100 px-5 py-4">
           <div>
             <h3 className="font-semibold text-foreground">{t('labIssues')}</h3>
@@ -536,7 +683,7 @@ const TeacherDashboard: React.FC = () => {
             <div className="rounded-xl border border-dashed border-default-200 p-8 text-center text-sm text-default-400">{t('noLabIssues')}</div>
           ) : (
             <>
-              {todos.filter((item) => item.type === 'lab_failed').slice(0, 4).map((item) => (
+              {pagedLabTodos.map((item) => (
                 <div key={`lab-${item.assignmentId}-${item.studentId}`} className="card-surface-muted rounded-xl px-4 py-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -547,13 +694,22 @@ const TeacherDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {todos.filter((item) => item.type === 'lab_failed').length === 0 && (
+              {labTodos.length === 0 && (
                 <div className="rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-700">{t('labIssueHint')}</div>
               )}
             </>
           )}
         </div>
-      </section>
+        <PaginationFooter
+          page={labPage}
+          pageSize={PAGE_SIZE.lab}
+          total={labTodos.length}
+          onPageChange={setLabPage}
+          summary={(from, to, total) => t('pageSummary', { from, to, total })}
+          previousText={t('previous')}
+          nextText={t('next')}
+        />
+      </section>}
 
       <PageDialog isOpen={Boolean(actionTarget)} onClose={() => setActionTarget(null)} panelClassName="max-w-lg">
         <div className="border-b border-default-100 p-5">
@@ -618,5 +774,48 @@ const LoadingRows = () => (
     {[0, 1, 2].map((item) => <div key={item} className="h-16 animate-pulse rounded-xl bg-default-100" />)}
   </div>
 );
+
+type PaginationFooterProps = {
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  summary: (from: number, to: number, total: number) => string;
+  previousText: string;
+  nextText: string;
+};
+
+const PaginationFooter: React.FC<PaginationFooterProps> = ({ page, pageSize, total, onPageChange, summary, previousText, nextText }) => {
+  if (total <= pageSize) return null;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const from = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const to = Math.min(total, currentPage * pageSize);
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-default-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-xs font-semibold text-default-500">{summary(from, to, total)}</div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage <= 1}
+          className="inline-flex h-9 items-center gap-1 rounded-xl border border-default-200 px-3 text-xs font-bold text-default-600 hover:bg-default-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          {previousText}
+        </button>
+        <span className="min-w-12 text-center text-xs font-black text-default-500">{currentPage}/{totalPages}</span>
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage >= totalPages}
+          className="inline-flex h-9 items-center gap-1 rounded-xl border border-default-200 px-3 text-xs font-bold text-default-600 hover:bg-default-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {nextText}
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export default TeacherDashboard;
