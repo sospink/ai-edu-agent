@@ -645,6 +645,28 @@ func (h *Handler) SaveManualContentTranslation(c *gin.Context) {
 	c.JSON(http.StatusOK, buildManualAdminResponse(manual))
 }
 
+func (h *Handler) DeleteManualContentTranslation(c *gin.Context) {
+	manualID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || manualID == 0 {
+		response.BadRequestKey(c, "agent.invalidParams", nil)
+		return
+	}
+	if !h.ensureManualAccessByID(c, manualID) {
+		return
+	}
+	locale := i18n.NormalizeLocale(c.Param("locale"))
+	manual, err := h.service.DeleteManualContentTranslation(c.Request.Context(), manualID, locale)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NotFoundKey(c, "agent.manualNotFound", nil)
+		return
+	}
+	if err != nil {
+		response.InternalKey(c, "agent.internalError", nil)
+		return
+	}
+	c.JSON(http.StatusOK, buildManualAdminResponse(manual))
+}
+
 func (h *Handler) DeleteManual(c *gin.Context) {
 	manualID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || manualID == 0 {

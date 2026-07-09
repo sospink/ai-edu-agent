@@ -61,6 +61,14 @@ export async function deleteManual(manualId: number): Promise<void> {
   }
 }
 
+export async function deleteManualTranslation(manualId: number, locale: Locale): Promise<AgentManualAdmin> {
+  const response = await teacherManualApi.deleteManualTranslation(manualId, locale);
+  if (response.error) {
+    throw new Error(response.error);
+  }
+  return response.data || ({ exists: true, id: manualId, translationMissing: true } as AgentManualAdmin);
+}
+
 export async function updateSteps(
   manualId: number,
   steps: Array<{

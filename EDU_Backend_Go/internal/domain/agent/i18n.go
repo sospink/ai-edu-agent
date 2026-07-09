@@ -69,6 +69,43 @@ func (s *Service) SaveManualContentTranslation(ctx context.Context, manualID uin
 	return s.GetManualByID(i18n.WithLocale(ctx, normalizedLocale), manual.ID)
 }
 
+func (s *Service) DeleteManualContentTranslation(ctx context.Context, manualID uint64, locale string) (*AgentManual, error) {
+	manual, err := s.FindManualByID(ctx, manualID)
+	if err != nil {
+		return nil, err
+	}
+	normalizedLocale := i18n.NormalizeLocale(locale)
+
+	var steps []AgentStep
+	if err := s.db.WithContext(ctx).
+		Where("manual_id = ?", manual.ID).
+		Select("id").
+		Find(&steps).Error; err != nil {
+		return nil, err
+	}
+	stepIDs := make([]uint64, 0, len(steps))
+	for _, step := range steps {
+		stepIDs = append(stepIDs, step.ID)
+	}
+
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("entity_id = ? AND locale = ?", manual.ID, normalizedLocale).Delete(&AgentManualTranslation{}).Error; err != nil && !isMissingAgentTranslationTableError(err) {
+			return err
+		}
+		if len(stepIDs) == 0 {
+			return nil
+		}
+		if err := tx.Where("entity_id IN ? AND locale = ?", stepIDs, normalizedLocale).Delete(&AgentStepTranslation{}).Error; err != nil && !isMissingAgentTranslationTableError(err) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return s.GetManualByID(i18n.WithLocale(ctx, normalizedLocale), manual.ID)
+}
+
 func (s *Service) ImportMarkdownForLocale(ctx context.Context, sourceType int, sourceID uint64, markdown string, creatorID uint64, locale string) (*AgentManual, error) {
 	normalizedLocale := i18n.NormalizeLocale(locale)
 	if normalizedLocale == i18n.LocaleEnUS {

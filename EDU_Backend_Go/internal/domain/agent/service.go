@@ -907,6 +907,18 @@ func (s *Service) DeleteManual(ctx context.Context, manualID uint64) error {
 	}
 
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var stepIDs []uint64
+		if err := tx.Model(&AgentStep{}).Where("manual_id = ?", manualID).Pluck("id", &stepIDs).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("entity_id = ?", manualID).Delete(&AgentManualTranslation{}).Error; err != nil && !isMissingAgentTranslationTableError(err) {
+			return err
+		}
+		if len(stepIDs) > 0 {
+			if err := tx.Where("entity_id IN ?", stepIDs).Delete(&AgentStepTranslation{}).Error; err != nil && !isMissingAgentTranslationTableError(err) {
+				return err
+			}
+		}
 		if err := tx.Where("manual_id = ?", manualID).Delete(&AgentStep{}).Error; err != nil {
 			return err
 		}

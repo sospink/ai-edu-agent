@@ -112,6 +112,9 @@ export const teacherManualApi = {
     const res = await teacherApi.put<AgentManualAdmin>(`/manual-translations/${manualId}/${locale}`, data);
     return res as unknown as AgentManualAdmin;
   },
+  deleteManualTranslation(manualId: number, locale: Locale): Promise<ApiResponse<AgentManualAdmin>> {
+    return teacherApi.delete<AgentManualAdmin>(`/manual-translations/${manualId}/${locale}`);
+  },
   createManual(data: { sourceType: number; sourceId: number; title: string; description?: string }) {
     return teacherApi.post<{ id: number; title: string; description: string; isPublished: number }>('/manuals', data);
   },

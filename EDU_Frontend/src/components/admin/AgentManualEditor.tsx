@@ -557,19 +557,26 @@ export const AgentManualEditor: React.FC<AgentManualEditorProps> = ({
 
   const handleDelete = () => {
     if (!manualId) return;
+    const currentManualId = manualId;
     confirmDialog.showConfirm({
       title: t('deleteTitle'),
-      message: t('deleteMessage'),
+      message: contentLocale === 'en-US' ? t('deleteMessage') : t('deleteLocaleMessage', { locale: '中文' }),
       type: 'danger',
       onConfirm: async () => {
         setSaving(true);
         try {
-          await AdminAgentAPI.deleteManual(manualId);
-          setManualId(null);
-          setTitle(sourceName || t('newManual'));
-          setDescription('');
-          setIsPublished(false);
-          setSteps([]);
+          if (contentLocale === 'en-US') {
+            await AdminAgentAPI.deleteManual(currentManualId);
+            setManualId(null);
+            setTitle(sourceName || t('newManual'));
+            setDescription('');
+            setIsPublished(false);
+            setSteps([]);
+            setTranslationMissing(false);
+          } else {
+            const data = await AdminAgentAPI.deleteManualTranslation(currentManualId, contentLocale);
+            applyManualData(data, data);
+          }
           showToast(t('deleted'), 'success');
         } catch (err: any) {
           showToast(err.message || t('deleteFailed'), 'error');

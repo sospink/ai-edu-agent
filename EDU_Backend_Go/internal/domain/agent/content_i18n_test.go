@@ -136,3 +136,80 @@ Check the updated output.
 		t.Fatalf("expected chinese step translation to remain attached, got %#v", zhManual.Steps)
 	}
 }
+
+func TestDeleteManualContentTranslationOnlyRemovesRequestedLocale(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&AgentManual{}, &AgentStep{}, &AgentManualTranslation{}, &AgentStepTranslation{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	service := NewService(db, zap.NewNop(), nil)
+
+	manual := AgentManual{SourceType: 1, SourceID: 300, Title: "English Source", Description: "English source description", IsPublished: 1}
+	if err := db.Create(&manual).Error; err != nil {
+		t.Fatalf("create manual: %v", err)
+	}
+	step := AgentStep{
+		ManualID:       manual.ID,
+		StepOrder:      0,
+		Title:          "English Source Step",
+		Content:        []ContentBlock{{Type: "text", Text: "English source content"}},
+		QuickQuestions: []string{"English source question"},
+	}
+	if err := db.Create(&step).Error; err != nil {
+		t.Fatalf("create step: %v", err)
+	}
+	if _, err := service.SaveManualContentTranslation(context.Background(), manual.ID, i18n.LocaleEnUS, AgentManualContentTranslationInput{
+		Title:       "English Manual",
+		Description: "English description",
+		Steps: []AgentStepContentTranslationInput{{
+			ID:             step.ID,
+			Title:          "English Step",
+			Content:        []ContentBlock{{Type: "text", Text: "English content"}},
+			QuickQuestions: []string{"English question"},
+		}},
+	}); err != nil {
+		t.Fatalf("save english translation: %v", err)
+	}
+	if _, err := service.SaveManualContentTranslation(context.Background(), manual.ID, i18n.LocaleZhCN, AgentManualContentTranslationInput{
+		Title:       "中文手册",
+		Description: "中文说明",
+		Steps: []AgentStepContentTranslationInput{{
+			ID:             step.ID,
+			Title:          "中文步骤",
+			Content:        []ContentBlock{{Type: "text", Text: "中文内容"}},
+			QuickQuestions: []string{"中文问题"},
+		}},
+	}); err != nil {
+		t.Fatalf("save chinese translation: %v", err)
+	}
+
+	afterDelete, err := service.DeleteManualContentTranslation(context.Background(), manual.ID, i18n.LocaleZhCN)
+	if err != nil {
+		t.Fatalf("delete chinese translation: %v", err)
+	}
+	if afterDelete.ID != manual.ID || len(afterDelete.Steps) != 1 || afterDelete.Steps[0].ID != step.ID {
+		t.Fatalf("delete translation changed stable IDs: %#v", afterDelete)
+	}
+	if afterDelete.Title != "English Manual" || !afterDelete.TranslationMissing {
+		t.Fatalf("expected zh read to fall back to english after deletion, got %#v", afterDelete)
+	}
+
+	enManual, err := service.GetManualByID(i18n.WithLocale(context.Background(), i18n.LocaleEnUS), manual.ID)
+	if err != nil {
+		t.Fatalf("get english manual: %v", err)
+	}
+	if enManual.Title != "English Manual" || len(enManual.Steps) != 1 || enManual.Steps[0].Title != "English Step" || enManual.TranslationMissing {
+		t.Fatalf("expected english translation to remain intact, got %#v", enManual)
+	}
+
+	var manualCount int64
+	if err := db.Model(&AgentManual{}).Where("id = ?", manual.ID).Count(&manualCount).Error; err != nil {
+		t.Fatalf("count manual: %v", err)
+	}
+	if manualCount != 1 {
+		t.Fatalf("expected source manual to remain, got count %d", manualCount)
+	}
+}
