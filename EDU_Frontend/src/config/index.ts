@@ -93,10 +93,21 @@ export const APP_CONFIG = {
 // Dify configuration
 export const DIFY_BASE_URL = import.meta.env.VITE_DIFY_BASE_URL || '';
 export const DIFY_CHATBOT_TOKEN = import.meta.env.VITE_DIFY_CHATBOT_TOKEN || '';
+export const DIFY_CHATBOT_TOKEN_ZH = import.meta.env.VITE_DIFY_CHATBOT_TOKEN_ZH || DIFY_CHATBOT_TOKEN;
+export const DIFY_CHATBOT_TOKEN_EN = import.meta.env.VITE_DIFY_CHATBOT_TOKEN_EN || DIFY_CHATBOT_TOKEN;
 
-export const getDifyChatbotUrl = (query: Record<string, string | number | undefined> = {}): string => {
+const getDifyChatbotToken = (locale: string): string => (
+  locale.toLowerCase().startsWith('en')
+    ? DIFY_CHATBOT_TOKEN_EN
+    : DIFY_CHATBOT_TOKEN_ZH
+);
+
+export const getDifyChatbotUrl = (
+  query: Record<string, string | number | undefined> = {},
+  locale = 'zh-CN',
+): string => {
   const normalizedBase = DIFY_BASE_URL.replace(/\/$/, '');
-  const normalizedToken = DIFY_CHATBOT_TOKEN.trim();
+  const normalizedToken = getDifyChatbotToken(locale).trim();
   if (!normalizedBase || !normalizedToken) return '';
 
   const url = new URL(`/chatbot/${normalizedToken}`, normalizedBase);
@@ -135,9 +146,10 @@ const encodeDifyQueryValue = async (value: string): Promise<string> => {
 
 export const getDifyChatbotUrlEncoded = async (
   query: Record<string, string | number | undefined> = {},
+  locale = 'zh-CN',
 ): Promise<string> => {
   const normalizedBase = DIFY_BASE_URL.replace(/\/$/, '');
-  const normalizedToken = DIFY_CHATBOT_TOKEN.trim();
+  const normalizedToken = getDifyChatbotToken(locale).trim();
   if (!normalizedBase || !normalizedToken) return '';
 
   const url = new URL(`/chatbot/${normalizedToken}`, normalizedBase);

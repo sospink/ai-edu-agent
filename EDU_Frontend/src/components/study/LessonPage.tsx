@@ -935,6 +935,7 @@ const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, on
 // 主组件
 const LessonPage: React.FC = () => {
   const { t, i18n } = useTranslation('lesson');
+  const currentLocale = i18n.resolvedLanguage || i18n.language || 'zh-CN';
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1166,7 +1167,7 @@ const LessonPage: React.FC = () => {
         course_desc: shortCourseDesc || undefined,
         skill_name: skillName || undefined,
         lesson_name: lessonName || undefined,
-      });
+      }, currentLocale);
 
       if (!cancelled) {
         setDifyIframeSrc(url);
@@ -1183,7 +1184,7 @@ const LessonPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [courseDescription, courseId, courseTitle, lessonId, lessonName, skillName]);
+  }, [courseDescription, courseId, courseTitle, currentLocale, lessonId, lessonName, skillName]);
 
   useEffect(() => {
     setAssistantIframeLoaded(false);
@@ -1538,6 +1539,7 @@ const LessonPage: React.FC = () => {
                 <div className="absolute inset-0 bg-slate-100" />
               )}
               <iframe
+                key={difyIframeSrc}
                 src={difyIframeSrc}
                 className="absolute inset-0 block w-full border-0"
                 style={{
