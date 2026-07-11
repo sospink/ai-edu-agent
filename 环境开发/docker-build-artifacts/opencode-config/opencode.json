@@ -2,7 +2,22 @@
   "$schema": "https://opencode.ai/config.json",
   "theme": "opencode",
   "autoupdate": false,
-  "model": "zai/glm-4-flash-250414",
+  "model": "bigmodel/glm-4-flash",
+
+  "provider": {
+    "bigmodel": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "BigModel(GLM)",
+      "options": {
+        "baseURL": "https://open.bigmodel.cn/api/paas/v4",
+        "apiKey": "{env:ZHIPUAI_API_KEY}"
+      },
+      "models": {
+        "glm-4-flash": { "name": "GLM-4-Flash" },
+        "glm-4.5-flash": { "name": "GLM-4.5-Flash" }
+      }
+    }
+  },
 
   "permission": {
     "bash": "allow",
@@ -30,26 +45,6 @@
     "memory": {
       "type": "local",
       "command": ["npx", "-y", "@modelcontextprotocol/server-memory"],
-      "enabled": true
-    },
-    "puppeteer": {
-      "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-puppeteer"],
-      "enabled": true
-    },
-    "git": {
-      "type": "local",
-      "command": ["uvx", "mcp-server-git", "--repository", "/root"],
-      "enabled": true
-    },
-    "sqlite": {
-      "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-sqlite", "/root/data.db"],
-      "enabled": true
-    },
-    "fetch": {
-      "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-fetch"],
       "enabled": true
     },
     "sequential-thinking": {

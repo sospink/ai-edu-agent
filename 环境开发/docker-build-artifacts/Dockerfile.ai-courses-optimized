@@ -77,6 +77,19 @@ RUN echo "===> Installing desktop environment..." \
     && rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
+# 阶段2.5: 真 Firefox
+# Ubuntu 22.04 apt 的 firefox 是 snap 转向桩，容器内无 snapd 无法运行（桌面
+# "Web Browser" 打不开）。改从 Mozilla PPA 安装真 deb，并用 apt pin 让其优先级
+# 压过 snap 转向包（版本号更低，需 --allow-downgrades）。跨 arm64/amd64 通用。
+# =============================================================================
+RUN echo "===> Installing real Firefox from Mozilla PPA..." \
+    && add-apt-repository -y ppa:mozillateam/ppa \
+    && printf 'Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' > /etc/apt/preferences.d/mozilla-firefox \
+    && apt-get update \
+    && apt-get install -y --allow-downgrades firefox \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
 # 阶段3: Python 3.10 (Ubuntu 22.04 自带)
 # =============================================================================
 RUN echo "===> Setting up Python 3.10..." \
@@ -181,14 +194,28 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 RUN echo "===> Installing Node.js packages..." \
-    && npm install -g opencode-ai opencode-linux-x64 \
+    && DPKG_ARCH=$(dpkg --print-architecture) \
+    && if [ "$DPKG_ARCH" = "arm64" ]; then OPENCODE_BIN=opencode-linux-arm64; else OPENCODE_BIN=opencode-linux-x64; fi \
+    && echo "===> OpenCode binary package: $OPENCODE_BIN" \
+    && npm install -g opencode-ai "$OPENCODE_BIN" \
     && npm install -g @modelcontextprotocol/sdk \
     || echo "Warning: Some npm packages failed, continuing..."
 
-# 安装 Python uv (用于 uvx 命令运行 git MCP)
+# 安装 Python uv (用于 uvx 命令运行 MCP)
 RUN echo "===> Installing Python uv..." \
     && pip3 install --no-cache-dir uv \
     || echo "Warning: uv installation failed, continuing..."
+
+# 预缓存 opencode.json 用到的 MCP server，避免学生 pod 首次启动时现场下载。
+# 构建时装好后镜像自带缓存，每个 pod 开箱即热。
+# 注：fetch(uvx mcp-server-fetch) 因慢网下会触发 opencode 30s 连接超时且课程用不到，
+# 已从 opencode.json 移除，这里不再预缓存。
+RUN echo "===> Pre-caching MCP servers..." \
+    && npm install -g \
+        @modelcontextprotocol/server-filesystem \
+        @modelcontextprotocol/server-memory \
+        @modelcontextprotocol/server-sequential-thinking \
+    || echo "Warning: MCP pre-cache partial, will fetch at runtime"
 
 # =============================================================================
 # 阶段8: VS Code 安装
@@ -199,7 +226,7 @@ RUN echo "===> Installing VS Code..." \
         apt-transport-https \
         gpg \
     && wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/packages.microsoft.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list \
     && apt-get update \
     && apt-get install -y code \
     && mkdir -p /root/.vscode /root/Desktop \
@@ -264,7 +291,11 @@ COPY new-course/Agent/MultiAgentFramework /workspace/new-course/Agent/MultiAgent
 COPY new-course/Agent/SecurityGuardrails /workspace/new-course/Agent/SecurityGuardrails
 
 # 安装课程项目依赖并预编译 MCP Server
+# python3.10-venv：安全与合规课程 setup_env.sh 需要用 venv 隔离 nemoguardrails 0.20.0
 RUN echo "===> Installing course-specific dependencies..." \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends python3.10-venv \
+    && rm -rf /var/lib/apt/lists/* \
     && pip3 install --no-cache-dir -r /workspace/new-course/Agent/AgentFramework/requirements.txt \
     && pip3 install --no-cache-dir -r /workspace/new-course/Agent/MultiAgentFramework/brainstorm-mas/requirements.txt \
     && pip3 install --no-cache-dir -r /workspace/new-course/Agent/SecurityGuardrails/bartender-guardrails/requirements.txt \
