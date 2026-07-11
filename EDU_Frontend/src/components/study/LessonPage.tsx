@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { copyText } from '@/utils/clipboard';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -65,12 +66,10 @@ const MacCodeBlock: React.FC<MacCodeBlockProps> = ({ children, language }) => {
   const codeContent = extractTextContent(children);
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(codeContent);
+    const ok = await copyText(codeContent);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('复制失败:', err);
     }
   };
 

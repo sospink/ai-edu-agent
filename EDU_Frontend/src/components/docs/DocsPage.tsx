@@ -26,6 +26,11 @@ import { DEFAULT_DOC_PAGE, DOC_SIDEBAR_NAV } from './docManifest';
 mermaid.initialize({
   startOnLoad: false,
   theme: 'base',
+  securityLevel: 'loose',
+  flowchart: {
+    htmlLabels: false,
+    curve: 'basis',
+  },
   themeVariables: {
     fontFamily: 'Inter, sans-serif',
     primaryColor: '#ffffff',
@@ -43,16 +48,27 @@ mermaid.initialize({
   }
 });
 
+let mermaidRenderQueue: Promise<unknown> = Promise.resolve();
+
+const renderMermaidChart = (id: string, chart: string) => {
+  const nextRender = mermaidRenderQueue
+    .catch(() => undefined)
+    .then(() => mermaid.render(id, chart).then((result) => result.svg));
+  mermaidRenderQueue = nextRender.catch(() => undefined);
+  return nextRender;
+};
+
 const MermaidViewer = React.memo(({ chart, loadingText, errorText }: { chart: string; loadingText: string; errorText: string }) => {
   const [svg, setSvg] = useState('');
   
   useEffect(() => {
     let isMounted = true;
+    setSvg('');
     if (chart) {
       const currentId = 'mermaid-' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
-      mermaid.render(currentId, chart).then((result) => {
+      renderMermaidChart(currentId, chart).then((resultSvg) => {
         if (isMounted) {
-          setSvg(result.svg);
+          setSvg(resultSvg);
         }
       }).catch(err => {
         if (isMounted) {
@@ -66,7 +82,7 @@ const MermaidViewer = React.memo(({ chart, loadingText, errorText }: { chart: st
     return () => {
       isMounted = false;
     };
-  }, [chart]);
+  }, [chart, errorText]);
   
   return (
     <div 

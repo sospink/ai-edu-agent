@@ -178,7 +178,12 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
         break;
       }
       case 'course':
+        // 已在 /study 页时直接 navigate('/study') 不会有反应，需带 courseId 打开对应课程
+        navigate(`/study?courseId=${resource.resourceId}`);
+        break;
       case 'course_lesson':
+        navigate(resource.lessonId ? `/lesson/${resource.lessonId}` : `/study?courseId=${resource.resourceId}`);
+        break;
       default:
         navigate('/study');
         break;

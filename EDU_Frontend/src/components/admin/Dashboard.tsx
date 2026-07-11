@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { copyText } from '@/utils/clipboard';
 import {
   Activity,
   ArrowUpRight,
@@ -349,10 +350,9 @@ const Dashboard: React.FC = () => {
       info(tr('nothingToCopy'));
       return;
     }
-    try {
-      await navigator.clipboard.writeText(value);
+    if (await copyText(value)) {
       success(message);
-    } catch {
+    } else {
       error(tr('copyFailed'));
     }
   };
