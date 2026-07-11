@@ -320,7 +320,26 @@ func normalizeTransport(raw string) terminalTransport {
 
 func buildExecCommand(mode, command, sessionPolicy, terminalID string) []string {
 	if mode != "exec" {
-		return []string{"/bin/bash", "-l"}
+		// 默认终端也设 TERM 并走 tmux：学生常按手册在此手动启动 opencode 等全屏 TUI，
+		// 裸 bash exec 下 TUI 高频全屏重绘会冲垮 K8S SPDY exec 流，导致
+		// “终端执行失败 / 连接已断开”。tmux 提供稳定 PTY 并支持断线重连，
+		// 与 CLI(exec) 终端行为一致；若镜像无 tmux 则回退到普通登录 shell。
+		sessionName := "edu_" + sanitizeTerminalSessionName(terminalID)
+		restart := ""
+		if sessionPolicy == "restart" {
+			restart = fmt.Sprintf("tmux kill-session -t %s 2>/dev/null || true;", sessionName)
+		}
+		run := strings.Join([]string{
+			"export TERM=xterm-256color COLORTERM=truecolor;",
+			"if command -v tmux >/dev/null 2>&1; then",
+			restart,
+			fmt.Sprintf("tmux has-session -t %s 2>/dev/null && tmux attach-session -t %s || tmux new-session -s %s;",
+				sessionName, sessionName, sessionName),
+			"else",
+			"exec bash -l;",
+			"fi",
+		}, " ")
+		return []string{"/bin/bash", "-lc", run}
 	}
 
 	sessionName := "edu_" + sanitizeTerminalSessionName(command)

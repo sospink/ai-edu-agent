@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Copy, Check, Play, Sparkles, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { copyText } from '@/utils/clipboard';
 
 interface CodeBlockProps {
   language: string;
@@ -23,12 +24,10 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   const [runResult, setRunResult] = useState<{ output: string; exitCode: number; error?: string } | null>(null);
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
+    const ok = await copyText(code);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('复制失败:', err);
     }
   };
 
