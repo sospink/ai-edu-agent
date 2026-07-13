@@ -1,7 +1,9 @@
 package router_test
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -49,5 +51,48 @@ func TestLabProxyRejectsForeignSession(t *testing.T) {
 	}
 	if strings.Contains(resp.Body.String(), "Gateway 代理失败") {
 		t.Fatalf("expected request to be blocked before proxying upstream, got %s", resp.Body.String())
+	}
+}
+
+func TestStudentCanRenewLabSessionLease(t *testing.T) {
+	fixture := newTestFixture(t)
+	if err := fixture.db.AutoMigrate(&lab.UserLabSession{}); err != nil {
+		t.Fatalf("auto migrate lab session failed: %v", err)
+	}
+
+	leaseBefore := time.Now().Add(time.Minute)
+	session := lab.UserLabSession{
+		UserID:           fixture.student.ID,
+		SourceType:       lab.SourceTypeCourse,
+		SourceID:         42,
+		ContainerName:    lab.PodName(9902),
+		ImageName:        "docker.io/library/opencode-lab:latest",
+		Status:           lab.SessionStatusRunning,
+		RuntimeMode:      lab.RuntimeModeClassic,
+		ClientInstanceID: "browser-a",
+		LeaseExpiresAt:   &leaseBefore,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+	}
+	if err := fixture.db.Create(&session).Error; err != nil {
+		t.Fatalf("seed lab session failed: %v", err)
+	}
+
+	token := mustLogin(t, fixture, fixture.student.Username, "student@123")
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/lab/heartbeat/%d", session.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Lab-Client", "browser-a")
+	recorder := httptest.NewRecorder()
+	fixture.engine.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected heartbeat 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var refreshed lab.UserLabSession
+	if err := fixture.db.First(&refreshed, session.ID).Error; err != nil {
+		t.Fatalf("load refreshed lab session failed: %v", err)
+	}
+	if refreshed.LeaseExpiresAt == nil || !refreshed.LeaseExpiresAt.After(leaseBefore) {
+		t.Fatalf("expected lease to be renewed after %s, got %v", leaseBefore, refreshed.LeaseExpiresAt)
 	}
 }
