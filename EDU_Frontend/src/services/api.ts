@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/config';
 import i18n, { getCurrentLocale } from '@/i18n';
 import type { ApiResponse } from '@/types';
+import { getLabClientId } from '@/utils/labClient';
 
 class ApiService {
   private baseUrl: string;
@@ -31,6 +32,7 @@ class ApiService {
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
       'X-Locale': getCurrentLocale(),
+      'X-Lab-Client': getLabClientId(),
     };
 
     // 添加 Authorization header

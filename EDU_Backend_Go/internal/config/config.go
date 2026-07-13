@@ -89,7 +89,7 @@ type JWTConfig struct {
 }
 
 type SecurityConfig struct {
-	AllowedOrigins      []string `mapstructure:"allowed_origins"`
+	AllowedOrigins       []string `mapstructure:"allowed_origins"`
 	DefaultAdminPassword string   `mapstructure:"default_admin_password"`
 }
 
@@ -127,6 +127,7 @@ type K8SConfig struct {
 	RuntimeNamespace   string `mapstructure:"runtime_namespace"`
 	IngressClass       string `mapstructure:"ingress_class"`
 	LabImagePullSecret string `mapstructure:"lab_image_pull_secret"`
+	MaxActiveLabs      int    `mapstructure:"max_active_labs"`
 }
 
 func (c K8SConfig) ResolvedKubeconfig() string {
@@ -325,6 +326,7 @@ func overrideEnv(v *viper.Viper) {
 	setString(v, "k8s.runtime_namespace", "K8S_RUNTIME_NAMESPACE")
 	setString(v, "k8s.ingress_class", "K8S_INGRESS_CLASS")
 	setString(v, "k8s.lab_image_pull_secret", "K8S_LAB_IMAGE_PULL_SECRET")
+	setInt(v, "k8s.max_active_labs", "K8S_MAX_ACTIVE_LABS")
 	setString(v, "qwen.api_key", "QWEN_API_KEY")
 	setString(v, "qwen.api_key", "DASHSCOPE_API_KEY")
 	setString(v, "qwen.base_url", "QWEN_BASE_URL")

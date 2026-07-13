@@ -58,6 +58,19 @@ func TestRewriteVNCWebsockifyAuthPreservesAbsoluteProxyPath(t *testing.T) {
 	}
 }
 
+func TestRewriteVNCWebsockifyAccessIncludesClientID(t *testing.T) {
+	raw := "/api/lab/proxy/143/novnc/vnc.html?path=%2Fapi%2Flab%2Fproxy%2F143%2Fnovnc%2Fwebsockify"
+	rewritten := rewriteVNCWebsockifyAccess(raw, "token-123", "browser-abc")
+	parsed, err := url.Parse(rewritten)
+	if err != nil {
+		t.Fatalf("parse rewritten url: %v", err)
+	}
+	path := parsed.Query().Get("path")
+	if !strings.Contains(path, "authToken=token-123") || !strings.Contains(path, "labClientId=browser-abc") {
+		t.Fatalf("expected token and client id in websockify path, got %q", path)
+	}
+}
+
 func TestRewriteLocationMapsK8SServiceProxyRedirects(t *testing.T) {
 	headers := mapHeader("Location", "/api/v1/namespaces/edu-runtime-overseas/services/lab-service-230:ide/proxy/")
 

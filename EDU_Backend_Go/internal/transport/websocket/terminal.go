@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -81,8 +82,16 @@ func (h *TerminalHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	session, err := h.labService.GetActiveSession(c.Request.Context(), claims.UserID)
+	clientID := strings.TrimSpace(c.Query("labClientId"))
+	if clientID == "" {
+		clientID = fmt.Sprintf("legacy-user-%d", claims.UserID)
+	}
+	session, err := h.labService.RenewSessionLease(c.Request.Context(), claims.UserID, sessionID, clientID)
 	if err != nil {
+		if errors.Is(err, lab.ErrSessionInUse) {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "lab.sessionInUse", nil), "code": "LAB_SESSION_IN_USE"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": i18n.Message(c.Request.Context(), "terminal.sessionQueryFailed", nil), "code": "TERMINAL_SESSION_QUERY_FAILED"})
 		return
 	}
