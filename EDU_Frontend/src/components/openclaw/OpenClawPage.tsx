@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ChevronRight, ChevronUp, FolderOpen, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight, ChevronUp, FlaskConical, FolderOpen, Loader2 } from 'lucide-react';
 import CompleteLessonDialog from '@/components/study/CompleteLessonDialog';
 import { courseApi } from '@/services/course';
 import AILogoGif from '@/images/AI logo Foriday.gif';
@@ -161,6 +161,13 @@ const OpenClawPageInner: React.FC = () => {
     if (completing) return;
     setCompleting(true);
     try {
+      if (session.isDemoMode) {
+        setEarnedXP(0);
+        const elapsed = Math.round((Date.now() - experimentStartRef.current) / 1000);
+        setExperimentDuration(t('durationSeconds', { seconds: elapsed }));
+        setShowCompleteDialog(true);
+        return;
+      }
       const params = new URLSearchParams(location.search);
       const lessonId = parseInt(params.get('lessonId') || '0', 10);
       if (lessonId > 0) {
@@ -229,6 +236,12 @@ const OpenClawPageInner: React.FC = () => {
             <div>
               <h2 className="text-lg font-bold tracking-tight text-slate-900">{t('workspace')}</h2>
             </div>
+            {session.isDemoMode && (
+              <div className="hidden items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 sm:inline-flex">
+                <FlaskConical className="h-3.5 w-3.5" />
+                {t('demo.badge')}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -262,6 +275,13 @@ const OpenClawPageInner: React.FC = () => {
           </div>
         </header>
 
+        {session.isDemoMode && (
+          <div className="flex shrink-0 items-center justify-center gap-2 bg-amber-50/80 px-4 py-2 text-center text-xs font-medium text-amber-900">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+            {t('demo.notice')}
+          </div>
+        )}
+
         {/* 内容区域 - 使用子路由 + 页面过渡动画 */}
         <Routes>
           <Route index element={<Navigate to={`/openclaw/idle${location.search}`} replace />} />
@@ -271,7 +291,7 @@ const OpenClawPageInner: React.FC = () => {
             <PageTransition viewKey="idle">
               <main className="flex flex-1 min-h-0 flex-col overflow-hidden xl:flex-row">
                 <section className="relative flex flex-1 min-h-0 flex-col border-b border-slate-200 bg-slate-200 xl:border-b-0 xl:border-r">
-                  <IdleDesktop />
+                  <IdleDesktop isDemoMode={session.isDemoMode} />
                 </section>
                 <aside className="flex w-full min-h-0 flex-col bg-white xl:w-[32%]">
                   <IdleProcessPanel onStartScene={handleStartScene} />

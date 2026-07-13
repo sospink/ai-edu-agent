@@ -358,7 +358,7 @@ export const StatusChip: React.FC<{ icon: React.ReactNode; label: string; online
   );
 };
 
-export const IdleDesktop: React.FC = () => {
+export const IdleDesktop: React.FC<{ isDemoMode?: boolean }> = ({ isDemoMode = false }) => {
   const { t } = useTranslation('openclaw');
   const pixelOfficeUrl = import.meta.env.VITE_OPENCLAW_PIXEL_OFFICE_URL || 'http://139.199.68.121:26080/';
   const frameViewportRef = useRef<HTMLDivElement>(null);
@@ -408,6 +408,48 @@ export const IdleDesktop: React.FC = () => {
 
     return () => observer.disconnect();
   }, [baseHeight, baseWidth, focusHeight, focusWidth, focusX, focusY]);
+
+  if (isDemoMode) {
+    return (
+      <div className="relative z-10 flex h-full min-h-[420px] flex-col overflow-hidden bg-slate-900 text-white">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
+          <div className="flex items-center gap-2">
+            <Monitor className="h-4 w-4 text-cyan-300" />
+            <span className="text-xs font-semibold">{t('office')}</span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] font-medium text-emerald-300">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+            {t('demo.officeOnline')}
+          </div>
+        </div>
+
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden p-6">
+          <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(148,163,184,.18)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.18)_1px,transparent_1px)] [background-size:32px_32px]" />
+          <div className="relative grid w-full max-w-3xl grid-cols-1 gap-5 md:grid-cols-3">
+            {[t('demo.officeNodePlanner'), t('demo.officeNodeResearch'), t('demo.officeNodeDelivery')].map((label, index) => (
+              <div key={label} className="group relative min-h-40 overflow-hidden rounded-lg bg-white/[0.07] p-5 shadow-2xl backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:bg-white/[0.11]">
+                <div className="mb-8 flex items-center justify-between">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-cyan-400/15 text-cyan-300">
+                    {index === 0 ? <Cpu className="h-5 w-5" /> : index === 1 ? <Database className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                  </div>
+                  <span className="font-mono text-[10px] text-slate-500">NODE 0{index + 1}</span>
+                </div>
+                <p className="text-sm font-semibold text-slate-100">{label}</p>
+                <div className="mt-3 flex gap-1">
+                  {[0, 1, 2, 3].map((bar) => <span key={bar} className="h-1 flex-1 animate-pulse rounded-full bg-cyan-400/40" style={{ animationDelay: `${bar * 120}ms` }} />)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-[11px] text-slate-400">
+          <span>{t('demo.officeQueue')}</span>
+          <span className="font-mono text-cyan-300">DEMO / READY</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative z-10 flex h-full flex-col bg-slate-100">

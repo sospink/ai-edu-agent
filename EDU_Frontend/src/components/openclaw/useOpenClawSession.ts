@@ -34,6 +34,8 @@ export interface ChatMessage {
 }
 
 export interface OpenClawSessionContextValue {
+  /** 外部 OpenClaw 暂不可用时启用的纯前端演示模式 */
+  isDemoMode: boolean;
   // --- 场景与阶段 ---
   selectedSceneIndex: number | null;
   /** 会话的实际推进阶段（只进不退） */
@@ -83,6 +85,8 @@ const PHASE_ORDER: Record<SessionState, number> = {
   approval: 2,   // executing
   completed: 3,
 };
+
+const OPENCLAW_DEMO_MODE = import.meta.env.VITE_OPENCLAW_DEMO_MODE !== 'false';
 
 // ====== sessionStorage 持久化 ======
 
@@ -247,6 +251,20 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
     setSelectedSceneIndex(sceneIndex);
     setPendingPrompt(prompt);
     setSessionPhase('running');
+    if (OPENCLAW_DEMO_MODE) {
+      setThinkingView({ messages: [] });
+      setExecutingView({
+        status: t('demo.statusReady'),
+        progress: 18,
+        currentStep: t('demo.currentStep'),
+        events: [],
+        toolchain: [
+          { id: 'demo-files', name: t('demo.skillFiles'), active: true, state: 'ready', source: 'demo', detail: t('demo.skillReady') },
+          { id: 'demo-analysis', name: t('demo.skillAnalysis'), active: true, state: 'ready', source: 'demo', detail: t('demo.skillReady') },
+        ],
+      });
+      setCompletedView(null);
+    }
   }, [t]);
 
   useEffect(() => {
@@ -261,8 +279,53 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
     setHasSentMessage(true);
     // 消息发送后清除 pendingPrompt，避免切换 Tab 回来时重复填充输入框
     setPendingPrompt('');
+    if (OPENCLAW_DEMO_MODE) {
+      setIsWaitingReply(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+      const now = Date.now();
+      setThinkingView((current) => ({
+        messages: [
+          ...(current?.messages || []),
+          {
+            id: `demo-${now}`,
+            ts: now,
+            source: 'openclaw',
+            role: 'assistant',
+            content: t('demo.reply', { task: text }),
+          },
+        ],
+      }));
+      setExecutingView({
+        status: t('demo.statusRunning'),
+        progress: 76,
+        currentStep: t('demo.currentStepRunning'),
+        events: [
+          { id: `demo-input-${now}`, ts: now - 1800, title: t('demo.eventInput'), desc: text, level: 'info', kind: 'user_input', source: 'system' },
+          { id: `demo-tool-${now}`, ts: now - 900, title: t('demo.eventTool'), desc: t('demo.eventToolDesc'), level: 'info', kind: 'tool_call', source: 'assistant' },
+          { id: `demo-result-${now}`, ts: now, title: t('demo.eventResult'), desc: t('demo.eventResultDesc'), level: 'info', kind: 'tool_result', source: 'assistant' },
+        ],
+        toolchain: [
+          { id: 'demo-files', name: t('demo.skillFiles'), active: true, state: 'ready', source: 'demo', detail: t('demo.skillReady') },
+          { id: 'demo-analysis', name: t('demo.skillAnalysis'), active: true, state: 'ready', source: 'demo', detail: t('demo.skillReady') },
+        ],
+      });
+      setCompletedView({
+        summary: t('demo.completedSummary'),
+        artifacts: [
+          { id: 'demo-report', name: t('demo.artifactName'), type: 'file', size: '24 KB', url: '#', source: 'openclaw' },
+        ],
+        finalMessages: [{ id: `demo-final-${now}`, ts: now, content: t('demo.completedMessage') }],
+        steps: [
+          { id: 'demo-step-1', title: t('demo.stepAnalyze'), desc: t('demo.stepAnalyzeDesc'), ts: now - 1800, status: 'success' },
+          { id: 'demo-step-2', title: t('demo.stepDeliver'), desc: t('demo.stepDeliverDesc'), ts: now, status: 'success' },
+        ],
+        metrics: { durationSeconds: 12, successRate: 100, totalSteps: 2, totalEvents: 3, activeSkills: 2 },
+      });
+      setIsWaitingReply(false);
+      return;
+    }
     await openclawViewService.sendChatMessage(text, activeSessionId);
-  }, [activeSessionId]);
+  }, [activeSessionId, t]);
 
   // ====== 全量重置 ======
 
@@ -290,7 +353,7 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
 
   // shouldPoll：只要 sessionPhase 不是 idle 就轮询
   // 这在初始化时已经被 URL 修正过，所以不会遗漏
-  const shouldPoll = sessionPhase !== 'idle';
+  const shouldPoll = !OPENCLAW_DEMO_MODE && sessionPhase !== 'idle';
 
   useEffect(() => {
     if (!shouldPoll) return;
@@ -403,6 +466,7 @@ export function useOpenClawSessionProvider(activeSessionId: string, scope: Openc
   // ====== 返回 Context Value ======
 
   return useMemo<OpenClawSessionContextValue>(() => ({
+    isDemoMode: OPENCLAW_DEMO_MODE,
     selectedSceneIndex,
     sessionPhase,
     thinkingView,
