@@ -3,12 +3,14 @@ package lab
 import (
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
 	"edu-platform/internal/config"
 	"edu-platform/internal/domain/publishing"
+	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -68,6 +70,39 @@ func TestRewriteVNCWebsockifyAccessIncludesClientID(t *testing.T) {
 	}
 }
 
+func TestProxyCookiesPreserveLabClientForSubresources(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/lab/proxy/143/novnc/vnc.html?labClientId=browser-abc", nil)
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = request
+
+	handler := &Handler{}
+	handler.setProxyCookies(context, 143, "/api/lab/proxy", "token-123", "browser-abc")
+
+	subresourceRequest := httptest.NewRequest(http.MethodGet, "/api/lab/proxy/143/novnc/app/ui.js", nil)
+	for _, cookie := range recorder.Result().Cookies() {
+		subresourceRequest.AddCookie(cookie)
+	}
+	subresourceContext, _ := gin.CreateTestContext(httptest.NewRecorder())
+	subresourceContext.Request = subresourceRequest
+
+	if got := proxyClientID(subresourceContext, &UserLabSession{ID: 143}, 7); got != "browser-abc" {
+		t.Fatalf("expected proxy subresource to reuse browser client id, got %q", got)
+	}
+}
+
+func TestProxySubresourceFallsBackToSessionClientDuringCookieRace(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = httptest.NewRequest(http.MethodGet, "/api/lab/proxy/143/novnc/core/rfb.js", nil)
+	session := &UserLabSession{ID: 143, ClientInstanceID: "browser-owner"}
+
+	if got := proxyClientID(context, session, 7); got != "browser-owner" {
+		t.Fatalf("expected proxy subresource to reuse session client id, got %q", got)
+	}
+}
+
 func TestRewriteLocationMapsK8SServiceProxyRedirects(t *testing.T) {
 	headers := mapHeader("Location", "/api/v1/namespaces/edu-runtime-overseas/services/lab-service-230:ide/proxy/")
 
@@ -107,6 +142,29 @@ func TestRewriteProxyResponseBodyMapsK8SServiceProxyAssets(t *testing.T) {
 	}
 	if !strings.Contains(got, `/api/lab/proxy/231/ide/stable/static/out/vs/code/browser/workbench/workbench.css`) {
 		t.Fatalf("expected asset path to use lab proxy, got %q", got)
+	}
+}
+
+func TestRewriteProxyResponseBodyCollapsesOpenVSCodeDuplicateBasePath(t *testing.T) {
+	proxyBase := "/api/lab/proxy/231/ide"
+	internalBase := "/api/v1/namespaces/edu-runtime-overseas/services/lab-service-231:ide/proxy"
+	body := `<link href="` + internalBase + proxyBase + `/stable/static/workbench.css">`
+	resp := &http.Response{
+		Header: http.Header{"Content-Type": []string{"text/html; charset=utf-8"}},
+		Body:   io.NopCloser(strings.NewReader(body)),
+	}
+
+	rewriteProxyResponseBody(resp, internalBase, proxyBase)
+	rewritten, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read rewritten body: %v", err)
+	}
+	got := string(rewritten)
+	if strings.Contains(got, proxyBase+proxyBase) {
+		t.Fatalf("expected duplicate IDE base path to be collapsed, got %q", got)
+	}
+	if !strings.Contains(got, proxyBase+"/stable/static/workbench.css") {
+		t.Fatalf("expected IDE asset to retain one proxy base, got %q", got)
 	}
 }
 
@@ -252,6 +310,12 @@ func TestCreateRuntimeResourcesUsesCachedLatestImages(t *testing.T) {
 	for _, container := range pod.Spec.Containers {
 		if container.ImagePullPolicy != corev1.PullIfNotPresent {
 			t.Fatalf("expected %s image pull policy IfNotPresent, got %s", container.Name, container.ImagePullPolicy)
+		}
+		if container.Name == IDEContainerName {
+			args := strings.Join(container.Args, " ")
+			if !strings.Contains(args, "--server-base-path /api/lab/proxy/188/ide") {
+				t.Fatalf("expected IDE server base path to use the session proxy, got %q", args)
+			}
 		}
 	}
 }

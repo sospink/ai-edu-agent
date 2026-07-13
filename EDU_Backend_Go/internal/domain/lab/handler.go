@@ -244,7 +244,8 @@ func (h *Handler) proxyToTarget(c *gin.Context, target, routeBase string) {
 		response.ErrorKey(c, http.StatusNotFound, "LAB_SESSION_EXPIRED", "lab.sessionExpired", nil)
 		return
 	}
-	if _, err := h.service.RenewSessionLease(c.Request.Context(), userID, sessionID, labClientIDForUser(c, userID)); err != nil {
+	clientID := proxyClientID(c, session, userID)
+	if _, err := h.service.RenewSessionLease(c.Request.Context(), userID, sessionID, clientID); err != nil {
 		h.writeSessionAccessError(c, err, "LAB_PROXY_FAILED", "lab.proxyFailed")
 		return
 	}
@@ -261,7 +262,7 @@ func (h *Handler) proxyToTarget(c *gin.Context, target, routeBase string) {
 		return
 	}
 	if authToken != "" {
-		h.setProxyCookie(c, session.ID, routeBase, authToken)
+		h.setProxyCookies(c, session.ID, routeBase, authToken, clientID)
 	}
 
 	proxy, err := h.reverseProxy(upstream, session.ID, resolvedTarget, routeBase)
@@ -417,7 +418,7 @@ func (h *Handler) proxyUserID(c *gin.Context, sessionID uint64, routeBase string
 	return claims.UserID, token
 }
 
-func (h *Handler) setProxyCookie(c *gin.Context, sessionID uint64, routeBase, token string) {
+func (h *Handler) setProxyCookies(c *gin.Context, sessionID uint64, routeBase, token, clientID string) {
 	path := fmt.Sprintf("%s/%d", routeBase, sessionID)
 	if routeBase == "/api/lab/proxy" {
 		path = fmt.Sprintf("%s/%d", routeBase, sessionID)
@@ -430,6 +431,40 @@ func (h *Handler) setProxyCookie(c *gin.Context, sessionID uint64, routeBase, to
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
+	if clientID == "" {
+		return
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     proxyClientCookieName(sessionID),
+		Value:    url.QueryEscape(clientID),
+		Path:     path,
+		MaxAge:   int((2 * time.Hour).Seconds()),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func proxyClientID(c *gin.Context, session *UserLabSession, userID uint64) string {
+	if clientID := labClientID(c); clientID != "" {
+		return clientID
+	}
+	sessionID := uint64(0)
+	if session != nil {
+		sessionID = session.ID
+	}
+	if clientID, err := c.Cookie(proxyClientCookieName(sessionID)); err == nil {
+		if normalized := normalizeClientID(clientID); normalized != "" {
+			return normalized
+		}
+	}
+	// 子资源请求可能在认证 Cookie 已生效、客户端 Cookie 尚未可见时并发发出。
+	// 初始代理请求已经校验过显式 client ID，此处沿用会话持有者，避免误判为其他设备。
+	if session != nil {
+		if clientID := normalizeClientID(session.ClientInstanceID); clientID != "" {
+			return clientID
+		}
+	}
+	return fmt.Sprintf("legacy-user-%d", userID)
 }
 
 func currentUserID(c *gin.Context) (uint64, bool) {
@@ -459,6 +494,10 @@ func bearerOrQueryToken(c *gin.Context) string {
 
 func proxyCookieName(sessionID uint64) string {
 	return fmt.Sprintf("edu_lab_proxy_%d", sessionID)
+}
+
+func proxyClientCookieName(sessionID uint64) string {
+	return fmt.Sprintf("edu_lab_client_%d", sessionID)
 }
 
 func stripFrameBlockingHeaders(headers http.Header) {
@@ -546,6 +585,12 @@ func rewriteProxyResponseBody(resp *http.Response, internalBase, proxyBase strin
 			continue
 		}
 		rewritten = bytes.ReplaceAll(rewritten, []byte(pair[0]), []byte(pair[1]))
+	}
+	// OpenVSCode 同时识别 K8S Service Proxy 的 forwarded prefix 和
+	// --server-base-path，首屏 HTML 会临时产生重复前缀，收口为单一外部路径。
+	doubledExternalBase := externalBase + externalBase
+	if doubledExternalBase != externalBase {
+		rewritten = bytes.ReplaceAll(rewritten, []byte(doubledExternalBase), []byte(externalBase))
 	}
 
 	resp.Body = io.NopCloser(bytes.NewReader(rewritten))

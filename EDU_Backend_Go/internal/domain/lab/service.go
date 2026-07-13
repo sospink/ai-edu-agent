@@ -848,6 +848,11 @@ func (s *Service) createRuntimeResources(ctx context.Context, session *UserLabSe
 			Name:            IDEContainerName,
 			Image:           ideImage,
 			ImagePullPolicy: corev1.PullIfNotPresent,
+			Args: []string{
+				"--host", "0.0.0.0",
+				"--without-connection-token",
+				"--server-base-path", fmt.Sprintf("/api/lab/proxy/%d/%s", session.ID, PortNameIDE),
+			},
 			Env: []corev1.EnvVar{
 				{Name: "USER_ID", Value: strconv.FormatUint(session.UserID, 10)},
 				{Name: "SOURCE_NAME", Value: sourceName},
