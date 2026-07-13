@@ -155,7 +155,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [sourceType, sourceId, onComplete, onError, onSessionCreated]);
+  }, [sourceType, sourceId, onComplete, onError, onConflict, onSessionCreated]);
 
   return (
     <motion.div
@@ -1170,6 +1170,10 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     }
   }, []);
 
+  const handleBootComplete = useCallback(() => {
+    setIsBooting(false);
+  }, []);
+
   // 返回
   const handleBack = () => {
     if (completing) return;
@@ -1188,19 +1192,19 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   };
 
   // 错误处理
-  const handleError = (err: string) => {
+  const handleError = useCallback((err: string) => {
     setError(err);
     setIsBooting(false);
-  };
+  }, []);
 
   // 会话冲突处理
-  const handleConflict = (conflictMessage?: string) => {
+  const handleConflict = useCallback((conflictMessage?: string) => {
     if (conflictMessage) {
       setError(null);
     }
     setIsBooting(false);
     setShowConflictModal(true);
-  };
+  }, []);
 
   // 关闭现有会话并重新创建
   const handleCloseAndRecreate = async () => {
@@ -1296,7 +1300,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
         {isBooting && (
           <BootSequence
             key={retryKey}
-            onComplete={() => setIsBooting(false)}
+            onComplete={handleBootComplete}
             onError={handleError}
             onConflict={handleConflict}
             sourceType={sourceType}
