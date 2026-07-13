@@ -60,6 +60,8 @@ type UserLabSession struct {
 	DesktopEnabled     bool                            `gorm:"column:desktop_enabled;not null;default:true" json:"desktopEnabled"`
 	AppPorts           []publishing.LabTemplateAppPort `gorm:"column:app_ports;serializer:json" json:"appPorts"`
 	DefaultAppPortName string                          `gorm:"column:default_app_port_name;size:32;not null;default:''" json:"defaultAppPortName"`
+	ClientInstanceID   string                          `gorm:"column:client_instance_id;size:64;not null;default:'';index:idx_lab_sessions_client" json:"-"`
+	LeaseExpiresAt     *time.Time                      `gorm:"column:lease_expires_at;index:idx_lab_sessions_lease" json:"leaseExpiresAt,omitempty"`
 }
 
 func (UserLabSession) TableName() string {
@@ -87,6 +89,7 @@ type CreateSessionParams struct {
 	UserID     uint64
 	SourceType SourceType
 	SourceID   uint64
+	ClientID   string
 }
 
 type ExecuteResult struct {

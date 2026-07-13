@@ -112,6 +112,10 @@ export const labApi = {
     return api.post<{ message: string }>(`/lab/stop/${sessionId}`, {});
   },
 
+  async renewLease(sessionId: number): Promise<ApiResponse<{ sessionId: number; leaseExpiresAt: string }>> {
+    return api.post<{ sessionId: number; leaseExpiresAt: string }>(`/lab/heartbeat/${sessionId}`, {});
+  },
+
   // 获取实验环境 URL
   async getSessionUrls(): Promise<ApiResponse<LabUrls>> {
     return api.get<LabUrls>('/lab/urls');

@@ -942,6 +942,22 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   }, [session?.id]);
 
   useEffect(() => {
+    if (!session || session.status !== LabSessionStatus.RUNNING) return;
+    let disposed = false;
+    const renew = async () => {
+      const response = await labApi.renewLease(session.id);
+      if (!disposed && !response.success) {
+        setError(response.error || t('operationFailed'));
+      }
+    };
+    const timer = window.setInterval(() => void renew(), 30_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [session?.id, session?.status, t]);
+
+  useEffect(() => {
     if (!session || timeoutHandled || timeLeft > 0) return;
 
     let cancelled = false;

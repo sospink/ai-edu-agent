@@ -41,9 +41,9 @@ func (h *Handler) GetActiveSession(c *gin.Context) {
 		return
 	}
 
-	session, err := h.service.GetActiveSession(c.Request.Context(), userID)
+	session, err := h.service.GetActiveSessionForClient(c.Request.Context(), userID, labClientIDForUser(c, userID))
 	if err != nil {
-		response.ErrorKey(c, http.StatusInternalServerError, "LAB_ACTIVE_SESSION_FAILED", "lab.activeSessionFailed", nil)
+		h.writeSessionAccessError(c, err, "LAB_ACTIVE_SESSION_FAILED", "lab.activeSessionFailed")
 		return
 	}
 	if session == nil {
@@ -100,8 +100,17 @@ func (h *Handler) CreateSession(c *gin.Context) {
 		UserID:     userID,
 		SourceType: req.SourceType,
 		SourceID:   req.SourceID,
+		ClientID:   labClientIDForUser(c, userID),
 	})
 	if err != nil {
+		if errors.Is(err, ErrSessionInUse) {
+			response.ErrorKey(c, http.StatusConflict, "LAB_SESSION_IN_USE", "lab.sessionInUse", nil)
+			return
+		}
+		if errors.Is(err, ErrCapacityReached) {
+			response.ErrorKey(c, http.StatusServiceUnavailable, "LAB_CAPACITY_REACHED", "lab.capacityReached", nil)
+			return
+		}
 		// 透传 service 层的具体原因（如并发上限、镜像未配置等），response.Error 会按语言翻译，
 		// 英文请求经 i18n.SystemText 回退为通用英文，避免中文泄漏，同时保留中文端的可操作信息。
 		response.Error(c, http.StatusBadRequest, err.Error(), "LAB_CREATE_FAILED")
@@ -114,6 +123,25 @@ func (h *Handler) CreateSession(c *gin.Context) {
 	}, "")
 }
 
+func (h *Handler) RenewLease(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.UnauthorizedKey(c, "auth.required", nil)
+		return
+	}
+	sessionID, err := parseUintParam(c, "sessionId")
+	if err != nil {
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_SESSION_ID_INVALID", "lab.invalidSessionId", nil)
+		return
+	}
+	session, err := h.service.RenewSessionLease(c.Request.Context(), userID, sessionID, labClientIDForUser(c, userID))
+	if err != nil {
+		h.writeSessionAccessError(c, err, "LAB_LEASE_RENEW_FAILED", "lab.sessionExpired")
+		return
+	}
+	response.Success(c, gin.H{"sessionId": session.ID, "leaseExpiresAt": session.LeaseExpiresAt}, "")
+}
+
 func (h *Handler) StopSession(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
@@ -124,6 +152,10 @@ func (h *Handler) StopSession(c *gin.Context) {
 	sessionID, err := parseUintParam(c, "sessionId")
 	if err != nil {
 		response.ErrorKey(c, http.StatusBadRequest, "LAB_SESSION_ID_INVALID", "lab.invalidSessionId", nil)
+		return
+	}
+	if _, err := h.service.RenewSessionLease(c.Request.Context(), userID, sessionID, labClientIDForUser(c, userID)); err != nil {
+		h.writeSessionAccessError(c, err, "LAB_STOP_FAILED", "lab.stopFailed")
 		return
 	}
 	if err := h.service.StopSession(c.Request.Context(), userID, sessionID); err != nil {
@@ -141,9 +173,9 @@ func (h *Handler) GetSessionURLs(c *gin.Context) {
 		return
 	}
 
-	session, err := h.service.GetActiveSession(c.Request.Context(), userID)
+	session, err := h.service.GetActiveSessionForClient(c.Request.Context(), userID, labClientIDForUser(c, userID))
 	if err != nil {
-		response.ErrorKey(c, http.StatusInternalServerError, "LAB_URLS_FAILED", "lab.urlsFailed", nil)
+		h.writeSessionAccessError(c, err, "LAB_URLS_FAILED", "lab.urlsFailed")
 		return
 	}
 	if session == nil {
@@ -170,9 +202,9 @@ func (h *Handler) ExecuteCommand(c *gin.Context) {
 		return
 	}
 
-	session, err := h.service.GetActiveSession(c.Request.Context(), userID)
+	session, err := h.service.GetActiveSessionForClient(c.Request.Context(), userID, labClientIDForUser(c, userID))
 	if err != nil {
-		response.ErrorKey(c, http.StatusInternalServerError, "LAB_EXECUTE_FAILED", "lab.executeFailed", nil)
+		h.writeSessionAccessError(c, err, "LAB_EXECUTE_FAILED", "lab.executeFailed")
 		return
 	}
 	if session == nil {
@@ -210,6 +242,10 @@ func (h *Handler) proxyToTarget(c *gin.Context, target, routeBase string) {
 	}
 	if session == nil || session.Status != SessionStatusRunning {
 		response.ErrorKey(c, http.StatusNotFound, "LAB_SESSION_EXPIRED", "lab.sessionExpired", nil)
+		return
+	}
+	if _, err := h.service.RenewSessionLease(c.Request.Context(), userID, sessionID, labClientIDForUser(c, userID)); err != nil {
+		h.writeSessionAccessError(c, err, "LAB_PROXY_FAILED", "lab.proxyFailed")
 		return
 	}
 	resolvedTarget, ok := resolveProxyTarget(session, target)
@@ -294,22 +330,56 @@ func (h *Handler) reverseProxy(upstream *url.URL, sessionID uint64, target, rout
 func (h *Handler) urlsFor(c *gin.Context, session *UserLabSession) URLs {
 	urls := h.service.BuildURLs(session)
 	token := bearerOrQueryToken(c)
+	clientID := labClientID(c)
 	if token == "" {
 		return urls
 	}
 	if urls.VNCURL != "" {
 		urls.VNCURL = appendQuery(urls.VNCURL, "authToken", token)
-		urls.VNCURL = rewriteVNCWebsockifyAuth(urls.VNCURL, token)
+		urls.VNCURL = appendQuery(urls.VNCURL, "labClientId", clientID)
+		urls.VNCURL = rewriteVNCWebsockifyAccess(urls.VNCURL, token, clientID)
 	}
 	if urls.IDEURL != "" {
 		urls.IDEURL = appendQuery(urls.IDEURL, "authToken", token)
+		urls.IDEURL = appendQuery(urls.IDEURL, "labClientId", clientID)
 	}
 	for idx := range urls.AppURLs {
 		if urls.AppURLs[idx].URL != "" {
 			urls.AppURLs[idx].URL = appendQuery(urls.AppURLs[idx].URL, "authToken", token)
+			urls.AppURLs[idx].URL = appendQuery(urls.AppURLs[idx].URL, "labClientId", clientID)
 		}
 	}
 	return urls
+}
+
+func labClientID(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	value := strings.TrimSpace(c.GetHeader("X-Lab-Client"))
+	if value == "" {
+		value = strings.TrimSpace(c.Query("labClientId"))
+	}
+	return normalizeClientID(value)
+}
+
+func labClientIDForUser(c *gin.Context, userID uint64) string {
+	if value := labClientID(c); value != "" {
+		return value
+	}
+	return fmt.Sprintf("legacy-user-%d", userID)
+}
+
+func (h *Handler) writeSessionAccessError(c *gin.Context, err error, fallbackCode string, fallbackKey i18n.MessageKey) {
+	if errors.Is(err, ErrSessionInUse) {
+		response.ErrorKey(c, http.StatusConflict, "LAB_SESSION_IN_USE", "lab.sessionInUse", nil)
+		return
+	}
+	if strings.Contains(err.Error(), "客户端标识") {
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_CLIENT_ID_REQUIRED", "lab.clientIdRequired", nil)
+		return
+	}
+	response.ErrorKey(c, http.StatusInternalServerError, fallbackCode, fallbackKey, nil)
 }
 
 func resolveProxyTarget(session *UserLabSession, target string) (string, bool) {
@@ -508,6 +578,10 @@ func appendQuery(rawURL, key, value string) string {
 }
 
 func rewriteVNCWebsockifyAuth(rawURL, token string) string {
+	return rewriteVNCWebsockifyAccess(rawURL, token, "")
+}
+
+func rewriteVNCWebsockifyAccess(rawURL, token, clientID string) string {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return rawURL
@@ -521,7 +595,11 @@ func rewriteVNCWebsockifyAuth(rawURL, token string) string {
 	if strings.Contains(path, "?") {
 		separator = "&"
 	}
-	query.Set("path", path+separator+"authToken="+url.QueryEscape(token))
+	path += separator + "authToken=" + url.QueryEscape(token)
+	if clientID != "" {
+		path += "&labClientId=" + url.QueryEscape(clientID)
+	}
+	query.Set("path", path)
 	parsed.RawQuery = query.Encode()
 	return parsed.String()
 }

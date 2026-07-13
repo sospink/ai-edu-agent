@@ -42,6 +42,13 @@ type Service struct {
 	operations *operations.Service
 }
 
+var (
+	ErrSessionInUse    = errors.New("实验环境正在另一台设备中使用")
+	ErrCapacityReached = errors.New("实验环境资源已满，请稍后再试")
+)
+
+const labLeaseDuration = 2 * time.Minute
+
 func NewService(db *gorm.DB, log *zap.Logger, cfg *config.Config, k8sClient kubernetes.Interface, restConfig *rest.Config) *Service {
 	return &Service{db: db, log: log, cfg: cfg, k8s: k8sClient, restConfig: restConfig, operations: operations.NewService(db, log)}
 }
@@ -63,6 +70,60 @@ func (s *Service) GetActiveSession(ctx context.Context, userID uint64) (*UserLab
 		return nil, nil
 	}
 	return &session, nil
+}
+
+func (s *Service) GetActiveSessionForClient(ctx context.Context, userID uint64, clientID string) (*UserLabSession, error) {
+	session, err := s.GetActiveSession(ctx, userID)
+	if err != nil || session == nil {
+		return session, err
+	}
+	if err := s.claimSessionLease(ctx, session, clientID); err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+func (s *Service) RenewSessionLease(ctx context.Context, userID, sessionID uint64, clientID string) (*UserLabSession, error) {
+	session, err := s.GetOwnedSession(ctx, userID, sessionID)
+	if err != nil || session == nil {
+		return session, err
+	}
+	if session.Status != SessionStatusRunning && session.Status != SessionStatusCreating {
+		return nil, errors.New("实验会话不存在或已结束")
+	}
+	if err := s.claimSessionLease(ctx, session, clientID); err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+func (s *Service) claimSessionLease(ctx context.Context, session *UserLabSession, clientID string) error {
+	clientID = normalizeClientID(clientID)
+	if clientID == "" {
+		return errors.New("缺少实验客户端标识")
+	}
+	now := time.Now()
+	leaseUntil := now.Add(labLeaseDuration)
+	result := s.db.WithContext(ctx).Model(&UserLabSession{}).
+		Where("id = ? AND (client_instance_id = '' OR client_instance_id = ? OR lease_expires_at IS NULL OR lease_expires_at < ?)", session.ID, clientID, now).
+		Updates(map[string]any{"client_instance_id": clientID, "lease_expires_at": leaseUntil})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrSessionInUse
+	}
+	session.ClientInstanceID = clientID
+	session.LeaseExpiresAt = &leaseUntil
+	return nil
+}
+
+func normalizeClientID(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) > 64 {
+		value = value[:64]
+	}
+	return value
 }
 
 func (s *Service) GetUserSessions(ctx context.Context, userID uint64) ([]UserLabSession, error) {
@@ -107,7 +168,13 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 	if strings.TrimSpace(source.EnvImage) == "" {
 		return nil, errors.New("该课程/项目未配置实验环境镜像")
 	}
-
+	params.ClientID = normalizeClientID(params.ClientID)
+	if params.ClientID == "" {
+		return nil, errors.New("缺少实验客户端标识")
+	}
+	if err := s.ensureClusterCapacity(ctx); err != nil {
+		return nil, err
+	}
 	resolvedQuota, err := s.operations.ResolveQuotaForUser(ctx, params.UserID)
 	if err != nil {
 		return nil, err
@@ -150,6 +217,8 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 		DesktopEnabled:     source.DesktopEnabled,
 		AppPorts:           source.AppPorts,
 		DefaultAppPortName: source.DefaultAppPortName,
+		ClientInstanceID:   params.ClientID,
+		LeaseExpiresAt:     timePointer(time.Now().Add(labLeaseDuration)),
 	}
 	if source.DesktopEnabled {
 		if source.VNCPort == 0 {
@@ -161,6 +230,9 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 		session.IDEPort = uint(IDEPort)
 	}
 	if err := s.db.WithContext(ctx).Create(session).Error; err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "uniq_lab_active_user") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return nil, ErrSessionInUse
+		}
 		return nil, err
 	}
 	_ = s.recordRuntimeEvent(ctx, session.ID, session.UserID, operations.RuntimeEventCreateRequested, sessionStatusText(session.Status), "实验环境创建请求已接收", 0, operations.JSONMap{
@@ -284,6 +356,19 @@ func (s *Service) SyncSessionStatus(ctx context.Context, session *UserLabSession
 	if err != nil {
 		return err
 	}
+	if reason, exitCode, ok := terminatedMainContainer(pod); ok {
+		session.Status = SessionStatusError
+		if reason == "OOMKilled" || exitCode == 137 {
+			session.ErrorMessage = "实验环境内存不足，已被系统停止，请关闭其他任务后重新创建环境"
+		} else {
+			session.ErrorMessage = fmt.Sprintf("实验环境主进程已退出（%s，Exit %d）", reason, exitCode)
+		}
+		if err := s.db.WithContext(ctx).Save(session).Error; err != nil {
+			return err
+		}
+		_ = s.recordRuntimeEvent(ctx, session.ID, session.UserID, operations.RuntimeEventError, sessionStatusText(session.Status), session.ErrorMessage, 0, operations.JSONMap{"reason": reason, "exitCode": exitCode})
+		return nil
+	}
 	if pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodSucceeded {
 		session.Status = SessionStatusStopped
 		if err := s.db.WithContext(ctx).Save(session).Error; err != nil {
@@ -300,6 +385,45 @@ func (s *Service) SyncSessionStatus(ctx context.Context, session *UserLabSession
 		}
 		_ = s.recordRuntimeEvent(ctx, session.ID, session.UserID, operations.RuntimeEventReady, sessionStatusText(session.Status), "实验环境已同步为运行中", 0, operations.JSONMap{"pod": session.ContainerName})
 		return nil
+	}
+	return nil
+}
+
+func terminatedMainContainer(pod *corev1.Pod) (string, int32, bool) {
+	if pod == nil {
+		return "", 0, false
+	}
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name != MainContainerName || status.State.Terminated == nil {
+			continue
+		}
+		terminated := status.State.Terminated
+		return terminated.Reason, terminated.ExitCode, true
+	}
+	return "", 0, false
+}
+
+func (s *Service) ensureClusterCapacity(ctx context.Context) error {
+	if s == nil || s.k8s == nil || s.cfg == nil || s.cfg.K8S.MaxActiveLabs <= 0 {
+		return nil
+	}
+	pods, err := s.k8s.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+		LabelSelector: "app.kubernetes.io/name=edu-lab,app.kubernetes.io/managed-by=edu-backend-go",
+	})
+	if err != nil {
+		s.log.Warn("查询集群 Lab 容量失败，跳过容量门禁", zap.Error(err))
+		return nil
+	}
+	active := 0
+	for _, pod := range pods.Items {
+		if pod.Status.Phase == corev1.PodPending || pod.Status.Phase == corev1.PodRunning {
+			if _, _, terminated := terminatedMainContainer(&pod); !terminated {
+				active++
+			}
+		}
+	}
+	if active >= s.cfg.K8S.MaxActiveLabs {
+		return ErrCapacityReached
 	}
 	return nil
 }
@@ -1033,6 +1157,8 @@ func appServicePort(containerPort int32) int32 {
 func provisionalPodName(userID uint64) string {
 	return fmt.Sprintf("lab-u%d-%d", userID, time.Now().Unix())
 }
+
+func timePointer(value time.Time) *time.Time { return &value }
 
 func labLabels(session *UserLabSession) map[string]string {
 	return map[string]string{

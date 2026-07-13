@@ -72,6 +72,7 @@ k8s:
   runtime_namespace: edu-runtime-dev
   ingress_class: nginx
   lab_image_pull_secret: aliyun-registry
+  max_active_labs: 2
 
 qwen:
   api_key: ""

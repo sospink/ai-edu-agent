@@ -5,6 +5,7 @@ import '@xterm/xterm/css/xterm.css';
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '@/config';
 import { useTranslation } from 'react-i18next';
+import { getLabClientId } from '@/utils/labClient';
 
 // 模块级别的连接追踪，防止 StrictMode 双连接
 // 使用 Set 记录正在连接的 key，连接完成后移除
@@ -327,6 +328,7 @@ const WebTerminal: React.FC<WebTerminalProps> = ({
     
     // 构建 WebSocket URL，包含 mode 和 command 参数
     let wsUrl = `${wsProtocol}//${wsHost}/ws/terminal?token=${token}&sessionId=${numericSessionId}&terminalId=${terminalId}&mode=${mode}`;
+	wsUrl += `&labClientId=${encodeURIComponent(getLabClientId())}`;
     wsUrl += `&transport=${USE_RAW_TRANSPORT ? 'raw' : 'json'}`;
     wsUrl += `&locale=${encodeURIComponent(currentLocale)}`;
     if (mode === 'exec') {
