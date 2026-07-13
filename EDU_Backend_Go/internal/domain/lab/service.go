@@ -111,11 +111,31 @@ func (s *Service) claimSessionLease(ctx context.Context, session *UserLabSession
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
+		var current UserLabSession
+		if err := s.db.WithContext(ctx).
+			Select("id", "client_instance_id", "lease_expires_at").
+			First(&current, session.ID).Error; err != nil {
+			return err
+		}
+		// MySQL DATETIME(3) 会把同一毫秒内的并发续租写成相同值，
+		// 此时 RowsAffected 为 0，但同一浏览器仍然合法持有会话。
+		if sessionLeaseOwnedByClient(&current, clientID, now) {
+			session.ClientInstanceID = current.ClientInstanceID
+			session.LeaseExpiresAt = current.LeaseExpiresAt
+			return nil
+		}
 		return ErrSessionInUse
 	}
 	session.ClientInstanceID = clientID
 	session.LeaseExpiresAt = &leaseUntil
 	return nil
+}
+
+func sessionLeaseOwnedByClient(session *UserLabSession, clientID string, now time.Time) bool {
+	if session == nil || normalizeClientID(session.ClientInstanceID) != normalizeClientID(clientID) {
+		return false
+	}
+	return session.LeaseExpiresAt != nil && !session.LeaseExpiresAt.Before(now)
 }
 
 func normalizeClientID(value string) string {

@@ -38,6 +38,52 @@ func TestSessionLeaseRejectsAnotherBrowserAndAllowsExpiredTakeover(t *testing.T)
 	}
 }
 
+func TestSessionLeaseOwnershipHandlesIdempotentRenewal(t *testing.T) {
+	now := time.Now()
+	activeUntil := now.Add(time.Minute)
+	expiredAt := now.Add(-time.Second)
+
+	tests := []struct {
+		name     string
+		session  *UserLabSession
+		clientID string
+		want     bool
+	}{
+		{
+			name:     "同一客户端的有效租约",
+			session:  &UserLabSession{ClientInstanceID: "browser-a", LeaseExpiresAt: &activeUntil},
+			clientID: "browser-a",
+			want:     true,
+		},
+		{
+			name:     "不同客户端",
+			session:  &UserLabSession{ClientInstanceID: "browser-a", LeaseExpiresAt: &activeUntil},
+			clientID: "browser-b",
+			want:     false,
+		},
+		{
+			name:     "同一客户端但租约已过期",
+			session:  &UserLabSession{ClientInstanceID: "browser-a", LeaseExpiresAt: &expiredAt},
+			clientID: "browser-a",
+			want:     false,
+		},
+		{
+			name:     "租约缺失",
+			session:  &UserLabSession{ClientInstanceID: "browser-a"},
+			clientID: "browser-a",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sessionLeaseOwnedByClient(tt.session, tt.clientID, now); got != tt.want {
+				t.Fatalf("sessionLeaseOwnedByClient() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSyncSessionStatusMarksOOMKilledAsError(t *testing.T) {
 	db := newLabTestDB(t)
 	session := &UserLabSession{ID: 402, UserID: 8, ContainerName: PodName(402), Status: SessionStatusRunning}
