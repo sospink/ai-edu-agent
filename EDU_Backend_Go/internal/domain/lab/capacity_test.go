@@ -76,6 +76,9 @@ func TestCapacityLeaseBlocksAnotherServiceUntilReleased(t *testing.T) {
 		t.Fatalf("第一个实例获取容量锁失败: %v", err)
 	}
 	defer release()
+	if _, err := k8s.CoreV1().Namespaces().Get(context.Background(), "edu-backend-go-prod", metav1.GetOptions{}); err != nil {
+		t.Fatalf("容量锁应自动创建共享控制命名空间: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
@@ -86,6 +89,25 @@ func TestCapacityLeaseBlocksAnotherServiceUntilReleased(t *testing.T) {
 	release()
 	if _, err := k8s.CoordinationV1().Leases("edu-backend-go-prod").Get(context.Background(), capacityLeaseName, metav1.GetOptions{}); err == nil {
 		t.Fatal("释放后容量锁仍然存在")
+	}
+}
+
+func TestEnsureCapacityLeaseNamespaceIsIdempotent(t *testing.T) {
+	k8s := fake.NewSimpleClientset()
+	service := capacityTestService(k8s, 2)
+
+	for attempt := 0; attempt < 2; attempt++ {
+		if err := service.ensureCapacityLeaseNamespace(context.Background(), "edu-backend-go-prod"); err != nil {
+			t.Fatalf("第 %d 次准备容量锁命名空间失败: %v", attempt+1, err)
+		}
+	}
+
+	namespace, err := k8s.CoreV1().Namespaces().Get(context.Background(), "edu-backend-go-prod", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("共享控制命名空间不存在: %v", err)
+	}
+	if namespace.Labels["app.kubernetes.io/managed-by"] != "edu-backend-go" {
+		t.Fatalf("共享控制命名空间缺少管理标签: %#v", namespace.Labels)
 	}
 }
 

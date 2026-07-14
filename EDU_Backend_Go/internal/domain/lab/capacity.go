@@ -121,6 +121,9 @@ func (s *Service) acquireCapacityLease(ctx context.Context) (func(), error) {
 	}
 	holder := fmt.Sprintf("%s-%d-%d", hostname(), os.Getpid(), time.Now().UnixNano())
 	leaseNamespace := s.capacityLeaseNamespace()
+	if err := s.ensureCapacityLeaseNamespace(ctx, leaseNamespace); err != nil {
+		return nil, err
+	}
 	leaseClient := s.k8s.CoordinationV1().Leases(leaseNamespace)
 	deadline := time.Now().Add(capacityLockWait)
 	durationSeconds := int32(capacityLeaseDuration / time.Second)
@@ -171,6 +174,36 @@ func (s *Service) acquireCapacityLease(ctx context.Context) (func(), error) {
 			return nil, err
 		}
 	}
+}
+
+func (s *Service) ensureCapacityLeaseNamespace(ctx context.Context, namespace string) error {
+	namespace = strings.TrimSpace(namespace)
+	if namespace == "" {
+		return errors.New("K8S Lab 容量锁命名空间未配置")
+	}
+	namespaceClient := s.k8s.CoreV1().Namespaces()
+	if _, err := namespaceClient.Get(ctx, namespace, metav1.GetOptions{}); err == nil {
+		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("检查 K8S Lab 容量锁命名空间 %s 失败: %w", namespace, err)
+	}
+
+	_, err := namespaceClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "edu-backend-go",
+				"app.kubernetes.io/part-of":    "agent-edu",
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("创建 K8S Lab 容量锁命名空间 %s 失败: %w", namespace, err)
+	}
+	if err == nil && s.log != nil {
+		s.log.Info("已创建 K8S Lab 容量锁命名空间", zap.String("namespace", namespace))
+	}
+	return nil
 }
 
 func (s *Service) capacityLeaseRelease(holder string) func() {

@@ -43,7 +43,8 @@ type Service struct {
 }
 
 var (
-	ErrSessionInUse = errors.New("实验环境正在另一台设备中使用")
+	ErrSessionInUse   = errors.New("实验环境正在另一台设备中使用")
+	ErrSessionExpired = errors.New("实验会话不存在或已结束")
 )
 
 const labLeaseDuration = 2 * time.Minute
@@ -84,11 +85,14 @@ func (s *Service) GetActiveSessionForClient(ctx context.Context, userID uint64, 
 
 func (s *Service) RenewSessionLease(ctx context.Context, userID, sessionID uint64, clientID string) (*UserLabSession, error) {
 	session, err := s.GetOwnedSession(ctx, userID, sessionID)
-	if err != nil || session == nil {
-		return session, err
+	if err != nil {
+		return nil, err
+	}
+	if session == nil {
+		return nil, ErrSessionExpired
 	}
 	if session.Status != SessionStatusRunning && session.Status != SessionStatusCreating {
-		return nil, errors.New("实验会话不存在或已结束")
+		return nil, ErrSessionExpired
 	}
 	if err := s.claimSessionLease(ctx, session, clientID); err != nil {
 		return nil, err
@@ -113,7 +117,9 @@ func (s *Service) claimSessionLease(ctx context.Context, session *UserLabSession
 		var current UserLabSession
 		if err := s.db.WithContext(ctx).
 			Select("id", "client_instance_id", "lease_expires_at").
-			First(&current, session.ID).Error; err != nil {
+			First(&current, session.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrSessionExpired
+		} else if err != nil {
 			return err
 		}
 		// MySQL DATETIME(3) 会把同一毫秒内的并发续租写成相同值，

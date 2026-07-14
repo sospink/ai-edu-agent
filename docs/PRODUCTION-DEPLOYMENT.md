@@ -57,6 +57,8 @@ flowchart LR
 
 42 的 `80` 端口还承载 Dify/其他站点，Agent EDU 必须使用 `8080`。35 的 Agent EDU Nginx 同时监听 `80`、`8080`，主入口使用 `80`。
 
+两台服务器使用不同的 runtime namespace，但集群容量上限是共享的，因此 `K8S_NAMESPACE=edu-backend-go-prod` 必须在集群中真实存在，用于保存跨实例容量锁。后端会在有权限时幂等创建该 namespace；部署验收仍需显式检查，避免权限收紧后直到学生创建环境才暴露问题。
+
 ## 4. SSH 连接
 
 本机默认会尝试 `~/.ssh/id_ed25519`、`~/.ssh/id_rsa` 等标准私钥，当前两台机器均可使用公钥登录：
@@ -549,6 +551,8 @@ sudo nginx -t
 
 - 检查 `.kube/remote-dev.yaml` 和文件权限。
 - 核对两台不同的 `K8S_RUNTIME_NAMESPACE`。
+- 核对共享容量锁 namespace：`kubectl get namespace edu-backend-go-prod`；缺失时执行 `kubectl create namespace edu-backend-go-prod`。
+- 核对后端身份权限：`kubectl auth can-i create leases.coordination.k8s.io -n edu-backend-go-prod`。
 - 测试应用服务器到 `106.75.139.179:6443` 的网络。
 - 深入诊断可在 K8S 管理节点执行 `kubectl`，或临时安装客户端。
 

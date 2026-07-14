@@ -151,6 +151,10 @@ func (h *Handler) RenewLease(c *gin.Context) {
 		h.writeSessionAccessError(c, err, "LAB_LEASE_RENEW_FAILED", "lab.sessionExpired")
 		return
 	}
+	if session == nil {
+		response.ErrorKey(c, http.StatusNotFound, "LAB_SESSION_EXPIRED", "lab.sessionExpired", nil)
+		return
+	}
 	response.Success(c, gin.H{"sessionId": session.ID, "leaseExpiresAt": session.LeaseExpiresAt}, "")
 }
 
@@ -409,6 +413,10 @@ func labClientIDForUser(c *gin.Context, userID uint64) string {
 func (h *Handler) writeSessionAccessError(c *gin.Context, err error, fallbackCode string, fallbackKey i18n.MessageKey) {
 	if errors.Is(err, ErrSessionInUse) {
 		response.ErrorKey(c, http.StatusConflict, "LAB_SESSION_IN_USE", "lab.sessionInUse", nil)
+		return
+	}
+	if errors.Is(err, ErrSessionExpired) {
+		response.ErrorKey(c, http.StatusNotFound, "LAB_SESSION_EXPIRED", "lab.sessionExpired", nil)
 		return
 	}
 	if strings.Contains(err.Error(), "客户端标识") {

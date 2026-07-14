@@ -988,6 +988,14 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     const renew = async () => {
       const response = await labApi.renewLease(session.id);
       if (!disposed && !response.success) {
+        if (response.code === 'LAB_SESSION_EXPIRED') {
+          setSession(null);
+          setUrls(null);
+          setError(null);
+          setIsBooting(true);
+          setRetryKey((key) => key + 1);
+          return;
+        }
         setError(response.error || t('operationFailed'));
       }
     };

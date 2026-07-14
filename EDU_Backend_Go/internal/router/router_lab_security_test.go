@@ -97,6 +97,27 @@ func TestStudentCanRenewLabSessionLease(t *testing.T) {
 	}
 }
 
+func TestLabHeartbeatReturnsNotFoundForExpiredSession(t *testing.T) {
+	fixture := newTestFixture(t)
+	if err := fixture.db.AutoMigrate(&lab.UserLabSession{}); err != nil {
+		t.Fatalf("auto migrate lab session failed: %v", err)
+	}
+
+	token := mustLogin(t, fixture, fixture.student.Username, "student@123")
+	req := httptest.NewRequest(http.MethodPost, "/api/lab/heartbeat/999999", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Lab-Client", "browser-a")
+	recorder := httptest.NewRecorder()
+	fixture.engine.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected expired heartbeat 404, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"LAB_SESSION_EXPIRED"`) {
+		t.Fatalf("expected stable expired-session code, got %s", recorder.Body.String())
+	}
+}
+
 func TestStudentCanReadOwnedLabReleaseStatus(t *testing.T) {
 	fixture := newTestFixture(t)
 	if err := fixture.db.AutoMigrate(&lab.UserLabSession{}); err != nil {
