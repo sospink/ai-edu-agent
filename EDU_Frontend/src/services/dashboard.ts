@@ -2,7 +2,6 @@ import { api } from './api';
 import type { ApiResponse, PaginatedResponse } from '@/types';
 
 export type DashboardStatus = 'creating' | 'running' | 'stopped' | 'error' | 'unknown';
-export type DashboardRuntimeMode = 'classic' | 'openclaw';
 export type DashboardSourceType = 'course' | 'project' | 'unknown';
 export type DashboardTimeRange = 'all' | '24h' | '7d' | '30d';
 
@@ -51,15 +50,11 @@ export interface DashboardSession {
   expiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  runtimeMode: number;
-  gatewayPort: number;
-  gatewayToken: string;
   userName: string;
   fullName: string;
   sourceName: string;
   statusText: DashboardStatus;
   sourceText: DashboardSourceType;
-  runtimeText: DashboardRuntimeMode;
 }
 
 export interface DashboardOverview {
@@ -67,7 +62,6 @@ export interface DashboardOverview {
     activeSessions: number;
     creatingSessions: number;
     errorSessions: number;
-    openClawSessions: number;
     recent24h: number;
     expiredPending: number;
   };
@@ -78,7 +72,6 @@ export interface DashboardOverview {
     serviceCount: number;
     podPhases: DashboardNamedCount[];
     sessionStatuses: DashboardNamedCount[];
-    runtimeModes: DashboardNamedCount[];
     images: DashboardImageUsage[];
   };
   integrations: DashboardIntegrationCard[];
@@ -92,9 +85,6 @@ export interface DashboardSessionDetail {
     vncUrl: string;
     ideUrl: string;
     sshInfo: string;
-    gatewayUrl: string;
-    gatewayToken: string;
-    runtimeMode: string;
     appUrls?: Array<{
       name: string;
       label: string;
@@ -209,7 +199,6 @@ export interface AuditLogPayload extends PaginatedResponse<AuditLog> {}
 
 export interface DashboardSessionFilters {
   status?: string;
-  runtimeMode?: string;
   sourceType?: string;
   timeRange?: DashboardTimeRange;
   q?: string;

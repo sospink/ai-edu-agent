@@ -1,8 +1,8 @@
 # TS -> Go 主链路替代差异矩阵
 
-最后更新：2026-04-25
+最后更新：2026-07-14
 
-本矩阵以“主链路替代”为准，不追求把 `EDU_Backend/` 的历史接口逐行复刻到 `EDU_Backend_Go/`。判断标准是：是否影响现有前端主流程、Lab 运行时、Agent、OpenClaw、三端教学平台、以及运维验收。
+本矩阵以“主链路替代”为准，不追求把 `EDU_Backend/` 的历史接口逐行复刻到 `EDU_Backend_Go/`。判断标准是：是否影响现有前端主流程、Lab 运行时、Agent、三端教学平台和运维验收。
 
 ## 已实现等价替代
 
@@ -24,17 +24,11 @@
 | --- | --- | --- | --- |
 | Docker exec / SSH 驱动的终端与命令执行 | 已由 K8S exec bridge 替代 | 视为架构升级，不再回退到 Docker 语义 | 否 |
 | `sshInfo` 可视为真实 SSH 入口 | 当前仅保留兼容字段，主链路依赖 K8S exec | 只保留兼容展示，不承诺容器 SSH 登录 | 否 |
-| OpenClaw 项目识别依赖 slug/title 猜测 | Go 已改为专用标签识别，默认标签名 `OpenClaw` | 普通项目保持 classic；OpenClaw 作为独立项目场景入口 | 否 |
-| OpenClaw 项目不创建 Lab 会话 | Go 已支持 `project:<projectId>[:unit:<unitId>]` 受控会话标识 | 由 openclaw-view 派生服务端 session key，不进入 K8S Lab | 否 |
 
 ## 主链路仍需补齐
 
 | TS 能力 | Go 当前状态 | 处理策略 | 是否阻塞切换 |
 | --- | --- | --- | --- |
-| `GET /api/integrations/openclaw/health` | 本轮已补齐 | 保留，纳入管理员运维观测入口 | 否 |
-| `GET /api/integrations/feishu/health` | 本轮已补齐 | 保留，纳入管理员运维观测入口 | 否 |
-| OpenClaw 项目链路真实外部联调 | 独立项目入口、受控 session key、基础四态接口已具备 | 待外部 OpenClaw/Feishu 服务可用后做浏览器级验收 | 是 |
-| Gateway 页面真实加载与交互 | 本轮不作为 OpenClaw 独立项目入口前置条件 | 若后续仍要嵌入 Gateway，再单独验收 | 否 |
 | 全量浏览器级回归 | 仍需继续补齐 | 以学生、教师、管理员三端主流程为最小验收集合 | 是 |
 
 ## 可显式废弃
@@ -43,13 +37,14 @@
 | --- | --- | --- | --- |
 | `/api/docker/*` 容器管理面 | Go 未实现 | 视为旧 Docker 管理面，不纳入主链路替代目标 | 否 |
 | 前端管理员 Docker 面板 | 代码仍保留在 `EDU_Frontend/src/services/docker.ts` 与 Dashboard 页面 | 暂列为遗留后台能力，后续单独决定删除或替换 | 否 |
+| OpenClaw 页面、视图 API、Gateway / Feishu 配置与项目类型 | 2026-07-14 已从当前 React / Go 产品下架 | 旧实现保留在 `codex/archive-openclaw-20260714`，历史数据由幂等迁移归档 | 否 |
 
 ## 切换前最低验收标准
 
 - Classic Lab：`create / active / noVNC / terminal / execute / stop` 全绿
 - Agent：`manual / verify / chat / stream / progress / faq / interventions / observatory` 主链路全绿
-- OpenClaw：项目标签分流、独立 `/openclaw/*` 入口、`openclaw-view` 四态、外部依赖健康检查全绿
+- 项目实训：列表 / 详情 / 单元统一进入 `/lab`，历史项目与旧类型不可见且不可重新发布
 - 学生端：学习中心、课程 / 项目、作业待办、提交、成绩反馈、学习成果概览全绿
 - 教师端：班级、内容发布、作业、批改、成绩簿、工作台、Agent 观察台全绿
 - 管理端：运维工作台、用户、班级、作业观测、内容治理、系统设置、RBAC 全绿
-- 运维：`/api/integrations/k8s|openclaw|feishu|config` 和 `/api/admin/integrations/health` 均可访问，且仅管理员可见
+- 运维：`/api/integrations/k8s|config` 和 `/api/admin/integrations/health` 均可访问，且仅管理员可见

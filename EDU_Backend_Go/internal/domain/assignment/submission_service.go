@@ -50,15 +50,14 @@ func (s *Service) CreateStudentSubmission(ctx context.Context, studentID, assign
 		status = SubmissionStatusResubmitted
 	}
 	submission := &Submission{
-		AssignmentID:      assignmentID,
-		StudentID:         studentID,
-		AttemptNo:         attemptNo,
-		Status:            status,
-		ContentText:       strings.TrimSpace(req.ContentText),
-		LabSessionID:      req.LabSessionID,
-		OpenClawSessionID: strings.TrimSpace(req.OpenClawSessionID),
-		AgentManualID:     req.AgentManualID,
-		SubmittedAt:       &now,
+		AssignmentID:  assignmentID,
+		StudentID:     studentID,
+		AttemptNo:     attemptNo,
+		Status:        status,
+		ContentText:   strings.TrimSpace(req.ContentText),
+		LabSessionID:  req.LabSessionID,
+		AgentManualID: req.AgentManualID,
+		SubmittedAt:   &now,
 	}
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(submission).Error; err != nil {
@@ -488,18 +487,6 @@ func (s *Service) buildSubmissionSnapshot(ctx context.Context, submission *Submi
 		if manualID > 0 {
 			checks = append(checks, s.agentProgressCheck(ctx, submission.ID, submission.StudentID, manualID))
 		}
-		if resource.ResourceType == ResourceTypeOpenClawProject && submission.OpenClawSessionID != "" {
-			checks = append(checks, SubmissionCheck{
-				SubmissionID: submission.ID,
-				CheckType:    CheckTypeOpenClawPhase,
-				Status:       "pending",
-				Output:       "已记录 OpenClaw 会话，等待阶段结果回填",
-				Metadata: JSONMap{
-					"sessionId":  submission.OpenClawSessionID,
-					"resourceId": resource.ResourceID,
-				},
-			})
-		}
 	}
 	if submission.LabSessionID > 0 {
 		checks = append(checks, s.labSessionCheck(ctx, submission))
@@ -582,7 +569,6 @@ func (s *Service) labSessionCheck(ctx context.Context, submission *Submission) S
 	var session lab.UserLabSession
 	err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", submission.LabSessionID, submission.StudentID).First(&session).Error
 	if err == nil {
-		check.Metadata["runtimeMode"] = session.RuntimeMode
 		check.Metadata["sessionStatus"] = session.Status
 		check.Score = 1
 		check.Status = "passed"

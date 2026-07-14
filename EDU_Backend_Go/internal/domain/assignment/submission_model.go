@@ -23,25 +23,24 @@ const (
 	CheckTypeAgentProgress  = "agent_progress"
 	CheckTypeLabSession     = "lab_session"
 	CheckTypeLabCommand     = "lab_command"
-	CheckTypeOpenClawPhase  = "openclaw_phase"
 	CheckTypeManualReview   = "manual_review"
 )
 
 type Submission struct {
-	ID                uint64     `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	AssignmentID      uint64     `gorm:"column:assignment_id;not null;default:0;index:idx_submissions_assignment_id" json:"assignmentId"`
-	StudentID         uint64     `gorm:"column:student_id;not null;default:0;index:idx_submissions_student_id" json:"studentId"`
-	AttemptNo         int        `gorm:"column:attempt_no;not null;default:1" json:"attemptNo"`
-	Status            string     `gorm:"column:status;size:32;not null;default:'submitted';index:idx_submissions_status" json:"status"`
-	ContentText       string     `gorm:"column:content_text;type:text" json:"contentText"`
-	LabSessionID      uint64     `gorm:"column:lab_session_id;not null;default:0;index:idx_submissions_lab_session_id" json:"labSessionId"`
-	OpenClawSessionID string     `gorm:"column:openclaw_session_id;size:128;not null;default:''" json:"openclawSessionId"`
-	AgentManualID     uint64     `gorm:"column:agent_manual_id;not null;default:0;index:idx_submissions_agent_manual_id" json:"agentManualId"`
-	SubmittedAt       *time.Time `gorm:"column:submitted_at" json:"submittedAt"`
-	ReturnedAt        *time.Time `gorm:"column:returned_at" json:"returnedAt"`
-	GradedAt          *time.Time `gorm:"column:graded_at" json:"gradedAt"`
-	CreatedAt         time.Time  `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt         time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID                     uint64     `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	AssignmentID           uint64     `gorm:"column:assignment_id;not null;default:0;index:idx_submissions_assignment_id" json:"assignmentId"`
+	StudentID              uint64     `gorm:"column:student_id;not null;default:0;index:idx_submissions_student_id" json:"studentId"`
+	AttemptNo              int        `gorm:"column:attempt_no;not null;default:1" json:"attemptNo"`
+	Status                 string     `gorm:"column:status;size:32;not null;default:'submitted';index:idx_submissions_status" json:"status"`
+	ContentText            string     `gorm:"column:content_text;type:text" json:"contentText"`
+	LabSessionID           uint64     `gorm:"column:lab_session_id;not null;default:0;index:idx_submissions_lab_session_id" json:"labSessionId"`
+	LegacyRuntimeSessionID string     `gorm:"column:openclaw_session_id;size:128;not null;default:''" json:"-"`
+	AgentManualID          uint64     `gorm:"column:agent_manual_id;not null;default:0;index:idx_submissions_agent_manual_id" json:"agentManualId"`
+	SubmittedAt            *time.Time `gorm:"column:submitted_at" json:"submittedAt"`
+	ReturnedAt             *time.Time `gorm:"column:returned_at" json:"returnedAt"`
+	GradedAt               *time.Time `gorm:"column:graded_at" json:"gradedAt"`
+	CreatedAt              time.Time  `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt              time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 func (Submission) TableName() string {
@@ -183,11 +182,10 @@ type SubmissionFileInput struct {
 }
 
 type CreateSubmissionRequest struct {
-	ContentText       string                `json:"contentText"`
-	LabSessionID      uint64                `json:"labSessionId"`
-	OpenClawSessionID string                `json:"openclawSessionId"`
-	AgentManualID     uint64                `json:"agentManualId"`
-	Files             []SubmissionFileInput `json:"files"`
+	ContentText   string                `json:"contentText"`
+	LabSessionID  uint64                `json:"labSessionId"`
+	AgentManualID uint64                `json:"agentManualId"`
+	Files         []SubmissionFileInput `json:"files"`
 }
 
 type RubricScoreInput struct {

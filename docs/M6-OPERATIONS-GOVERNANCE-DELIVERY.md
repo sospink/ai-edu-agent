@@ -42,10 +42,9 @@
   3. 否则使用启用的 global 配额
   4. 都不存在则不限制并发，但仍用默认 120 分钟写入 `expires_at`
 - `enabled=false` 表示跳过该配额；禁用 global 后等价于无启用配额，并发不拦截
-- 并发计数只统计 Classic Lab 的 `user_lab_sessions`
-  - `runtime_mode = classic`
+- 并发计数统计全部当前 `user_lab_sessions`
   - `status IN creating/running`
-  - OpenClaw 不纳入 M6 配额强制
+  - 课程和项目统一适用同一 Classic Lab 配额
 - 配额只影响后续新建会话，不追改已有会话 `expires_at`
 - Janitor 继续只读 `expires_at` 回收，不新增独立 TTL 分支
 
@@ -73,12 +72,12 @@
 ### 前端
 
 - `/admin/dashboard` 已作为 M6 运维工作台增强：
-  - 会话 KPI、状态筛选、运行时筛选、时间筛选、搜索、分页、刷新
+  - 会话 KPI、状态筛选、来源筛选、时间筛选、搜索、分页、刷新
   - 会话详情抽屉支持概览、K8S Events、运行事件流、Logs
   - 停止会话支持确认弹窗、重复停止 Toast 和列表刷新
   - 资源配额区块支持创建、编辑、启停、刷新和错误态
   - 审计日志区块支持结果筛选、分页式读取和空态
-  - 集成健康区块展示 K8S / OpenClaw / Feishu / Config 中文状态
+  - 集成健康区块展示 K8S / Config 中文状态
 - `/teacher/dashboard` 在作业进度下方新增“班级 Lab 异常”只读区块，不提供治理按钮
 - 学生端 Lab 创建失败继续展示后端返回的中文阻断原因
 
@@ -98,8 +97,7 @@
 - M6 尚未沉淀浏览器级真实冒烟截图 / 录屏附件
 - M6 首版不做 CPU / 内存按用户或班级覆盖，仍由 Lab 模板控制
 - M6 首版不做成本账单、预算消耗、费用归因或配额推荐
-- OpenClaw 只做健康观测，不纳入 Classic Lab 配额强制
-- 不做 AI 自动诊断、飞书 / 邮件告警或自动运维策略
+- 不做 AI 自动诊断、邮件告警或自动运维策略
 - 运行事件流只追加记录，不作为会话状态 source of truth
 
 ## 结论措辞

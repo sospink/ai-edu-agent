@@ -61,7 +61,6 @@ rsync -a "$BACKEND_DIR/public/" "$BACKEND_STAGE_DIR/public/"
 rsync -a "$BACKEND_DIR/deployments/" "$BACKEND_STAGE_DIR/deployments/"
 copy_if_exists "$BACKEND_DIR/.env.example" "$BACKEND_STAGE_DIR/.env.example"
 copy_if_exists "$BACKEND_DIR/.kube" "$BACKEND_STAGE_DIR/.kube"
-copy_if_exists "$BACKEND_DIR/.openclaw-device-identity.json" "$BACKEND_STAGE_DIR/.openclaw-device-identity.json"
 copy_if_exists "$BACKEND_DIR/README.md" "$BACKEND_STAGE_DIR/README.md"
 
 if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then

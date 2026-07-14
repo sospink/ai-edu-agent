@@ -4,7 +4,7 @@
 ### 当前主线
 - `EDU_Frontend/`
   - 当前主前端，React + TypeScript + Vite
-  - 学生端、教师端、管理端、OpenClaw、Lab 页面都在这里
+  - 学生端、教师端、管理端和 Lab 页面都在这里
 - `EDU_Backend_Go/`
   - 当前主后端，Go + Gin + GORM + MySQL + K8S
   - 新接口、新运行时、新业务闭环默认进入这里
@@ -38,7 +38,6 @@
 - [../EDU_Frontend/src/App.tsx](../EDU_Frontend/src/App.tsx)
 - [../EDU_Frontend/src/components/study](../EDU_Frontend/src/components/study)
 - [../EDU_Frontend/src/components/project](../EDU_Frontend/src/components/project)
-- [../EDU_Frontend/src/components/openclaw](../EDU_Frontend/src/components/openclaw)
 - [../EDU_Frontend/src/components/teacher](../EDU_Frontend/src/components/teacher)
 - [../EDU_Frontend/src/components/admin](../EDU_Frontend/src/components/admin)
 - [../EDU_Frontend/src/services](../EDU_Frontend/src/services)
@@ -58,11 +57,10 @@
 | `internal/domain/auth` | 登录、登出、refresh、JWT 与 token blacklist |
 | `internal/domain/user` | 用户资料、用户管理、学习者榜单 |
 | `internal/domain/course` | 课程、阶段、课时、素材、技能、学习记录 |
-| `internal/domain/project` | 项目、单元、标签、OpenClaw 分流 |
+| `internal/domain/project` | 项目、单元、标签、学生可见性与历史类型防回流 |
 | `internal/domain/learning` | 学习中心聚合、继续学习、学习成果概览 |
 | `internal/domain/agent` | Agent 手册、步骤、问答、验证、FAQ、复盘、学生干预读取 |
 | `internal/domain/lab` | K8S Lab session、noVNC proxy、exec、terminal、janitor |
-| `internal/domain/openclawview` | OpenClaw 四态视图、消息、文件、Gateway / Feishu 客户端 |
 | `internal/domain/classroom` | 学期、班级、成员、任课教师 |
 | `internal/domain/publishing` | 发布检查、发布阻断、Lab 模板、发布审计 |
 | `internal/domain/assignment` | 作业、提交、评分、通知、工作台、AI 建议、Agent 观察台 |
@@ -73,8 +71,7 @@
 | 目录 | 当前职责 |
 | --- | --- |
 | `components/study` | 学生学习中心、课时、Lab、作业与通知入口 |
-| `components/project` | 项目列表、项目详情、OpenClaw 项目分流入口 |
-| `components/openclaw` | OpenClaw 独立页面、四态视图、会话 hook |
+| `components/project` | 项目列表、项目详情与 Classic Lab 入口 |
 | `components/teacher` | 教务端工作台、班级、作业、批改、成绩簿、Agent 观察台 |
 | `components/admin` | 管理端仪表盘、班级、作业观测、内容治理、用户、设置、RBAC |
 | `components/common` | PageDialog、PageDrawer、Toast、确认弹窗等公共交互组件 |
@@ -84,14 +81,14 @@
 只有以下情况默认才去看 `EDU_Backend/`：
 - 需要对比历史 API 契约
 - 需要迁移旧配置
-- 需要查 OpenClaw / Feishu 历史实现细节
+- 需要查已经下架模块的历史实现细节；优先使用归档分支，不把旧实现恢复到 `main`
 - Go 当前行为和前端旧依赖不一致，需要找旧逻辑参考
 
 ## 什么时候不要被旧目录带偏
 - 需要实现新功能时
 - 需要判断当前运行时时
 - 需要判断当前页面主链路时
-- 需要决定 Dashboard / Lab / OpenClaw 的架构方向时
+- 需要决定 Dashboard / Lab 的架构方向时
 
 这些场景都应优先看 `EDU_Backend_Go/` 和 `EDU_Frontend/`。
 

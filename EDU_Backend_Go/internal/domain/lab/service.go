@@ -3,8 +3,6 @@ package lab
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -114,7 +112,7 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 	if err != nil {
 		return nil, err
 	}
-	if source.RuntimeMode == RuntimeModeClassic && !resolvedQuota.UnlimitedConcurrent {
+	if !resolvedQuota.UnlimitedConcurrent {
 		activeCount, err := s.countActiveClassicSessions(ctx, params.UserID)
 		if err != nil {
 			return nil, err
@@ -148,9 +146,7 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 		SSHPort:            uint(SSHPort),
 		Status:             SessionStatusCreating,
 		ExpiresAt:          &expiresAt,
-		RuntimeMode:        source.RuntimeMode,
-		GatewayPort:        0,
-		GatewayToken:       "",
+		RuntimeMode:        RuntimeModeClassic,
 		DesktopEnabled:     source.DesktopEnabled,
 		AppPorts:           source.AppPorts,
 		DefaultAppPortName: source.DefaultAppPortName,
@@ -164,11 +160,6 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 	if source.IDEImage != "" {
 		session.IDEPort = uint(IDEPort)
 	}
-	if source.RuntimeMode == RuntimeModeOpenClaw {
-		session.GatewayPort = uint(GatewayPort)
-		session.GatewayToken = generateGatewayToken()
-	}
-
 	if err := s.db.WithContext(ctx).Create(session).Error; err != nil {
 		return nil, err
 	}
@@ -179,7 +170,6 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 		"maxConcurrentSessions": resolvedQuota.MaxConcurrentSessions,
 		"unlimitedConcurrent":   resolvedQuota.UnlimitedConcurrent,
 		"maxSessionMinutes":     sessionMinutes,
-		"runtimeMode":           runtimeModeText(source.RuntimeMode),
 		"expiresAt":             expiresAt,
 		"appPorts":              session.AppPorts,
 		"defaultAppPortName":    session.DefaultAppPortName,
@@ -315,11 +305,6 @@ func (s *Service) SyncSessionStatus(ctx context.Context, session *UserLabSession
 }
 
 func (s *Service) BuildURLs(session *UserLabSession) URLs {
-	runtimeMode := "classic"
-	if session.RuntimeMode == RuntimeModeOpenClaw {
-		runtimeMode = "openclaw"
-	}
-
 	vncURL := ""
 	if session.VNCPort > 0 {
 		vncURL = fmt.Sprintf("/api/lab/proxy/%d/%s/vnc.html?resize=remote&autoconnect=true&path=%s",
@@ -334,20 +319,12 @@ func (s *Service) BuildURLs(session *UserLabSession) URLs {
 		ideURL = fmt.Sprintf("/api/lab/proxy/%d/%s/", session.ID, PortNameIDE)
 	}
 
-	gatewayURL := ""
-	if session.RuntimeMode == RuntimeModeOpenClaw && session.GatewayPort > 0 {
-		gatewayURL = fmt.Sprintf("/api/lab/gateway/%d/", session.ID)
-	}
-
 	appURLs := buildAppURLs(session)
 	return URLs{
-		VNCURL:       vncURL,
-		IDEURL:       ideURL,
-		SSHInfo:      "K8S exec bridge (/ws/terminal)",
-		GatewayURL:   gatewayURL,
-		GatewayToken: session.GatewayToken,
-		RuntimeMode:  runtimeMode,
-		AppURLs:      appURLs,
+		VNCURL:  vncURL,
+		IDEURL:  ideURL,
+		SSHInfo: "K8S exec bridge (/ws/terminal)",
+		AppURLs: appURLs,
 	}
 }
 
@@ -570,7 +547,6 @@ type labSourceConfig struct {
 	EnvImage           string
 	IDEImage           string
 	SourceName         string
-	RuntimeMode        RuntimeMode
 	Resources          runtimeResourceProfile
 	DesktopEnabled     bool
 	VNCPort            uint
@@ -613,7 +589,6 @@ func defaultResourceString(value, fallback string) string {
 
 func (s *Service) resolveSource(ctx context.Context, sourceType SourceType, sourceID uint64) (labSourceConfig, error) {
 	source := labSourceConfig{
-		RuntimeMode:    RuntimeModeClassic,
 		Resources:      defaultRuntimeResourceProfile(),
 		DesktopEnabled: true,
 		VNCPort:        uint(NoVNCPort),
@@ -647,25 +622,13 @@ func (s *Service) resolveSource(ctx context.Context, sourceType SourceType, sour
 			}
 			return source, err
 		}
-		tags, err := s.projectTags(ctx, sourceID)
-		if err != nil {
-			return source, err
+		if record.Status != project.ProjectStatusPublished {
+			return source, errors.New("项目未发布或已下架，不能启动实训环境")
 		}
 		source.EnvImage = record.EnvImage
 		source.IDEImage = record.IDEImage
 		source.SourceName = record.Title
-		projectLabRuntime := ""
-		if s.cfg != nil {
-			projectLabRuntime = s.cfg.OpenClaw.ProjectLabRuntime
-		}
-		if project.ResolveLabRuntimeModeWithTags(record, tags, projectLabRuntime) == project.LabRuntimeModeOpenClaw {
-			source.RuntimeMode = RuntimeModeOpenClaw
-			source.IDEImage = ""
-			source.DesktopEnabled = true
-			source.VNCPort = uint(NoVNCPort)
-			source.AppPorts = []publishing.LabTemplateAppPort{}
-			source.DefaultAppPortName = ""
-		} else if record.LabTemplateID > 0 {
+		if record.LabTemplateID > 0 {
 			template, err := s.resolveActiveLabTemplate(ctx, record.LabTemplateID)
 			if err != nil {
 				return source, err
@@ -708,17 +671,6 @@ func (s *Service) resolveActiveLabTemplate(ctx context.Context, templateID uint6
 		return nil, errors.New("绑定的 Lab 模板未配置实验镜像")
 	}
 	return &template, nil
-}
-
-func (s *Service) projectTags(ctx context.Context, projectID uint64) ([]project.Tag, error) {
-	var tags []project.Tag
-	err := s.db.WithContext(ctx).
-		Table("tags").
-		Select("tags.*").
-		Joins("JOIN project_tags ON project_tags.tag_id = tags.id").
-		Where("project_tags.project_id = ?", projectID).
-		Find(&tags).Error
-	return tags, err
 }
 
 func (s *Service) createRuntimeResources(ctx context.Context, session *UserLabSession, ideImage, sourceName string, resources runtimeResourceProfile) error {
@@ -843,41 +795,6 @@ func (s *Service) mainContainerEnv(session *UserLabSession, sourceName string) [
 			corev1.EnvVar{Name: "DESKTOP_HTTP_PORT", Value: strconv.Itoa(int(session.VNCPort))},
 			corev1.EnvVar{Name: "DESKTOP_VNC_PORT", Value: "5901"},
 		)
-	}
-	if session.RuntimeMode != RuntimeModeOpenClaw {
-		return env
-	}
-	openclawCfg := config.OpenClawConfig{}
-	qwenCfg := config.QwenConfig{}
-	if s.cfg != nil {
-		openclawCfg = s.cfg.OpenClaw
-		qwenCfg = s.cfg.Qwen
-	}
-	openclawEnv := map[string]string{
-		"CLASSROOM_MODE":              "true",
-		"CLASSROOM_FRONTEND":          "terminal",
-		"CLASSROOM_FORCE_IM_DISABLED": "true",
-		"DESKTOP_ENABLED":             "true",
-		"DESKTOP_HTTP_PORT":           strconv.Itoa(int(NoVNCPort)),
-		"DESKTOP_VNC_PORT":            "5901",
-		"SSH_ENABLED":                 "true",
-		"SSH_PORT":                    strconv.Itoa(int(SSHPort)),
-		"SSH_USERNAME":                "root",
-		"SSH_PASSWORD":                "opencode",
-		"OPENCLAW_GATEWAY_BIND":       "lan",
-		"OPENCLAW_GATEWAY_PORT":       strconv.Itoa(int(GatewayPort)),
-		"OPENCLAW_GATEWAY_AUTH_MODE":  "token",
-		"OPENCLAW_GATEWAY_TOKEN":      session.GatewayToken,
-		"OPENCLAW_GATEWAY_DANGEROUSLY_ALLOW_HOST_HEADER_ORIGIN_FALLBACK": "true",
-		"MODEL_ID":       firstNonEmpty(openclawCfg.ModelID, qwenCfg.Model, "glm-5"),
-		"BASE_URL":       firstNonEmpty(openclawCfg.BaseURL, qwenCfg.BaseURL),
-		"API_PROTOCOL":   firstNonEmpty(openclawCfg.APIProtocol, "openai-completions"),
-		"CONTEXT_WINDOW": firstNonEmpty(openclawCfg.ContextWindow, "200000"),
-		"MAX_TOKENS":     firstNonEmpty(openclawCfg.MaxTokens, "65536"),
-		"API_KEY":        firstNonEmpty(openclawCfg.APIKey, qwenCfg.APIKey),
-	}
-	for key, value := range openclawEnv {
-		env = append(env, corev1.EnvVar{Name: key, Value: value})
 	}
 	return env
 }
@@ -1133,9 +1050,6 @@ func mainContainerPorts(session *UserLabSession) []corev1.ContainerPort {
 	if session.VNCPort > 0 {
 		ports = append(ports, corev1.ContainerPort{Name: PortNameNoVNC, ContainerPort: int32(session.VNCPort)})
 	}
-	if session.RuntimeMode == RuntimeModeOpenClaw {
-		ports = append(ports, corev1.ContainerPort{Name: PortNameGateway, ContainerPort: GatewayPort})
-	}
 	for _, port := range normalizeSessionAppPorts(session.AppPorts) {
 		ports = append(ports, corev1.ContainerPort{Name: appPortName(port.Name), ContainerPort: port.ContainerPort})
 	}
@@ -1149,9 +1063,6 @@ func servicePorts(session *UserLabSession) []corev1.ServicePort {
 	}
 	if session.IDEPort > 0 {
 		ports = append(ports, corev1.ServicePort{Name: PortNameIDE, Port: IDEPort, TargetPort: intstr.FromString(PortNameIDE)})
-	}
-	if session.RuntimeMode == RuntimeModeOpenClaw {
-		ports = append(ports, corev1.ServicePort{Name: PortNameGateway, Port: GatewayPort, TargetPort: intstr.FromString(PortNameGateway)})
 	}
 	for _, port := range normalizeSessionAppPorts(session.AppPorts) {
 		ports = append(ports, corev1.ServicePort{
@@ -1201,8 +1112,6 @@ func normalizeProxyTarget(target string) string {
 		return PortNameNoVNC
 	case PortNameIDE, "webide", "code":
 		return PortNameIDE
-	case PortNameGateway, "openclaw":
-		return PortNameGateway
 	default:
 		return ""
 	}
@@ -1221,14 +1130,6 @@ func splitProxySuffix(suffix string) []string {
 		}
 	}
 	return out
-}
-
-func generateGatewayToken() string {
-	buf := make([]byte, 12)
-	if _, err := rand.Read(buf); err != nil {
-		return fmt.Sprintf("project-gw-%d", time.Now().UnixNano())
-	}
-	return "project-gw-" + hex.EncodeToString(buf)
 }
 
 func firstNonEmpty(values ...string) string {
@@ -1419,7 +1320,7 @@ func sessionShouldKeepRuntime(status SessionStatus) bool {
 func (s *Service) countActiveClassicSessions(ctx context.Context, userID uint64) (int64, error) {
 	var count int64
 	err := s.db.WithContext(ctx).Model(&UserLabSession{}).
-		Where("user_id = ? AND runtime_mode = ? AND status IN ?", userID, RuntimeModeClassic, []SessionStatus{SessionStatusCreating, SessionStatusRunning}).
+		Where("user_id = ? AND status IN ?", userID, []SessionStatus{SessionStatusCreating, SessionStatusRunning}).
 		Count(&count).Error
 	return count, err
 }
@@ -1456,11 +1357,4 @@ func (s *Service) recordAudit(ctx context.Context, actorID uint64, action, targe
 
 func sessionStatusText(status SessionStatus) string {
 	return sessionStatusString(status)
-}
-
-func runtimeModeText(mode RuntimeMode) string {
-	if mode == RuntimeModeOpenClaw {
-		return "openclaw"
-	}
-	return "classic"
 }

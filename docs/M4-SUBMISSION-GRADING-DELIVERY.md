@@ -7,12 +7,12 @@
 - `M4` 已完成首版主链路，不应表述为"模块已完成"
 - 当前已打通：
   - 学生提交（首次 + 重新提交）
-  - 提交时自动抓取证据快照（6 种 check_type）
+  - 提交时自动抓取证据快照（5 种当前 check_type）
   - 教师批改队列与详情评分（Rubric 分项 + 总分）
   - 教师退回（`AllowResubmit=true` 场景）
   - 教师发布成绩（`reviewed → published` 状态机）
   - 学生查看成绩与反馈（仅 `published` 可见）
-  - 学生提交表单自动检测当前活跃 Lab 会话，并按作业资源自动派生 OpenClaw / Agent 证据引用
+  - 学生提交表单自动检测当前活跃 Lab 会话，并按作业资源自动派生 Agent 证据引用
 - 当前仍缺：
   - 提交通知推送（M5）
   - AI 自动评分（M6）
@@ -72,7 +72,6 @@
 | `agent_progress` | `user_agent_progress`（步骤数 + 完成步骤列表）|
 | `lab_session` | `user_lab_sessions`（提交时绑定的活跃会话）|
 | `lab_command` | 教师重新验证时记录的验证命令 |
-| `openclaw_phase` | OpenClaw 项目 session 标识（如存在 `OpenClawSessionID`）|
 | `manual_review` | 等待教师批改 / 教师重新检查 |
 
 快照在提交时立即生成，不依赖 Lab 会话是否仍存活。
@@ -102,7 +101,7 @@
   - "重新验证" / "保存评分" / "发布成绩" / "退回给学生"
   - 发布按钮仅在 `grade.status === 'reviewed'` 时启用
 - 学生端 `StudyAssignmentsSection` 新增 `SubmissionPanel`
-  - 提交表单（内容文字 + 自动检测的 labSessionId / openClawSessionId / agentManualId）
+  - 提交表单（内容文字 + 自动检测的 labSessionId / agentManualId）
   - 提交历史列表（`SubmissionHistoryCard`，含 checks / attempt_no）
   - 已发布成绩展示（绿色区块，含分项 rubric 评分）
   - 教师反馈展示（琥珀色区块）
@@ -134,7 +133,7 @@
 ## 明确未完成项
 
 - **无独立教师成绩单接口**：`GET /api/teacher/grades` 列表不存在；教师当前只能通过提交列表 + 筛选间接查看已评成绩
-- **Lab / OpenClaw / Agent 证据 UX 已修正**：提交表单会自动读取当前活跃 Lab 会话，并按作业资源自动派生 OpenClaw session 与 Agent manual；当前仍缺历史 Lab 会话选择器
+- **Lab / Agent 证据 UX 已修正**：提交表单会自动读取当前活跃 Lab 会话，并按作业资源自动派生 Agent manual；当前仍缺历史 Lab 会话选择器。旧 OpenClaw session 列和 check 仅保留历史审计，不再由新提交生成
 - **退回与重新提交的耦合**：`ReturnTeacherSubmission` 要求 `AllowResubmit=true`，不允许重新提交的班级无法退回（仅能评分 + 反馈）
 - **提交通知**：M5 实现（催交 / 提交确认 / 成绩发布推送）
 - **AI 自动评分**：M6 实现（check 结果 → 自动建议分数）

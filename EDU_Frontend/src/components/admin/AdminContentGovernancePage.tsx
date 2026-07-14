@@ -31,7 +31,6 @@ const emptyTemplateForm: LabTemplateFormState = {
   name: '',
   code: '',
   description: '',
-  runtimeMode: 'classic',
   envImage: '',
   ideImage: '',
   mainCpuRequest: '250m',
@@ -218,7 +217,6 @@ const AdminContentGovernancePage: React.FC = () => {
       name: template.name,
       code: template.code,
       description: template.description || '',
-      runtimeMode: template.runtimeMode || 'classic',
       envImage: template.envImage,
       ideImage: template.ideImage || '',
       mainCpuRequest: template.mainCpuRequest,
@@ -712,16 +710,6 @@ const AdminContentGovernancePage: React.FC = () => {
                   onChange={(event) => setTemplateForm((prev) => ({ ...prev, description: event.target.value }))}
                   className="mt-2 min-h-[112px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-primary-500 focus:bg-white"
                   placeholder={tr('templateDescriptionPlaceholder')}
-                />
-              </label>
-              <label className="block text-sm font-semibold text-slate-700">
-                {tr('runtimeMode', { ns: 'uiReview' })}
-                <ToolbarSelect
-                  ariaLabel={tr('runtimeMode', { ns: 'uiReview' })}
-                  value={templateForm.runtimeMode}
-                  onChange={(value) => setTemplateForm((prev) => ({ ...prev, runtimeMode: value }))}
-                  options={[{ key: 'classic', label: 'classic' }]}
-                  className="mt-2"
                 />
               </label>
               <div className="rounded-2xl bg-slate-50 p-4">

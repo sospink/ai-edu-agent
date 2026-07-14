@@ -1,11 +1,11 @@
 # EDU_Backend_Go 开发进度
 
-最后更新：2026-04-25
+最后更新：2026-07-14
 
 ## 当前结论
 
 - 当前主线阶段：`Phase 5：Lab K8S 化运行时`
-- 当前状态：`Phase 5 Classic Lab 已完成真实 K8S 联调，Agent 自动验证与 Lab janitor 已接入，OpenClaw 已改为独立项目场景链路；M0-M7 均已完成首版主链路；学习成果概览与 Agent 教学观察台增强已完成首版读写链路`
+- 当前状态：`课程和项目统一使用 K8S Classic Lab；Agent 自动验证与 Lab janitor 已接入；历史 OpenClaw 模块已下架；M0-M7 均已完成首版主链路；学习成果概览与 Agent 教学观察台增强已完成首版读写链路`
 - 当前架构总览：[ARCHITECTURE.md](../../docs/ARCHITECTURE.md)
 - 二阶段主规划：[PHASE-2-TEACHING-PLATFORM-UPGRADE.md](../../docs/PHASE-2-TEACHING-PLATFORM-UPGRADE.md)
 - 当前前端对接结论：
@@ -13,14 +13,21 @@
   - 普通用户个人中心资料更新与密码修改已具备
   - 登录态核心契约已兼容现有前端
   - 课程、项目、学习中心首批核心接口已具备
-  - Agent 手册、AI 问答、OpenClaw 视图首版接口已具备
+  - Agent 手册、AI 问答与验证接口已具备
   - Lab 创建/停止/查询/执行命令接口已具备首版 K8S 实现
   - `/ws/terminal` 已从占位握手切换为 K8S exec bridge
-  - `/api/integrations/openclaw/health` 与 `/api/integrations/feishu/health` 已补齐
   - TS -> Go 主链路替代差异矩阵已落地，`/api/docker/*` 已明确标注为旧管理面遗留
   - 三端权限体系与 Teacher Portal 首版主链路已接入
   - `/api/learning/overview` 已接入学生学习成果概览，供学习中心顶部与个人中心等级共用
   - `/teacher/agent-observatory` 已接入 Agent 教学观察台，覆盖步骤热力、学生卡点、FAQ、教师干预和复盘卡
+
+## 2026-07-14 历史 OpenClaw 模块下架
+
+- 下架前完整实现已提交并推送到 `codex/archive-openclaw-20260714`
+- 当前 React / Go 产品已移除旧页面、路由、领域、配置、项目分流、作业资源和管理观测面
+- 新增 `deployments/sql/20260714_retire_openclaw.sql`，幂等归档历史项目 / 作业、停用旧模板并触发旧会话 janitor 回收
+- 历史提交、检查和会话列继续保留审计，不再进入新请求或 JSON 契约
+- 以下 2026-04 的记录是当时实施历史；其中 OpenClaw 相关结论已被本节替代，不能作为当前运行时事实
 
 ## 2026-04-22 二阶段规划同步
 
@@ -34,7 +41,7 @@
 
 | 模块 | 状态 | 说明 |
 | --- | --- | --- |
-| M0：一阶段收口基线 | 已完成（本轮范围） | 自动化、三端登录、teacher scope、blacklist、Classic Lab runtime 已完成验收；OpenClaw 浏览器级联调按本轮要求暂缓 |
+| M0：一阶段收口基线 | 已完成（本轮范围） | 自动化、三端登录、teacher scope、blacklist、Classic Lab runtime 已完成验收；当时存在的外部模块现已下架 |
 | M1：班级与教学组织闭环 | 已完成首版主链路 | 学期、班级、成员、主教师关系、学生可见、管理员治理；多教师协同与任务分配延期 |
 | M2：内容生产与发布闭环 | 已完成首版主链路 | 发布检查、发布阻断、Lab 模板、发布审计、教师端学生视角预览、管理端内容治理已接通；发布门禁专项路由测试已补 |
 | M3：作业发布与实训任务闭环 | 已完成首版主链路 | 作业绑定班级与已发布资源、教师发布、学生待办可见、管理端只读观测已接通；提交评分延期到 M4 |
@@ -125,7 +132,7 @@
 
 - M5 浏览器级真实冒烟记录与截图 / 录屏附件仍未补
 - 风险学生仍是固定规则，不包含 AI 预测或画像模型
-- 通知只做站内通知，不包含飞书 / 邮件 / 短信推送
+- 通知只做站内通知，不包含外部 IM / 邮件 / 短信推送
 - 管理端仅观测教学质量，不接管教师提醒、退回、评分、重开
 - 更深层 Lab 日志钻取、资源配额治理和异常会话治理进入 M6
 
@@ -143,7 +150,7 @@
   - 多班级 class 配额取最严格
   - global 配额兜底
   - 全部禁用时不限制并发，但仍用 `DefaultSessionMinutes = 120` 写入过期时间
-- Classic Lab 并发计数只统计 `runtime_mode = classic` 且 `status IN creating/running`
+- 当前并发计数统计所有 `status IN creating/running` 的 Lab 会话，课程和项目共用配额
 - `CreateSession` 已移除硬编码 TTL，改为按配额时长计算 `expires_at`；Janitor 继续只读 `expires_at`
 - 运行事件流已覆盖创建请求、配额阻断、创建成功、ready、错误、停止、回收
 - 管理端运行接口已补齐：
@@ -178,8 +185,7 @@
 
 - M6 浏览器级真实冒烟截图 / 录屏附件仍未补
 - M6 首版不做 CPU / 内存按用户或班级覆盖，仍由 Lab 模板控制
-- OpenClaw 只纳入健康观测，不纳入 Classic Lab 配额治理
-- 成本账单、AI 自动诊断、飞书 / 邮件告警和自动运维策略延期
+- 成本账单、AI 自动诊断、邮件告警和自动运维策略延期
 
 ## 2026-04-24 M7 AI 助教辅助首版主链路
 
@@ -310,7 +316,7 @@
 - 本轮记录：
   - 现有云库课程镜像 `opencode-lab:latest` 作为 smoke 源会出现 `Pod Pending`
   - 使用临时草稿 smoke 课程与镜像 `registry.cn-beijing.aliyuncs.com/svinsight/course:fisco_newbasicv6` 已完成运行时闭环，验证后课程已删除
-  - OpenClaw 页面级真实联调按本轮要求暂缓，仅保留健康检查结论
+  - 当时暂缓的外部模块页面联调已被 2026-07-14 下架结论取代
 
 ### 相关文档
 
@@ -346,7 +352,7 @@
 - checker 含 `warnings` 时允许发布，但写入审计
 - 手册 `isPublished=1` 已接入同一门禁，不能绕过发布检查
 - 课程 / 项目 Classic Lab 运行时已支持优先读取 Lab 模板镜像与资源
-- OpenClaw 项目继续保持独立标签与健康检查门禁
+- 历史项目类型已改为防回流发布门禁，普通项目统一使用 Classic Lab
 
 ### 已补的前端入口
 
@@ -366,7 +372,7 @@
   - 课程实验课时缺手册阻断
   - 手册缺有效验证阻断
   - Classic Lab 停用模板阻断
-  - OpenClaw 缺标签阻断
+  - 历史项目类型重新发布阻断
 - 已补真实浏览器级专项冒烟文档记录：
   - 管理端 `/admin/content-governance` 完成 Lab 模板创建、停用与审计记录查看
   - 教务端 `/teacher/courses` 完成课程发布检查 Drawer 与阻断原因展示验证
@@ -407,7 +413,7 @@
 - 教师只能管理自己创建或自己主教师班级关联的作业
 - 学生只能看到自己所在班级的已发布 / 已关闭作业
 - 管理员首版只读观测，不代编辑
-- 发布门禁会阻断无班级、无资源、资源未发布、OpenClaw 缺标签、绑定停用班级
+- 发布门禁会阻断无班级、无资源、资源未发布、历史资源类型、绑定停用班级
 
 ### 已补的前端入口
 
@@ -431,7 +437,7 @@
   - 发布后目标班级学生可见
   - 非班级学生不可见
   - 关闭后学生仍可查详情但 `canEnter=false`
-  - 发布门禁阻断无班级、无资源、资源未发布、OpenClaw 缺标签、停用班级
+  - 发布门禁阻断无班级、无资源、资源未发布、历史资源类型、停用班级
 
 ### 明确延期项
 
@@ -528,10 +534,9 @@
 - 终端收到 `m0-terminal-ok`
 - 停止后会话状态为 `stopped`
 
-### OpenClaw
+### 已下架历史模块
 
-- `openclaw / feishu` 健康检查接口通过
-- 浏览器级真实链路联调按本轮范围暂缓，不阻塞 M1
+- 本节原健康检查结论只代表 2026-04-22 时点；相关路由和配置已于 2026-07-14 下架
 
 ## 阶段总览
 
@@ -541,8 +546,8 @@
 | Phase 1：Go 工程基础设施搭建 | 已完成 | 工程骨架、配置、日志、数据库、K8S、上传、健康检查已落地 |
 | Phase 2：认证与用户系统重构 | 已完成 | 认证、用户、权限边界、自助资料更新已打通 |
 | Phase 3：课程、项目、学习与资源管理 | 已完成 | 课程/项目 CRUD、学习资料、学习进度链路已完成 |
-| Phase 4：Agent、AI 与 OpenClaw 聚合能力 | 进行中 | Agent/AI/OpenClaw 首版接口已完成，等待外部依赖联调 |
-| Phase 5：Lab K8S 化运行时 | 进行中 | Classic Lab 已在真实集群完成 Pod/Service/noVNC/terminal/stop 闭环验证，OpenClaw 项目链路留待下一阶段 |
+| Phase 4：Agent 与 AI 聚合能力 | 进行中 | Agent / AI 首版接口已完成，继续做真实模型与页面回归 |
+| Phase 5：Lab K8S 化运行时 | 进行中 | Classic Lab 已在真实集群完成 Pod/Service/noVNC/terminal/stop 闭环验证，课程和项目统一接入 |
 | Phase 6：部署体系与开发测试环境完善 | 未开始 | 待业务主链路稳定后推进 |
 | Phase 7：全量联调与回归 | 未开始 | 待核心模块完成后推进 |
 | Phase 8：整体验收与切换准备 | 未开始 | 待开发测试环境验证后推进 |
@@ -749,12 +754,6 @@
 - `POST /api/agent/admin/manual/:id/steps`
 - `POST /api/agent/admin/import`
 - `POST /api/agent/admin/parse-preview`
-- `GET /api/openclaw-view/:sessionId/thinking`
-- `GET /api/openclaw-view/:sessionId/executing`
-- `GET /api/openclaw-view/:sessionId/completed`
-- `GET /api/openclaw-view/:sessionId/phase`
-- `GET /api/openclaw-view/file/:messageId/:fileKey`
-- `POST /api/openclaw-view/chat/send`
 
 ### 已完成兼容点
 
@@ -770,7 +769,6 @@
   - `data: [DONE]`
 - `POST /api/agent/prompt-enhance` 继续兼容前端当前的统一包裹读取方式：
   - `{ success, data }`
-- OpenClaw 视图接口继续返回统一包裹结构，兼容前端 `response.success && response.data` 判定
 - Markdown 导入与预览已兼容：
   - `## 步骤 n: 标题`
   - `### heading`
@@ -786,11 +784,7 @@
   - `command_output`
   - `service_running`
   - `custom`
-- OpenClaw Gateway / 飞书接口已接入 Go 配置和客户端，但是否能在真实环境跑通仍依赖：
-  - 网关可达性
-  - 设备签名握手
-  - 飞书凭证与群组配置
-- `openclaw-view` 在外部依赖未就绪时会返回空视图/默认阶段，保证前端不会因 500 全面阻塞
+- 历史 OpenClaw / Feishu 客户端、降级响应和配置已于 2026-07-14 移除
 
 ## 验证结果
 
@@ -807,7 +801,7 @@
   - Prompt Enhance
   - SSE 流式输出
   - Markdown 预览与导入
-  - OpenClaw phase 降级返回
+  - 已下架路由返回 404
 
 ### 待做
 
@@ -815,15 +809,10 @@
   - AgentWidget
   - AgentManualEditor
   - PromptEnginePanel
-  - OpenClaw 三阶段页面
 - 用真实 DashScope / Qwen 配置验证：
   - 非流式问答
   - 流式问答
   - Prompt Enhance
-- 用真实 OpenClaw Gateway / Feishu 配置验证：
-  - thinking / executing / completed 聚合
-  - chat send
-  - 文件下载
 
 ## Phase 5 当前完成内容
 
@@ -836,8 +825,6 @@
 - `POST /api/lab/stop/:sessionId`
 - `GET /api/lab/urls`
 - `POST /api/lab/execute`
-- `ALL /api/lab/gateway/:sessionId`
-- `ALL /api/lab/gateway/:sessionId/*`
 - `ALL /api/lab/proxy/:sessionId/:target/*`
 - `GET /ws/terminal`
 
@@ -846,19 +833,16 @@
 - `user_lab_sessions` 按现有字段兼容落库，未强制依赖新增 schema 字段
 - Lab 会话首版按 `1 session = 1 Pod + 1 Service` 编排
 - 课程使用 `envImage + 可选 ideImage`
-- 项目详情/列表已新增计算字段 `labRuntimeMode`，当前按 `OpenClaw` 专用标签判断 classic / openclaw 项目入口
-- OpenClaw 项目不再创建 K8S Lab，会直接进入 `/openclaw/*` 独立场景页，并由 `openclaw-view` 派生受控 session key
+- 项目详情和列表不再返回运行时类型，项目统一进入 K8S Classic Lab
 - `/ws/terminal` 保留现有 query 参数，内部切换为 K8S exec bridge
 - `POST /api/lab/execute` 使用 K8S exec 执行非交互命令，供 Agent 验证/快捷命令链路复用
-- Gateway 代理通过 K8S Service proxy 转发，并剥离 iframe 阻塞响应头
-- `vncUrl`、`ideUrl`、`gatewayUrl` 均返回同源代理路径，不再返回节点裸端口
+- noVNC、IDE 和模板 Web 应用通过 K8S Service proxy 返回同源代理路径，不暴露节点裸端口
 - noVNC `vncUrl.path` 已改为绝对 `/api/lab/proxy/:sessionId/novnc/websockify`，避免 iframe 下相对路径错误
 - 代理层已保留 `Connection: Upgrade` / `Upgrade: websocket`，noVNC `websockify` 可通过 Go 后端完成 101 升级
 
 ### 当前已知边界
 
-- OpenClaw 外部 Gateway / Feishu 真实数据仍待线上服务恢复后浏览器级联调
-- `project_lab_runtime` 不再将所有项目全局强制切到 OpenClaw，OpenClaw 项目以专用标签为准
+- 历史项目分流与外部 Gateway 配置已移除，旧项目由下架迁移归档
 - `sshInfo` 为兼容字段，首版不提供真实 SSH，终端统一走 K8S exec bridge
 - TTL 到期清理与异常僵尸 Pod/Service 回收已接入 janitor 后台任务
 - `user_lab_sessions` 的 K8S 扩展字段仍建议后续做非破坏性迁移
@@ -902,8 +886,7 @@
 2. 执行 `npm exec tsc --noEmit`，确认前端类型检查通过
 3. 开始 `M1 班级与教学组织闭环` 的数据模型与接口设计
 4. 把云库现有课程镜像回收到稳定可启动镜像，避免后续 smoke 继续依赖临时课程
-5. 在后续单独补 OpenClaw 浏览器级真实联调记录
-6. 按 [PHASE-2-TEACHING-PLATFORM-UPGRADE.md](../../docs/PHASE-2-TEACHING-PLATFORM-UPGRADE.md) 推进 M1
+5. 按 [PHASE-2-TEACHING-PLATFORM-UPGRADE.md](../../docs/PHASE-2-TEACHING-PLATFORM-UPGRADE.md) 推进 M1
 
 ## 运行说明
 

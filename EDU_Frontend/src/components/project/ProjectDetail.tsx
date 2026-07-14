@@ -58,27 +58,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
   const level = getDifficultyLevel(project.difficulty);
   const { color } = getDifficultyColor(project.difficulty);
   const coverCandidates = getImageUrlCandidates(project.coverUrl);
-  const isOpenClawProject = project.labRuntimeMode === 'openclaw' ||
-    (project.tags || []).some((tag) => tag.name.trim().toLowerCase().replace(/[\s_-]/g, '') === 'openclaw');
-
   const openTrainingEntry = (unit?: ProjectUnit) => {
     const targetUnit = unit || units[0];
-
-    if (isOpenClawProject) {
-      const openClawParams = new URLSearchParams({
-        sessionId: targetUnit ? `project:${project.id}:unit:${targetUnit.id}` : `project:${project.id}`,
-        sourceType: 'project',
-        sourceId: project.id.toString(),
-        scope: 'all',
-        returnTo: '/projects',
-      });
-      if (targetUnit) {
-        openClawParams.set('unitId', targetUnit.id.toString());
-        openClawParams.set('unitName', targetUnit.title);
-      }
-      window.open(`/openclaw/idle?${openClawParams.toString()}`, '_blank');
-      return;
-    }
 
     if (!targetUnit) {
       alert(t('noUnits'));

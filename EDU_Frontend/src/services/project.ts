@@ -50,7 +50,6 @@ export interface Project {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
-  labRuntimeMode?: 'classic' | 'openclaw';
   tags?: Tag[];
   units?: ProjectUnit[];
   locale?: string;

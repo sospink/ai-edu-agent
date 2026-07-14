@@ -94,7 +94,6 @@ const scanRoots = scope === 'teacher'
     ? ['src/components/admin']
     : ['src'];
 const excluded = new Set([
-  path.join(root, 'src/components/openclaw/constants.ts'),
   path.join(root, 'src/components/docs/docManifest.ts'),
 ]);
 const excludedDirectories = new Set([

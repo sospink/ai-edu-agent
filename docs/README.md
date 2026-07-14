@@ -5,10 +5,11 @@
 ## 快速入口
 
 - [START-HERE.md](START-HERE.md)：新会话 30 秒进入项目真实状态。
-- [ARCHITECTURE.md](ARCHITECTURE.md)：当前 Go + K8S + OpenClaw + 三端教学平台架构总览。
+- [ARCHITECTURE.md](ARCHITECTURE.md)：当前 Go + K8S Classic Lab + 三端教学平台架构总览。
 - [PROJECT-STATUS.md](PROJECT-STATUS.md)：已落地主链路、仍需收口项、事实来源。
 - [REPO-MAP.md](REPO-MAP.md)：仓库目录职责、优先阅读路径、历史目录边界。
 - [feature-delivery-checklist.md](feature-delivery-checklist.md)：L1 / L2 / L3 分层闭环交付标准。
+- [OPENCLAW-RETIREMENT.md](OPENCLAW-RETIREMENT.md)：历史 OpenClaw 模块下架、迁移与专项验收记录。
 
 ## 二阶段闭环文档
 

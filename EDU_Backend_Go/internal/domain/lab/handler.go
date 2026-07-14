@@ -185,10 +185,6 @@ func (h *Handler) ExecuteCommand(c *gin.Context) {
 	response.Success(c, result, "")
 }
 
-func (h *Handler) ProxyGateway(c *gin.Context) {
-	h.proxyToTarget(c, PortNameGateway, "/api/lab/gateway")
-}
-
 func (h *Handler) ProxyTarget(c *gin.Context) {
 	target := c.Param("target")
 	h.proxyToTarget(c, target, "/api/lab/proxy")
@@ -214,10 +210,6 @@ func (h *Handler) proxyToTarget(c *gin.Context, target, routeBase string) {
 	}
 	if session == nil || session.Status != SessionStatusRunning {
 		response.ErrorKey(c, http.StatusNotFound, "LAB_SESSION_EXPIRED", "lab.sessionExpired", nil)
-		return
-	}
-	if target == PortNameGateway && (session.RuntimeMode != RuntimeModeOpenClaw || session.GatewayPort == 0) {
-		response.ErrorKey(c, http.StatusBadRequest, "LAB_GATEWAY_DISABLED", "lab.gatewayDisabled", nil)
 		return
 	}
 	resolvedTarget, ok := resolveProxyTarget(session, target)
@@ -327,8 +319,6 @@ func resolveProxyTarget(session *UserLabSession, target string) (string, bool) {
 		return normalized, session != nil && session.VNCPort > 0
 	case PortNameIDE:
 		return normalized, session != nil && session.IDEPort > 0
-	case PortNameGateway:
-		return normalized, session != nil && session.RuntimeMode == RuntimeModeOpenClaw && session.GatewayPort > 0
 	}
 	target = strings.TrimSpace(strings.ToLower(target))
 	if session == nil || target == "" {

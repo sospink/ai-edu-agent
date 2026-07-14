@@ -83,34 +83,6 @@ func TestCourseAndProjectPublicReadRoutes(t *testing.T) {
 	if projectPage.Total != 1 || len(projectPage.List) != 1 || len(projectPage.List[0].Tags) != 1 {
 		t.Fatalf("unexpected project list payload: %+v", projectPage)
 	}
-	if projectPage.List[0].LabRuntimeMode != project.LabRuntimeModeOpenClaw {
-		t.Fatalf("expected openclaw runtime mode, got %q", projectPage.List[0].LabRuntimeMode)
-	}
-
-	classicProject := &project.Project{
-		Title:      "OpenClaw 字样但普通项目",
-		Slug:       "openclaw-wording-classic",
-		Subtitle:   "没有 OpenClaw 标签",
-		Difficulty: 1,
-		Status:     project.ProjectStatusPublished,
-		EnvImage:   "classic:v1",
-		CreatedBy:  fixture.authFixture.admin.ID,
-	}
-	if err := fixture.db.Create(classicProject).Error; err != nil {
-		t.Fatalf("seed classic project failed: %v", err)
-	}
-	classicResp := performJSON(t, fixture.engine, http.MethodGet, fmt.Sprintf("/api/projects/%d", classicProject.ID), nil, "")
-	if classicResp.Code != http.StatusOK {
-		t.Fatalf("expected 200 for classic project detail, got %d: %s", classicResp.Code, classicResp.Body.String())
-	}
-	var classicAPI apiResponse
-	decodeJSON(t, classicResp.Body.Bytes(), &classicAPI)
-	var classicDetail project.ProjectDetail
-	decodeJSON(t, classicAPI.Data, &classicDetail)
-	if classicDetail.LabRuntimeMode != project.LabRuntimeModeClassic {
-		t.Fatalf("expected classic runtime mode without OpenClaw tag, got %q", classicDetail.LabRuntimeMode)
-	}
-
 	tagsResp := performJSON(t, fixture.engine, http.MethodGet, "/api/tags", nil, "")
 	if tagsResp.Code != http.StatusOK {
 		t.Fatalf("expected 200 for tags list, got %d", tagsResp.Code)
@@ -347,8 +319,8 @@ func newPhase3Fixture(t *testing.T) *phase3Fixture {
 	}
 
 	projectRecord := &project.Project{
-		Title:           "OpenClaw 项目",
-		Slug:            "openclaw-project",
+		Title:           "Go 项目实战",
+		Slug:            "go-project-practice",
 		Subtitle:        "项目副标题",
 		CoverURL:        "/covers/p1.png",
 		Difficulty:      2,
@@ -381,7 +353,7 @@ func newPhase3Fixture(t *testing.T) *phase3Fixture {
 	if err := db.Create(projectUnit).Error; err != nil {
 		t.Fatalf("seed project unit failed: %v", err)
 	}
-	tag := &project.Tag{Name: "OpenClaw", StyleColor: "#3B82F6"}
+	tag := &project.Tag{Name: "Go", StyleColor: "#3B82F6"}
 	if err := db.Create(tag).Error; err != nil {
 		t.Fatalf("seed tag failed: %v", err)
 	}

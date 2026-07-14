@@ -8,8 +8,7 @@ export type AssignmentResourceType =
   | 'project'
   | 'project_unit'
   | 'manual'
-  | 'classic_lab'
-  | 'openclaw_project';
+  | 'classic_lab';
 
 export interface AssignmentResourceInput {
   resourceType: AssignmentResourceType;
@@ -140,7 +139,7 @@ export interface AssignmentOverview {
 
 export type SubmissionStatus = 'not_started' | 'in_progress' | 'submitted' | 'returned' | 'graded' | 'resubmitted';
 export type GradeStatus = 'pending' | 'auto_checked' | 'reviewed' | 'published';
-export type SubmissionCheckType = 'lesson_progress' | 'agent_progress' | 'lab_session' | 'lab_command' | 'openclaw_phase' | 'manual_review';
+export type SubmissionCheckType = 'lesson_progress' | 'agent_progress' | 'lab_session' | 'lab_command' | 'manual_review';
 
 export interface RubricItem {
   id: number;
@@ -178,7 +177,6 @@ export interface SubmissionFileInput {
 export interface CreateSubmissionRequest {
   contentText: string;
   labSessionId?: number;
-  openclawSessionId?: string;
   agentManualId?: number;
   files?: SubmissionFileInput[];
 }
@@ -248,7 +246,6 @@ export interface SubmissionDetail {
   status: SubmissionStatus;
   contentText: string;
   labSessionId: number;
-  openclawSessionId: string;
   agentManualId: number;
   submittedAt?: string | null;
   returnedAt?: string | null;

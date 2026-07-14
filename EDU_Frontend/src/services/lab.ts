@@ -37,12 +37,9 @@ export interface LabSession {
   vncPort: number;
   idePort: number;
   sshPort: number;
-  gatewayPort: number;
-  gatewayToken: string;
   desktopEnabled: boolean;
   appPorts: LabAppPort[];
   defaultAppPortName: string;
-  runtimeMode: number; // 1-classic, 2-openclaw
   status: LabSessionStatus;
   errorMessage: string;
   expiresAt: string | null;
@@ -68,9 +65,6 @@ export interface LabUrls {
   vncUrl: string;
   ideUrl: string;
   sshInfo: string;
-  gatewayUrl?: string;
-  gatewayToken?: string;
-  runtimeMode?: 'classic' | 'openclaw';
   appUrls?: LabAppUrl[];
 }
 

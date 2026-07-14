@@ -39,7 +39,6 @@ type m3AssignmentFixture struct {
 	foreignClass    classroom.Class
 	publishedCourse course.Course
 	draftCourse     course.Course
-	openClawProject project.Project
 }
 
 func TestM3AssignmentLifecycleAndVisibility(t *testing.T) {
@@ -279,13 +278,13 @@ func TestM3AssignmentPublishGate(t *testing.T) {
 			},
 		},
 		{
-			name: "openclaw tag missing",
+			name: "retired resource type",
 			body: map[string]any{
-				"title":    "OpenClaw 缺标签",
+				"title":    "已下架资源类型",
 				"classIds": []uint64{fixture.activeClass.ID},
 				"resources": []map[string]any{{
-					"resourceType": assignment.ResourceTypeOpenClawProject,
-					"resourceId":   fixture.openClawProject.ID,
+					"resourceType": "openclaw_project",
+					"resourceId":   fixture.publishedCourse.ID,
 				}},
 			},
 		},
@@ -492,11 +491,6 @@ func newM3AssignmentFixture(t *testing.T) *m3AssignmentFixture {
 	if err := db.First(&draftCourse, "slug = ?", "m3-draft-course").Error; err != nil {
 		t.Fatalf("reload draft course failed: %v", err)
 	}
-	openClawProject := project.Project{Title: "OpenClaw 无标签项目", Slug: "m3-openclaw-missing-tag", Status: project.ProjectStatusPublished, CreatedBy: teacherA.ID}
-	if err := db.Create(&openClawProject).Error; err != nil {
-		t.Fatalf("seed openclaw project failed: %v", err)
-	}
-
 	cfg := &config.Config{
 		App:    config.AppConfig{Name: "edu-platform-test", Env: "test", Version: "test"},
 		JWT:    config.JWTConfig{Secret: "test-secret", Issuer: "edu-platform-test", ExpiresIn: "7d"},
@@ -522,7 +516,6 @@ func newM3AssignmentFixture(t *testing.T) *m3AssignmentFixture {
 		foreignClass:    foreignClass,
 		publishedCourse: publishedCourse,
 		draftCourse:     draftCourse,
-		openClawProject: openClawProject,
 	}
 }
 

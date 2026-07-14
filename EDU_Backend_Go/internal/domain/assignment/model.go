@@ -12,13 +12,12 @@ const (
 )
 
 const (
-	ResourceTypeCourse          = "course"
-	ResourceTypeCourseLesson    = "course_lesson"
-	ResourceTypeProject         = "project"
-	ResourceTypeProjectUnit     = "project_unit"
-	ResourceTypeManual          = "manual"
-	ResourceTypeClassicLab      = "classic_lab"
-	ResourceTypeOpenClawProject = "openclaw_project"
+	ResourceTypeCourse       = "course"
+	ResourceTypeCourseLesson = "course_lesson"
+	ResourceTypeProject      = "project"
+	ResourceTypeProjectUnit  = "project_unit"
+	ResourceTypeManual       = "manual"
+	ResourceTypeClassicLab   = "classic_lab"
 )
 
 type TeachingAssignment struct {

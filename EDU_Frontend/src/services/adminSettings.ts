@@ -25,9 +25,6 @@ export interface AdminSettingsPayload {
     k8sEnabled: boolean;
     k8sNamespace: string;
     runtimeNamespace: string;
-    openclawGateway: string;
-    openclawConfigured: boolean;
-    feishuConfigured: boolean;
   };
   uploads: {
     root: string;

@@ -82,7 +82,7 @@ const TeacherAssignmentsPage: React.FC = () => {
     if (form.resourceType === 'manual') {
       return manuals.map((manual) => ({ id: manual.id, title: manual.title || t('manualFallback', { id: manual.id }), status: manual.isPublished }));
     }
-    if (form.resourceType === 'project' || form.resourceType === 'openclaw_project') {
+    if (form.resourceType === 'project') {
       return projects.map((project) => ({ id: project.id, title: project.title, status: project.status }));
     }
     return courses.map((course) => ({ id: course.id, title: course.title, status: course.status }));
@@ -348,7 +348,6 @@ const TeacherAssignmentsPage: React.FC = () => {
                   { key: 'course', label: t('resourceTypes.course') },
                   { key: 'project', label: t('resourceTypes.project') },
                   { key: 'manual', label: t('resourceTypes.manual') },
-                  { key: 'openclaw_project', label: t('resourceTypes.openclawProject') },
                 ]}
               />
             </div>

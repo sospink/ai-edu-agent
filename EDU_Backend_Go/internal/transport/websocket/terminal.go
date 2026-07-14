@@ -330,7 +330,7 @@ func buildExecCommand(mode, command, sessionPolicy, terminalID string) []string 
 		restart = fmt.Sprintf("tmux kill-session -t %s 2>/dev/null || true;", sessionName)
 	}
 	termValue := "xterm"
-	if terminalID == "opencode" || terminalID == "openclaw" || regexp.MustCompile(`(?i)(opencode|openclaw)`).MatchString(command) {
+	if terminalID == "opencode" || regexp.MustCompile(`(?i)opencode`).MatchString(command) {
 		termValue = "xterm-256color"
 	}
 	run := strings.Join([]string{
@@ -352,9 +352,6 @@ func effectiveInitialCommand(initialCommand, terminalID, mode string) string {
 	}
 	if initialCommand != "" {
 		return initialCommand
-	}
-	if terminalID == "openclaw" {
-		return "openclaw tui"
 	}
 	return ""
 }

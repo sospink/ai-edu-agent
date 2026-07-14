@@ -1,7 +1,7 @@
 export const DOC_SIDEBAR_NAV = [
   {
     titleKey: 'gettingStarted',
-    items: ['快速开始', '核心概念', '开始使用学习中心', '开始使用OpenClaw'],
+    items: ['快速开始', '核心概念', '开始使用学习中心'],
   },
   {
     titleKey: 'productExploration',

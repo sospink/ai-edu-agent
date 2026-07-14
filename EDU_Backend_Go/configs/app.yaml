@@ -77,31 +77,3 @@ qwen:
   api_key: ""
   base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
   model: qwen3-max
-
-openclaw:
-  gateway_url: http://139.199.68.121:28199
-  gateway_token: ""
-  gateway_password: ""
-  model_id: qwen3-max
-  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-  api_key: ""
-  api_protocol: openai-completions
-  context_window: "200000"
-  max_tokens: "65536"
-  connect_timeout_ms: 12000
-  request_timeout_ms: 15000
-  retry_times: 1
-  client_id: gateway-client
-  client_version: ai-edu-agent
-  client_mode: backend
-  client_role: operator
-  client_scopes: operator.admin,operator.approvals,operator.pairing
-  device_identity_path: ""
-  project_lab_runtime: auto
-
-feishu:
-  app_id: ""
-  app_secret: ""
-  domain: https://open.feishu.cn
-  chat_id: ""
-  bot_open_id: ""

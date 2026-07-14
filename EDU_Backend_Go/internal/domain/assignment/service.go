@@ -644,18 +644,6 @@ func (s *Service) validateResource(ctx context.Context, resource AssignmentResou
 		if ok, title := s.hasPublishedCourseOrProject(ctx, resource.ResourceID); !ok {
 			return []AssignmentIssue{issue("ASSIGNMENT_RESOURCE_UNPUBLISHED", "Classic Lab", "Classic Lab 关联资源尚未发布，不能发布作业", resource.ResourceID, title)}
 		}
-	case ResourceTypeOpenClawProject:
-		var record project.Project
-		if err := s.db.WithContext(ctx).First(&record, resource.ResourceID).Error; err != nil {
-			return []AssignmentIssue{issue("ASSIGNMENT_RESOURCE_NOT_FOUND", "OpenClaw", "OpenClaw 项目不存在", resource.ResourceID, "")}
-		}
-		if record.Status != project.ProjectStatusPublished {
-			return []AssignmentIssue{issue("ASSIGNMENT_RESOURCE_UNPUBLISHED", "OpenClaw", "OpenClaw 项目尚未发布，不能发布作业", record.ID, record.Title)}
-		}
-		tags, err := s.projectTags(ctx, record.ID)
-		if err != nil || !project.HasOpenClawTag(tags) {
-			return []AssignmentIssue{issue("ASSIGNMENT_OPENCLAW_TAG_REQUIRED", "OpenClaw", "OpenClaw 作业资源必须绑定带 OpenClaw 标签的项目", record.ID, record.Title)}
-		}
 	default:
 		return []AssignmentIssue{issue("ASSIGNMENT_RESOURCE_TYPE_INVALID", "资源", "不支持的作业资源类型", resource.ResourceID, resource.ResourceType)}
 	}
@@ -678,7 +666,7 @@ func (s *Service) resolveResourceTitle(ctx context.Context, resource AssignmentR
 		if err := s.db.WithContext(ctx).First(&record, lessonID).Error; err == nil {
 			return record.Title, 1
 		}
-	case ResourceTypeProject, ResourceTypeOpenClawProject:
+	case ResourceTypeProject:
 		var record project.Project
 		if err := s.db.WithContext(ctx).First(&record, resource.ResourceID).Error; err == nil {
 			return record.Title, int(record.Status)
@@ -719,16 +707,6 @@ func (s *Service) hasPublishedCourseOrProject(ctx context.Context, resourceID ui
 		return projectRecord.Status == project.ProjectStatusPublished, projectRecord.Title
 	}
 	return false, ""
-}
-
-func (s *Service) projectTags(ctx context.Context, projectID uint64) ([]project.Tag, error) {
-	var tags []project.Tag
-	err := s.db.WithContext(ctx).Table("tags").
-		Select("tags.*").
-		Joins("JOIN project_tags pt ON pt.tag_id = tags.id").
-		Where("pt.project_id = ?", projectID).
-		Find(&tags).Error
-	return tags, err
 }
 
 func normalizeRequest(req UpsertAssignmentRequest) (UpsertAssignmentRequest, error) {

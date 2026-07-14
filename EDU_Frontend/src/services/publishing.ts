@@ -48,7 +48,6 @@ export interface LabTemplate {
   name: string;
   code: string;
   description: string;
-  runtimeMode: string;
   envImage: string;
   ideImage: string;
   mainCpuRequest: string;
@@ -73,7 +72,6 @@ export interface LabTemplateDTO {
   name: string;
   code: string;
   description?: string;
-  runtimeMode?: string;
   envImage: string;
   ideImage?: string;
   mainCpuRequest?: string;

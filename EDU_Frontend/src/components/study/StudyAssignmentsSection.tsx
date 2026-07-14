@@ -18,7 +18,7 @@ const getStatusMeta = (t: StudentT): Record<number, { label: string; className: 
 
 const getResourceLabel = (t: StudentT): Record<string, string> => ({
   course: t('assignments.enterCourse'), course_lesson: t('assignments.enterLesson'), project: t('assignments.enterProject'),
-  project_unit: t('assignments.enterUnit'), manual: t('assignments.viewManual'), classic_lab: t('assignments.enterClassicLab'), openclaw_project: t('assignments.enterOpenClaw'),
+  project_unit: t('assignments.enterUnit'), manual: t('assignments.viewManual'), classic_lab: t('assignments.enterClassicLab'),
 });
 
 const formatDateTime = (value: string | null | undefined, t: StudentT) => (value ? new Date(value).toLocaleString(getCurrentLocale()) : t('assignments.notSet'));
@@ -33,7 +33,7 @@ const getSubmissionStatusMeta = (t: StudentT): Record<string, { label: string; c
 
 const getCheckTypeLabel = (t: StudentT): Record<string, string> => ({
   lesson_progress: t('assignments.lessonProgress'), agent_progress: t('assignments.agentProgress'), lab_session: t('assignments.labSession'),
-  lab_command: t('assignments.labCommand'), openclaw_phase: t('assignments.openclawPhase'), manual_review: t('assignments.manualReview'),
+  lab_command: t('assignments.labCommand'), manual_review: t('assignments.manualReview'),
 });
 
 interface StudyAssignmentsSectionProps {
@@ -57,7 +57,6 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
   const [detailLoading, setDetailLoading] = useState(false);
   const [submitText, setSubmitText] = useState('');
   const [labSessionId, setLabSessionId] = useState('');
-  const [openClawSessionId, setOpenClawSessionId] = useState('');
   const [agentManualId, setAgentManualId] = useState('');
   const [activeLabSession, setActiveLabSession] = useState<LabSession | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -121,9 +120,6 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
     const manualResource = detail.resources.find((resource) => resource.manualId > 0 || resource.resourceType === 'manual');
     setAgentManualId(manualResource ? String(manualResource.manualId || manualResource.resourceId) : '');
 
-    const openClawResource = detail.resources.find((resource) => resource.resourceType === 'openclaw_project');
-    setOpenClawSessionId(openClawResource ? buildOpenClawSessionId(openClawResource) : '');
-
     const activeResponse = await labApi.getActiveSession();
     const activeSession = activeResponse.success ? activeResponse.data?.session || null : null;
     setActiveLabSession(activeSession);
@@ -154,14 +150,12 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
     const response = await studentAssignmentApi.submit(selected.id, {
       contentText: submitText.trim(),
       labSessionId: labSessionId ? Number(labSessionId) : 0,
-      openclawSessionId: openClawSessionId.trim(),
       agentManualId: agentManualId ? Number(agentManualId) : 0,
     });
     setSubmitLoading(false);
     if (response.success) {
       setSubmitText('');
       setLabSessionId('');
-      setOpenClawSessionId('');
       setAgentManualId('');
       await reloadSelected();
       void loadAssignments();
@@ -183,9 +177,6 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
         navigate(`/lab?${labParams.toString()}`);
         break;
       }
-      case 'openclaw_project':
-        navigate(`/openclaw/idle?projectId=${resource.resourceId}`);
-        break;
       case 'course':
       case 'course_lesson':
       default:
@@ -274,7 +265,6 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
                 assignment={selected}
                 submitText={submitText}
                 labSessionId={labSessionId}
-                openClawSessionId={openClawSessionId}
                 agentManualId={agentManualId}
                 submitLoading={submitLoading}
                 submitError={submitError}
@@ -335,18 +325,10 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
   );
 };
 
-const buildOpenClawSessionId = (resource: AssignmentResourceItem) => {
-  if (resource.unitId > 0) {
-    return `project:${resource.resourceId}:unit:${resource.unitId}`;
-  }
-  return `project:${resource.resourceId}`;
-};
-
 interface SubmissionPanelProps {
   assignment: AssignmentDetail;
   submitText: string;
   labSessionId: string;
-  openClawSessionId: string;
   agentManualId: string;
   activeLabSession: LabSession | null;
   submitLoading: boolean;
@@ -359,7 +341,6 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({
   assignment,
   submitText,
   labSessionId,
-  openClawSessionId,
   agentManualId,
   activeLabSession,
   submitLoading,
@@ -402,18 +383,12 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({
       {state?.canSubmit ? (
         <div className="space-y-3">
           <textarea value={submitText} onChange={(event) => onSubmitTextChange(event.target.value)} rows={4} placeholder={t('assignments.submitPlaceholder')} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
-          <div className="grid gap-2 md:grid-cols-3">
+          <div className="grid gap-2 md:grid-cols-2">
             <EvidencePill
               label={t('assignments.currentLab')}
               value={labSessionId ? `#${labSessionId}` : t('assignments.notDetected')}
               active={Boolean(labSessionId)}
               hint={activeLabSession ? t('assignments.source', { source: activeLabSession.sourceId }) : t('assignments.classicHint')}
-            />
-            <EvidencePill
-              label={t('assignments.openclawSession')}
-              value={openClawSessionId || t('assignments.notLinked')}
-              active={Boolean(openClawSessionId)}
-              hint={openClawSessionId ? t('assignments.derivedFromProject') : t('assignments.noOpenclawNeeded')}
             />
             <EvidencePill
               label={t('assignments.agentManual')}

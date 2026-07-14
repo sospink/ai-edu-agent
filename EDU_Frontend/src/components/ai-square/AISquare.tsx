@@ -5,11 +5,8 @@ import {
   ArrowRight,
   Bot,
   Brain,
-  Briefcase,
-  Bug,
   Code2,
   Image,
-  Megaphone,
   MessageSquare,
   Music,
   Search,
@@ -18,7 +15,6 @@ import {
   Video,
   Zap,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
@@ -58,17 +54,6 @@ const createFeaturedTools = (t: TFunction<'aiSquare'>): FeaturedTool[] => [
     url: '#',
   },
   {
-    id: 'openclaw',
-    name: 'OpenClaw',
-    vendor: 'Agent Runtime',
-    desc: t('tools.openclawDesc'),
-    icon: Bot,
-    logoText: 'OC',
-    colorClass: 'bg-emerald-100 text-emerald-700',
-    score: '4.8',
-    url: '#',
-  },
-  {
     id: 'seedance2',
     name: 'Seedance2',
     vendor: t('tools.seedanceVendor'), desc: t('tools.seedanceDesc'),
@@ -97,52 +82,6 @@ const createFeaturedTools = (t: TFunction<'aiSquare'>): FeaturedTool[] => [
     colorClass: 'bg-sky-100 text-sky-700',
     score: '4.7',
     url: 'https://www.coze.cn/',
-  },
-];
-
-type OpenClawScene = {
-  id: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  icon: React.ElementType;
-  colorClass: string;
-  logoText: string;
-  dotColor: string;
-};
-
-const createOpenClawScenes = (t: TFunction<'aiSquare'>): OpenClawScene[] => [
-  {
-    id: 'presales',
-    title: t('scenes.presalesTitle'), subtitle: t('scenes.presalesSubtitle'), description: t('scenes.presalesDesc'),
-    icon: Briefcase,
-    colorClass: 'bg-sky-100 text-sky-700',
-    logoText: 'PE',
-    dotColor: '#0ea5e9',
-  },
-  {
-    id: 'marketing',
-    title: t('scenes.marketingTitle'), subtitle: t('scenes.marketingSubtitle'), description: t('scenes.marketingDesc'),
-    icon: Megaphone,
-    colorClass: 'bg-emerald-100 text-emerald-700',
-    logoText: 'MK',
-    dotColor: '#10b981',
-  },
-  {
-    id: 'fullstack',
-    title: t('scenes.fullstackTitle'), subtitle: t('scenes.fullstackSubtitle'), description: t('scenes.fullstackDesc'),
-    icon: Code2,
-    colorClass: 'bg-amber-100 text-amber-700',
-    logoText: 'FS',
-    dotColor: '#f59e0b',
-  },
-  {
-    id: 'qa',
-    title: t('scenes.qaTitle'), subtitle: t('scenes.qaSubtitle'), description: t('scenes.qaDesc'),
-    icon: Bug,
-    colorClass: 'bg-violet-100 text-violet-700',
-    logoText: 'QA',
-    dotColor: '#8b5cf6',
   },
 ];
 
@@ -225,9 +164,7 @@ function BrandLogo({
 const AISquare: React.FC = () => {
   const { t } = useTranslation('aiSquare');
   const featuredTools = createFeaturedTools(t);
-  const openClawScenes = createOpenClawScenes(t);
   const foundationModels = createFoundationModels(t);
-  const navigate = useNavigate();
   const [heroHovered, setHeroHovered] = useState(false);
   const mouseX = useMotionValue(300);
   const mouseY = useMotionValue(220);
@@ -366,74 +303,6 @@ const AISquare: React.FC = () => {
                 </a>
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* ====== OpenClaw 工作场景 ====== */}
-        <section className="mb-24">
-          <div className="mb-10 text-center">
-            <motion.h2
-              initial={{ opacity: 0, y: 14 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.06 }}
-              className="text-3xl font-bold text-slate-900"
-            >
-              OpenClaw
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.12 }}
-              className="mx-auto mt-3 max-w-2xl text-sm text-slate-500"
-            >
-              {t('openclawDesc')}
-            </motion.p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-            {openClawScenes.map((scene, index) => (
-              <motion.div
-                key={scene.id}
-                initial={{ opacity: 0, y: 22 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.08 }}
-                onClick={() => navigate('/openclaw')}
-                className="group relative cursor-pointer overflow-hidden rounded-3xl border border-white/60 bg-white/80 p-7 shadow-[0_8px_28px_rgba(15,23,42,0.06)] backdrop-blur transition-all hover:shadow-xl hover:-translate-y-1"
-              >
-                {/* 图标 */}
-                <div className={`mb-5 flex h-12 w-12 flex-col items-center justify-center rounded-xl ${scene.colorClass}`}>
-                  <scene.icon className="h-4 w-4" />
-                  <span className="mt-0.5 text-[9px] font-bold leading-none">{scene.logoText}</span>
-                </div>
-
-                {/* 标题 */}
-                <h3 className="text-lg font-bold text-slate-800 group-hover:text-slate-900 transition-colors">
-                  {scene.title}
-                </h3>
-                <p className="mt-1 text-xs font-semibold text-slate-400">{scene.subtitle}</p>
-                <p className="mt-3 text-sm leading-relaxed text-slate-600 line-clamp-2">
-                  {scene.description}
-                </p>
-
-                {/* 底部操作指示 */}
-                <div className="mt-5 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: scene.dotColor }} />
-                      <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: scene.dotColor }} />
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('ready', { ns: 'uiReview' })}</span>
-                  </div>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1">
-                    {t('startScene')}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </span>
-                </div>
-              </motion.div>
-            ))}
           </div>
         </section>
 

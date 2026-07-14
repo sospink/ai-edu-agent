@@ -71,20 +71,43 @@ func TestM2PublishingGateReturnsCheckPayload(t *testing.T) {
 	templateResp := performJSON(t, fixture.engine, http.MethodPost, fmt.Sprintf("/api/teacher/courses/%d/publish", courseWithDisabledTemplate.ID), nil, teacherToken)
 	assertPublishBlocked(t, templateResp, "COURSE_TEMPLATE_INVALID")
 
-	openClawProject := project.Project{
-		Title:     "OpenClaw 标签缺失项目",
-		Slug:      "m2-openclaw-missing-tag",
-		Status:    project.ProjectStatusDraft,
+	retiredProject := project.Project{
+		Title:     "历史项目",
+		Slug:      "retired-project",
+		Status:    project.ProjectStatusArchived,
+		EnvImage:  "registry.local/lab:latest",
 		CreatedBy: fixture.teacher.ID,
 	}
-	if err := fixture.db.Create(&openClawProject).Error; err != nil {
-		t.Fatalf("seed openclaw project failed: %v", err)
+	if err := fixture.db.Create(&retiredProject).Error; err != nil {
+		t.Fatalf("seed retired project failed: %v", err)
 	}
-	if err := fixture.db.Create(&project.ProjectUnit{ProjectID: openClawProject.ID, Title: "说明单元", Type: 3}).Error; err != nil {
-		t.Fatalf("seed openclaw project unit failed: %v", err)
+	retiredUnit := project.ProjectUnit{ProjectID: retiredProject.ID, Title: "历史单元", Type: 1, SortOrder: 1}
+	if err := fixture.db.Create(&retiredUnit).Error; err != nil {
+		t.Fatalf("seed retired project unit failed: %v", err)
 	}
-	openClawResp := performJSON(t, fixture.engine, http.MethodPut, fmt.Sprintf("/api/teacher/projects/%d/publish", openClawProject.ID), nil, teacherToken)
-	assertPublishBlocked(t, openClawResp, "PROJECT_OPENCLAW_TAG_REQUIRED")
+	retiredTag := project.Tag{Name: "OpenClaw", StyleColor: "#10B981"}
+	if err := fixture.db.Create(&retiredTag).Error; err != nil {
+		t.Fatalf("seed retired project tag failed: %v", err)
+	}
+	if err := fixture.db.Create(&project.ProjectTag{ProjectID: retiredProject.ID, TagID: retiredTag.ID}).Error; err != nil {
+		t.Fatalf("bind retired project tag failed: %v", err)
+	}
+	retiredManual := agent.AgentManual{SourceType: agent.SourceTypeProjectUnit, SourceID: retiredUnit.ID, Title: "历史项目手册", IsPublished: 1, CreatorID: fixture.teacher.ID}
+	if err := fixture.db.Create(&retiredManual).Error; err != nil {
+		t.Fatalf("seed retired project manual failed: %v", err)
+	}
+	if err := fixture.db.Create(&agent.AgentStep{
+		ManualID:     retiredManual.ID,
+		StepOrder:    1,
+		Title:        "验证步骤",
+		Content:      []agent.ContentBlock{{Type: "text", Text: "执行验证"}},
+		Verification: &agent.VerificationRule{Type: "command_output", Command: "echo ok", Expect: "contains", Value: "ok"},
+	}).Error; err != nil {
+		t.Fatalf("seed retired project step failed: %v", err)
+	}
+	retiredResp := performJSON(t, fixture.engine, http.MethodPut, fmt.Sprintf("/api/teacher/projects/%d/publish", retiredProject.ID), nil, teacherToken)
+	assertPublishBlocked(t, retiredResp, "PROJECT_TYPE_RETIRED")
+
 }
 
 func assertPublishBlocked(t *testing.T, resp *httptest.ResponseRecorder, expectedCode string) {

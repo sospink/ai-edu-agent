@@ -16,7 +16,7 @@
 
 | 路径前缀 | 最低角色 | 说明 |
 | --- | --- | --- |
-| `/api/courses` `/api/projects` `/api/lab` `/api/agent` `/api/openclaw-view` `/api/learning` | `student` | 学生主链路，教师和管理员可继承访问 |
+| `/api/courses` `/api/projects` `/api/lab` `/api/agent` `/api/learning` | `student` | 学生主链路，教师和管理员可继承访问 |
 | `/api/teacher/courses` | `teacher` | 课程管理主入口，教师在该前缀下的读写都受 `creator_id` 归属限制；`admin` 走同前缀不受归属过滤限制 |
 | `/api/teacher/projects` | `teacher` | 项目管理主入口，教师在该前缀下的读写都受 `created_by` 归属限制；`admin` 走同前缀不受归属过滤限制 |
 | `/api/teacher/manuals` | `teacher` | 实训手册主入口，教师读写受 `creator_id` 归属限制 |
@@ -55,7 +55,6 @@
   - `/study`
   - `/projects`
   - `/lab`
-  - `/openclaw/*`
   - `/api/student/classes`
   - `/api/student/assignments`
   - `/api/student/submissions`

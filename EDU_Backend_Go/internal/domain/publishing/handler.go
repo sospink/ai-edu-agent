@@ -504,7 +504,6 @@ func bindLabTemplateInput(c *gin.Context) (LabTemplateInput, bool) {
 		Name               string                   `json:"name"`
 		Code               string                   `json:"code"`
 		Description        string                   `json:"description"`
-		RuntimeMode        string                   `json:"runtimeMode"`
 		EnvImage           string                   `json:"envImage"`
 		IDEImage           string                   `json:"ideImage"`
 		MainCPURequest     string                   `json:"mainCpuRequest"`
@@ -529,7 +528,6 @@ func bindLabTemplateInput(c *gin.Context) (LabTemplateInput, bool) {
 		Name:               req.Name,
 		Code:               req.Code,
 		Description:        req.Description,
-		RuntimeMode:        req.RuntimeMode,
 		EnvImage:           req.EnvImage,
 		IDEImage:           req.IDEImage,
 		MainCPURequest:     req.MainCPURequest,

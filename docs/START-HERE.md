@@ -7,7 +7,7 @@
 - 当前主前端：`EDU_Frontend/`
 - TS 后端 `EDU_Backend/` 是历史参考，不是当前默认开发主线
 - Classic Lab 当前运行时是 **K8S**
-- OpenClaw 当前走 **独立项目链路**，不是普通 `/lab` 中转
+- 课程和项目实训统一进入 `/lab`，不存在第二种项目运行时
 - 项目已从 Demo 过渡为三端实训教学平台，二阶段 M0-M7 均已有首版主链路
 
 ## 新会话推荐阅读顺序
@@ -45,16 +45,15 @@ curl -s http://localhost:4000/api/health
 
 ## 当前主链路事实
 ### Classic Lab
-- 入口：`/lab`
+- 入口：课程实验和项目详情统一进入 `/lab`
 - 后端：`/api/lab/*`
 - 终端：`/ws/terminal`
-- 运行时：K8S Pod / Service / exec / proxy
+- 运行时：K8S Pod / Service / noVNC / exec / proxy / stop / janitor
 
-### OpenClaw
-- 入口：`/openclaw/*`
-- 项目识别：必须带 `OpenClaw` 标签
-- 后端：`/api/openclaw-view/*`
-- 健康检查：`/api/integrations/openclaw/health`、`/api/integrations/feishu/health`
+### 历史模块下架
+- OpenClaw 产品模块已于 2026-07-14 下架，不是当前可用能力
+- 回滚归档、数据迁移和验收边界见 [OPENCLAW-RETIREMENT.md](OPENCLAW-RETIREMENT.md)
+- `main` 不应再出现旧路由、网关配置、项目类型或学生入口
 
 ### Admin Dashboard
 - 当前定位：K8S 运行概览工作台

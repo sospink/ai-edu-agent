@@ -30,7 +30,7 @@ type LabTemplate struct {
 	Name               string                   `gorm:"column:name;size:128;not null;default:''" json:"name"`
 	Code               string                   `gorm:"column:code;size:128;uniqueIndex;not null;default:''" json:"code"`
 	Description        string                   `gorm:"column:description;size:512;not null;default:''" json:"description"`
-	RuntimeMode        string                   `gorm:"column:runtime_mode;size:32;not null;default:'classic'" json:"runtimeMode"`
+	LegacyRuntimeMode  string                   `gorm:"column:runtime_mode;size:32;not null;default:'classic'" json:"-"`
 	EnvImage           string                   `gorm:"column:env_image;size:256;not null;default:''" json:"envImage"`
 	IDEImage           string                   `gorm:"column:ide_image;size:256;not null;default:''" json:"ideImage"`
 	MainCPURequest     string                   `gorm:"column:main_cpu_request;size:32;not null;default:'250m'" json:"mainCpuRequest"`

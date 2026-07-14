@@ -25,8 +25,7 @@ const (
 type RuntimeMode uint8
 
 const (
-	RuntimeModeClassic  RuntimeMode = 1
-	RuntimeModeOpenClaw RuntimeMode = 2
+	RuntimeModeClassic RuntimeMode = 1
 )
 
 const (
@@ -34,11 +33,9 @@ const (
 	IDEContainerName        = "ide"
 	PortNameNoVNC           = "novnc"
 	PortNameIDE             = "ide"
-	PortNameGateway         = "gateway"
 	NoVNCPort         int32 = 6080
 	SSHPort           int32 = 22
 	IDEPort           int32 = 3000
-	GatewayPort       int32 = 18789
 )
 
 type UserLabSession struct {
@@ -57,9 +54,9 @@ type UserLabSession struct {
 	ExpiresAt          *time.Time                      `gorm:"column:expires_at" json:"expiresAt"`
 	CreatedAt          time.Time                       `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt          time.Time                       `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
-	RuntimeMode        RuntimeMode                     `gorm:"column:runtime_mode;not null;default:1" json:"runtimeMode"`
-	GatewayPort        uint                            `gorm:"column:gateway_port;not null;default:0" json:"gatewayPort"`
-	GatewayToken       string                          `gorm:"column:gateway_token;size:128;not null;default:''" json:"gatewayToken"`
+	RuntimeMode        RuntimeMode                     `gorm:"column:runtime_mode;not null;default:1" json:"-"`
+	LegacyGatewayPort  uint                            `gorm:"column:gateway_port;not null;default:0" json:"-"`
+	LegacyGatewayToken string                          `gorm:"column:gateway_token;size:128;not null;default:''" json:"-"`
 	DesktopEnabled     bool                            `gorm:"column:desktop_enabled;not null;default:true" json:"desktopEnabled"`
 	AppPorts           []publishing.LabTemplateAppPort `gorm:"column:app_ports;serializer:json" json:"appPorts"`
 	DefaultAppPortName string                          `gorm:"column:default_app_port_name;size:32;not null;default:''" json:"defaultAppPortName"`
@@ -70,13 +67,10 @@ func (UserLabSession) TableName() string {
 }
 
 type URLs struct {
-	VNCURL       string   `json:"vncUrl"`
-	IDEURL       string   `json:"ideUrl"`
-	SSHInfo      string   `json:"sshInfo"`
-	GatewayURL   string   `json:"gatewayUrl"`
-	GatewayToken string   `json:"gatewayToken"`
-	RuntimeMode  string   `json:"runtimeMode"`
-	AppURLs      []AppURL `json:"appUrls"`
+	VNCURL  string   `json:"vncUrl"`
+	IDEURL  string   `json:"ideUrl"`
+	SSHInfo string   `json:"sshInfo"`
+	AppURLs []AppURL `json:"appUrls"`
 }
 
 type AppURL struct {

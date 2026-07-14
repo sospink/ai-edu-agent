@@ -163,9 +163,6 @@ const SystemSettings: React.FC = () => {
             <SettingItem label="K8S Runtime" value={formatEnabled(settings.runtime.k8sEnabled, t('enabled'), t('notConfigured'))} />
             <SettingItem label="K8S Namespace" value={settings.runtime.k8sNamespace || t('notSet')} />
             <SettingItem label="Runtime Namespace" value={settings.runtime.runtimeNamespace || t('notSet')} />
-            <SettingItem label={t('openclawGateway')} value={settings.runtime.openclawGateway || t('notSet')} />
-            <SettingItem label={t('openclawIntegration')} value={formatEnabled(settings.runtime.openclawConfigured, t('enabled'), t('notConfigured'))} />
-            <SettingItem label={t('feishuIntegration')} value={formatEnabled(settings.runtime.feishuConfigured, t('enabled'), t('notConfigured'))} />
           </div>
         </SettingCard>
 

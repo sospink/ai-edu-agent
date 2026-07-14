@@ -62,7 +62,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		response.BadRequestKey(c, "project.invalidId", nil)
 		return
 	}
-	detail, serviceErr := h.service.FindByIDLocalized(c.Request.Context(), id)
+	detail, serviceErr := h.service.FindPublishedByIDLocalized(c.Request.Context(), id)
 	if serviceErr != nil {
 		_ = c.Error(serviceErr)
 		return
@@ -112,7 +112,7 @@ func (h *Handler) SaveContentTranslation(c *gin.Context) {
 }
 
 func (h *Handler) GetBySlug(c *gin.Context) {
-	detail, err := h.service.FindBySlugLocalized(c.Request.Context(), c.Param("slug"))
+	detail, err := h.service.FindPublishedBySlugLocalized(c.Request.Context(), c.Param("slug"))
 	if err != nil {
 		_ = c.Error(err)
 		return

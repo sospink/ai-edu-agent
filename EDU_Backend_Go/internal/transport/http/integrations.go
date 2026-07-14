@@ -13,7 +13,6 @@ import (
 
 	"edu-platform/internal/app"
 	"edu-platform/internal/domain/lab"
-	"edu-platform/internal/domain/openclawview"
 	"edu-platform/internal/domain/operations"
 	"edu-platform/internal/infra/authz"
 	"edu-platform/pkg/i18n"
@@ -21,18 +20,16 @@ import (
 )
 
 type IntegrationsHandler struct {
-	deps         app.Dependencies
-	openclawView *openclawview.Service
-	labService   *lab.Service
-	operations   *operations.Service
+	deps       app.Dependencies
+	labService *lab.Service
+	operations *operations.Service
 }
 
 func NewIntegrationsHandler(deps app.Dependencies, labService *lab.Service) *IntegrationsHandler {
 	return &IntegrationsHandler{
-		deps:         deps,
-		openclawView: openclawview.NewService(deps.Config, deps.Logger, deps.DB),
-		labService:   labService,
-		operations:   operations.NewService(deps.DB, deps.Logger),
+		deps:       deps,
+		labService: labService,
+		operations: operations.NewService(deps.DB, deps.Logger),
 	}
 }
 
@@ -133,75 +130,7 @@ func (h *IntegrationsHandler) ConfigSummary(c *gin.Context) {
 			"model":     cfg.Qwen.Model,
 			"apiKeySet": cfg.Qwen.APIKey != "",
 		},
-		"openclaw": gin.H{
-			"gatewayURL":         cfg.OpenClaw.GatewayURL,
-			"gatewayTokenSet":    cfg.OpenClaw.GatewayToken != "",
-			"gatewayPasswordSet": cfg.OpenClaw.GatewayPassword != "",
-			"modelID":            cfg.OpenClaw.ModelID,
-			"baseURL":            cfg.OpenClaw.BaseURL,
-			"apiKeySet":          cfg.OpenClaw.APIKey != "",
-			"apiProtocol":        cfg.OpenClaw.APIProtocol,
-			"contextWindow":      cfg.OpenClaw.ContextWindow,
-			"maxTokens":          cfg.OpenClaw.MaxTokens,
-			"projectLabRuntime":  cfg.OpenClaw.ProjectLabRuntime,
-		},
-		"feishu": gin.H{
-			"domain":       cfg.Feishu.Domain,
-			"appIDSet":     cfg.Feishu.AppID != "",
-			"appSecretSet": cfg.Feishu.AppSecret != "",
-			"chatIDSet":    cfg.Feishu.ChatID != "",
-			"botOpenIDSet": cfg.Feishu.BotOpenID != "",
-		},
 	}, "integrations.configLoaded", nil)
-}
-
-func (h *IntegrationsHandler) OpenClawHealth(c *gin.Context) {
-	if h.openclawView == nil {
-		response.ErrorKey(c, http.StatusServiceUnavailable, "OPENCLAW_HEALTH_UNAVAILABLE", "integrations.openclawUnavailable", nil)
-		return
-	}
-
-	data, err := h.openclawView.GetOpenClawHealth(c.Request.Context())
-	if err != nil {
-		response.ErrorKeyWithDetail(c, resolveIntegrationStatus(err), "OPENCLAW_HEALTH_FAILED", "integrations.openclawFailed", nil, err)
-		return
-	}
-
-	response.SuccessKey(c, data, "integrations.openclawHealthy", nil)
-}
-
-func (h *IntegrationsHandler) FeishuHealth(c *gin.Context) {
-	if h.openclawView == nil {
-		response.ErrorKey(c, http.StatusServiceUnavailable, "FEISHU_HEALTH_UNAVAILABLE", "integrations.feishuUnavailable", nil)
-		return
-	}
-
-	data, err := h.openclawView.GetFeishuHealth(c.Request.Context())
-	if err != nil {
-		response.ErrorKeyWithDetail(c, resolveIntegrationStatus(err), "FEISHU_HEALTH_FAILED", "integrations.feishuFailed", nil, err)
-		return
-	}
-
-	response.SuccessKey(c, data, "integrations.feishuHealthy", nil)
-}
-
-func resolveIntegrationStatus(err error) int {
-	if err == nil {
-		return http.StatusOK
-	}
-
-	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	switch {
-	case strings.Contains(message, "未配置"),
-		strings.Contains(message, "missing"),
-		strings.Contains(message, "invalid"):
-		return http.StatusBadRequest
-	case strings.Contains(message, "unauthorized"),
-		strings.Contains(message, "认证"):
-		return http.StatusUnauthorized
-	default:
-		return http.StatusServiceUnavailable
-	}
 }
 
 func (h *IntegrationsHandler) RBACPolicies(c *gin.Context) {

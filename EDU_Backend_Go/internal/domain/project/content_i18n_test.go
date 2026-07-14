@@ -8,7 +8,6 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"edu-platform/internal/config"
 	"edu-platform/pkg/i18n"
 )
 
@@ -20,7 +19,7 @@ func TestProjectContentLocaleOverlay(t *testing.T) {
 	if err := db.AutoMigrate(&Project{}, &ProjectUnit{}, &ProjectTag{}, &Tag{}, &ProjectTranslation{}, &ProjectUnitTranslation{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
-	service := NewService(db, zap.NewNop(), &config.Config{})
+	service := NewService(db, zap.NewNop())
 
 	project := Project{Title: "中文项目", Slug: "project-one", Subtitle: "中文副标题", Description: "中文说明", Status: ProjectStatusPublished}
 	if err := db.Create(&project).Error; err != nil {

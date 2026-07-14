@@ -15,13 +15,7 @@
 - Classic Lab 真实运行时闭环
 - 文档与状态同步
 
-本轮未执行：
-
-- OpenClaw 浏览器级真实链路冒烟
-
-说明：
-
-- OpenClaw 健康接口已确认可用，但页面级 / 会话级联调按本轮指令暂缓，不阻塞 M1。
+说明：本文是 2026-04-22 的历史基线验收记录；当时存在、后来于 2026-07-14 下架的 OpenClaw 检查不再属于当前验收范围，当前事实以 [OPENCLAW-RETIREMENT.md](OPENCLAW-RETIREMENT.md) 为准。
 
 ## 2. 基线环境
 
@@ -138,13 +132,9 @@
 - Classic Lab 的 `create / active / execute / terminal / stop` 真实闭环可用
 - 当前需要单独处理的是“云库现有课程镜像配置”，不是 K8S Lab 主链路本身
 
-## 7. OpenClaw 记录
+## 7. 已下架历史模块记录
 
-本轮仅记录以下结论：
-
-- `/api/admin/integrations/openclaw/health` 返回成功
-- `/api/admin/integrations/feishu/health` 返回成功
-- OpenClaw 浏览器级真实链路冒烟按本轮要求暂缓，未纳入本次通过项
+本节原记录的 OpenClaw / Feishu 健康检查属于 2026-04-22 时点的历史证据。相关产品能力已于 2026-07-14 下架，不应据此判断当前路由或配置仍然存在。
 
 ## 8. M0 结论
 
@@ -156,12 +146,11 @@
 - 三端登录与权限边界通过
 - teacher scope 与 blacklist HTTP / WS 回归通过
 - Classic Lab 真实运行时闭环通过
-- OpenClaw 页面级联调已明确暂缓，并有健康检查记录，不阻塞 M1
+- 当时暂缓的外部模块联调不阻塞 M1；该模块现已正式下架
 
 ## 9. 已知后续项
 
 - 需要把云库现有课程的实验镜像统一回收到可稳定启动的 smoke / 正式镜像，避免再次出现 `Pod Pending`
-- 需要在后续单独补 OpenClaw 页面级真实联调记录
 - 管理端复杂编辑页仍需继续逐页冒烟
 
 ## 10. M1 开工条件

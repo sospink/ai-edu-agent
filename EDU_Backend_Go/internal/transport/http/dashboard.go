@@ -37,12 +37,11 @@ var (
 
 type dashboardSessionRow struct {
 	lab.UserLabSession
-	UserName    string `json:"userName"`
-	FullName    string `json:"fullName"`
-	SourceName  string `json:"sourceName"`
-	StatusText  string `json:"statusText"`
-	SourceText  string `json:"sourceText"`
-	RuntimeText string `json:"runtimeText"`
+	UserName   string `json:"userName"`
+	FullName   string `json:"fullName"`
+	SourceName string `json:"sourceName"`
+	StatusText string `json:"statusText"`
+	SourceText string `json:"sourceText"`
 }
 
 type dashboardOverviewPayload struct {
@@ -57,7 +56,6 @@ type dashboardKPIs struct {
 	ActiveSessions   int `json:"activeSessions"`
 	CreatingSessions int `json:"creatingSessions"`
 	ErrorSessions    int `json:"errorSessions"`
-	OpenClawSessions int `json:"openClawSessions"`
 	Recent24h        int `json:"recent24h"`
 	ExpiredPending   int `json:"expiredPending"`
 }
@@ -70,7 +68,6 @@ type dashboardRuntimeSummary struct {
 	Exposure            labExposureSummary    `json:"exposure"`
 	PodPhases           []dashboardNamedCount `json:"podPhases"`
 	SessionStatuses     []dashboardNamedCount `json:"sessionStatuses"`
-	RuntimeModes        []dashboardNamedCount `json:"runtimeModes"`
 	Images              []dashboardImageUsage `json:"images"`
 }
 
@@ -187,13 +184,12 @@ type dashboardLogsPayload struct {
 }
 
 type dashboardFilters struct {
-	Status      string
-	RuntimeMode string
-	SourceType  string
-	TimeRange   string
-	Query       string
-	Page        int
-	PageSize    int
+	Status     string
+	SourceType string
+	TimeRange  string
+	Query      string
+	Page       int
+	PageSize   int
 }
 
 func (h *IntegrationsHandler) DashboardOverview(c *gin.Context) {
@@ -338,15 +334,11 @@ func (h *IntegrationsHandler) buildDashboardOverview(ctx context.Context) (dashb
 
 	kpis := dashboardKPIs{}
 	now := time.Now()
-	runtimeModes := map[string]int{"classic": 0, "openclaw": 0}
 	statuses := map[string]int{}
 	recentSessions := make([]dashboardSessionRow, 0, minInt(len(sessions), 6))
 
 	for _, session := range sessions {
 		statuses[session.StatusText]++
-		if session.RuntimeText != "" {
-			runtimeModes[session.RuntimeText]++
-		}
 		switch session.Status {
 		case lab.SessionStatusRunning:
 			kpis.ActiveSessions++
@@ -354,9 +346,6 @@ func (h *IntegrationsHandler) buildDashboardOverview(ctx context.Context) (dashb
 			kpis.CreatingSessions++
 		case lab.SessionStatusError:
 			kpis.ErrorSessions++
-		}
-		if session.RuntimeMode == lab.RuntimeModeOpenClaw && (session.Status == lab.SessionStatusRunning || session.Status == lab.SessionStatusCreating) {
-			kpis.OpenClawSessions++
 		}
 		if session.CreatedAt.After(now.Add(-24 * time.Hour)) {
 			kpis.Recent24h++
@@ -374,7 +363,6 @@ func (h *IntegrationsHandler) buildDashboardOverview(ctx context.Context) (dashb
 		return dashboardOverviewPayload{}, err
 	}
 	runtimeSummary.SessionStatuses = namedCountsFromMap(statuses)
-	runtimeSummary.RuntimeModes = namedCountsFromMap(runtimeModes)
 
 	integrations := h.buildIntegrationCards(ctx)
 	highlights = append(highlights, integrationHighlights(ctx, integrations)...)
@@ -403,9 +391,6 @@ func (h *IntegrationsHandler) buildDashboardSessions(ctx context.Context, filter
 	timeCutoff := dashboardTimeRangeCutoff(filters.TimeRange)
 	for _, session := range sessions {
 		if filters.Status != "" && filters.Status != "all" && session.StatusText != filters.Status {
-			continue
-		}
-		if filters.RuntimeMode != "" && filters.RuntimeMode != "all" && session.RuntimeText != filters.RuntimeMode {
 			continue
 		}
 		if filters.SourceType != "" && filters.SourceType != "all" && session.SourceText != filters.SourceType {
@@ -626,7 +611,6 @@ func (h *IntegrationsHandler) loadDashboardSessions(ctx context.Context) ([]dash
 			UserLabSession: session,
 			StatusText:     dashboardSessionStatusText(session.Status),
 			SourceText:     dashboardSourceTypeText(session.SourceType),
-			RuntimeText:    dashboardRuntimeModeText(session.RuntimeMode),
 		}
 		if owner, ok := users[session.UserID]; ok {
 			record.UserName = owner.Username
@@ -658,7 +642,6 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 		RuntimeNamespace:    runtimeNamespace(h.deps),
 		PodPhases:           []dashboardNamedCount{},
 		SessionStatuses:     []dashboardNamedCount{},
-		RuntimeModes:        []dashboardNamedCount{},
 		Images:              []dashboardImageUsage{},
 	}
 	if h.deps.K8S == nil {
@@ -756,15 +739,6 @@ func (h *IntegrationsHandler) buildRuntimeSummary(ctx context.Context, sessions 
 				SessionID:   session.ID,
 			})
 		}
-		if session.RuntimeMode == lab.RuntimeModeOpenClaw && session.GatewayPort == 0 {
-			highlights = append(highlights, dashboardHighlight{
-				ID:          fmt.Sprintf("gateway-missing-%d", session.ID),
-				Level:       "warning",
-				Title:       i18n.Message(ctx, "dashboard.gatewayMissingTitle", nil),
-				Description: i18n.Message(ctx, "dashboard.gatewayMissingDescription", i18n.Params{"id": session.ID}),
-				SessionID:   session.ID,
-			})
-		}
 	}
 	for _, risk := range summary.Exposure.Risks {
 		highlights = append(highlights, dashboardHighlight{
@@ -812,11 +786,6 @@ func (h *IntegrationsHandler) buildIntegrationCards(ctx context.Context) []dashb
 	}
 	cards = append(cards, k8sStatus)
 
-	openclawData, openclawErr := h.openclawView.GetOpenClawHealth(ctx)
-	feishuData, feishuErr := h.openclawView.GetFeishuHealth(ctx)
-	cards = append(cards, integrationCardFromHealth(ctx, "openclaw", "OpenClaw", now, openclawData, openclawErr))
-	cards = append(cards, integrationCardFromHealth(ctx, "feishu", i18n.Message(ctx, "dashboard.feishu", nil), now, feishuData, feishuErr))
-
 	configCard := dashboardIntegrationCard{
 		Key:        "config",
 		Label:      "Config",
@@ -826,10 +795,7 @@ func (h *IntegrationsHandler) buildIntegrationCards(ctx context.Context) []dashb
 		LastCheck:  now,
 		CanRefresh: true,
 		Details: map[string]any{
-			"projectLabRuntime": h.deps.Config.OpenClaw.ProjectLabRuntime,
-			"kubeconfig":        h.deps.Config.K8S.ResolvedKubeconfig(),
-			"gatewayURLSet":     strings.TrimSpace(h.deps.Config.OpenClaw.GatewayURL) != "",
-			"feishuAppIDSet":    strings.TrimSpace(h.deps.Config.Feishu.AppID) != "",
+			"kubeconfig": h.deps.Config.K8S.ResolvedKubeconfig(),
 		},
 	}
 	cards = append(cards, configCard)
@@ -873,32 +839,6 @@ func (h *IntegrationsHandler) loadPodEvents(ctx context.Context, podName string)
 		items = items[:12]
 	}
 	return items, nil
-}
-
-func integrationCardFromHealth(ctx context.Context, key, label, now string, data map[string]any, err error) dashboardIntegrationCard {
-	card := dashboardIntegrationCard{
-		Key:        key,
-		Label:      label,
-		Status:     "success",
-		Summary:    i18n.Message(ctx, "dashboard.connectionHealthy", nil),
-		Message:    i18n.Message(ctx, "dashboard.lastProbeSuccessful", nil),
-		LastCheck:  now,
-		CanRefresh: true,
-		Details:    data,
-	}
-	if err == nil {
-		return card
-	}
-
-	card.Status = "warning"
-	card.Summary = i18n.Message(ctx, "dashboard.needsAttention", nil)
-	card.Message = i18n.Message(ctx, "dashboard.integrationProbeFailed", nil)
-	card.Details = map[string]any{}
-	if strings.Contains(strings.ToLower(err.Error()), "未配置") {
-		card.Status = "neutral"
-		card.Summary = i18n.Message(ctx, "dashboard.notConfigured", nil)
-	}
-	return card
 }
 
 func integrationHighlights(ctx context.Context, cards []dashboardIntegrationCard) []dashboardHighlight {
@@ -1051,13 +991,12 @@ func parseDashboardFilters(c *gin.Context) dashboardFilters {
 		}
 	}
 	return dashboardFilters{
-		Status:      strings.ToLower(strings.TrimSpace(c.Query("status"))),
-		RuntimeMode: strings.ToLower(strings.TrimSpace(c.Query("runtimeMode"))),
-		SourceType:  strings.ToLower(strings.TrimSpace(c.Query("sourceType"))),
-		TimeRange:   strings.ToLower(strings.TrimSpace(c.Query("timeRange"))),
-		Query:       strings.TrimSpace(c.Query("q")),
-		Page:        page,
-		PageSize:    pageSize,
+		Status:     strings.ToLower(strings.TrimSpace(c.Query("status"))),
+		SourceType: strings.ToLower(strings.TrimSpace(c.Query("sourceType"))),
+		TimeRange:  strings.ToLower(strings.TrimSpace(c.Query("timeRange"))),
+		Query:      strings.TrimSpace(c.Query("q")),
+		Page:       page,
+		PageSize:   pageSize,
 	}
 }
 
@@ -1115,13 +1054,6 @@ func dashboardSourceTypeText(sourceType lab.SourceType) string {
 	default:
 		return "unknown"
 	}
-}
-
-func dashboardRuntimeModeText(runtimeMode lab.RuntimeMode) string {
-	if runtimeMode == lab.RuntimeModeOpenClaw {
-		return "openclaw"
-	}
-	return "classic"
 }
 
 func namedCountsFromMap(items map[string]int) []dashboardNamedCount {

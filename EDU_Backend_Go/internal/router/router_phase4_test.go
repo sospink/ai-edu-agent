@@ -202,7 +202,7 @@ func TestAgentAIEndpointsAndPromptEnhance(t *testing.T) {
 	}
 }
 
-func TestAgentMarkdownImportAndOpenclawRequiresProjectEntry(t *testing.T) {
+func TestAgentMarkdownImportAndRetiredRoute(t *testing.T) {
 	fixture := newPhase4Fixture(t, "")
 	adminToken := mustLogin(t, fixture, fixture.admin.Username, "admin@123")
 	studentToken := mustLogin(t, fixture, fixture.student.Username, "student@123")
@@ -238,113 +238,8 @@ func TestAgentMarkdownImportAndOpenclawRequiresProjectEntry(t *testing.T) {
 	}
 
 	openclawResp := performJSON(t, fixture.engine, http.MethodGet, "/api/openclaw-view/default/phase", nil, studentToken)
-	if openclawResp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for naked openclaw phase, got %d: %s", openclawResp.Code, openclawResp.Body.String())
-	}
-}
-
-func TestOpenClawProjectSessionRequiresOpenClawTag(t *testing.T) {
-	fixture := newPhase4Fixture(t, "")
-	studentToken := mustLogin(t, fixture, fixture.student.Username, "student@123")
-
-	openClawProject := &project.Project{
-		Title:      "OpenClaw 场景项目",
-		Slug:       "openclaw-scene",
-		Status:     project.ProjectStatusPublished,
-		Difficulty: 2,
-		EnvImage:   "external-openclaw",
-	}
-	normalProject := &project.Project{
-		Title:      "普通项目",
-		Slug:       "normal-project",
-		Status:     project.ProjectStatusPublished,
-		Difficulty: 1,
-		EnvImage:   "classic:v1",
-	}
-	if err := fixture.db.Create(openClawProject).Error; err != nil {
-		t.Fatalf("seed openclaw project failed: %v", err)
-	}
-	if err := fixture.db.Create(normalProject).Error; err != nil {
-		t.Fatalf("seed normal project failed: %v", err)
-	}
-	tag := &project.Tag{Name: "OpenClaw", StyleColor: "#3B82F6"}
-	if err := fixture.db.Create(tag).Error; err != nil {
-		t.Fatalf("seed openclaw tag failed: %v", err)
-	}
-	if err := fixture.db.Create(&project.ProjectTag{ProjectID: openClawProject.ID, TagID: tag.ID}).Error; err != nil {
-		t.Fatalf("seed project tag failed: %v", err)
-	}
-
-	okResp := performJSON(t, fixture.engine, http.MethodGet, fmt.Sprintf("/api/openclaw-view/project:%d:unit:7/phase", openClawProject.ID), nil, studentToken)
-	if okResp.Code != http.StatusOK {
-		t.Fatalf("expected 200 for openclaw project session, got %d: %s", okResp.Code, okResp.Body.String())
-	}
-
-	normalResp := performJSON(t, fixture.engine, http.MethodGet, fmt.Sprintf("/api/openclaw-view/project:%d/phase", normalProject.ID), nil, studentToken)
-	if normalResp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for normal project session, got %d: %s", normalResp.Code, normalResp.Body.String())
-	}
-
-	spoofResp := performJSON(t, fixture.engine, http.MethodPost, "/api/openclaw-view/chat/send", map[string]any{
-		"text":       "hello",
-		"sessionId":  fmt.Sprintf("project:%d", openClawProject.ID),
-		"sessionKey": "agent:main:default",
-	}, studentToken)
-	if spoofResp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for spoofed sessionKey, got %d: %s", spoofResp.Code, spoofResp.Body.String())
-	}
-}
-
-func TestOpenClawViewRequiresOwnedOpenClawSession(t *testing.T) {
-	fixture := newPhase4Fixture(t, "")
-	adminToken := mustLogin(t, fixture, fixture.admin.Username, "admin@123")
-	studentToken := mustLogin(t, fixture, fixture.student.Username, "student@123")
-
-	ownedOpenClaw := &lab.UserLabSession{
-		ID:            101,
-		UserID:        fixture.student.ID,
-		RuntimeMode:   lab.RuntimeModeOpenClaw,
-		Status:        lab.SessionStatusRunning,
-		ContainerName: "lab-session-101",
-	}
-	foreignOpenClaw := &lab.UserLabSession{
-		ID:            102,
-		UserID:        fixture.admin.ID,
-		RuntimeMode:   lab.RuntimeModeOpenClaw,
-		Status:        lab.SessionStatusRunning,
-		ContainerName: "lab-session-102",
-	}
-	classicSession := &lab.UserLabSession{
-		ID:            103,
-		UserID:        fixture.student.ID,
-		RuntimeMode:   lab.RuntimeModeClassic,
-		Status:        lab.SessionStatusRunning,
-		ContainerName: "lab-session-103",
-	}
-	for _, session := range []*lab.UserLabSession{ownedOpenClaw, foreignOpenClaw, classicSession} {
-		if err := fixture.db.Create(session).Error; err != nil {
-			t.Fatalf("seed lab session failed: %v", err)
-		}
-	}
-
-	ownedResp := performJSON(t, fixture.engine, http.MethodGet, "/api/openclaw-view/101/phase", nil, studentToken)
-	if ownedResp.Code != http.StatusOK {
-		t.Fatalf("expected 200 for owned openclaw session, got %d: %s", ownedResp.Code, ownedResp.Body.String())
-	}
-
-	foreignResp := performJSON(t, fixture.engine, http.MethodGet, "/api/openclaw-view/102/phase", nil, studentToken)
-	if foreignResp.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 for foreign openclaw session, got %d: %s", foreignResp.Code, foreignResp.Body.String())
-	}
-
-	classicResp := performJSON(t, fixture.engine, http.MethodGet, "/api/openclaw-view/103/phase", nil, studentToken)
-	if classicResp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for classic session, got %d: %s", classicResp.Code, classicResp.Body.String())
-	}
-
-	adminOwnedResp := performJSON(t, fixture.engine, http.MethodGet, "/api/openclaw-view/102/phase", nil, adminToken)
-	if adminOwnedResp.Code != http.StatusOK {
-		t.Fatalf("expected 200 for admin-owned openclaw session, got %d: %s", adminOwnedResp.Code, adminOwnedResp.Body.String())
+	if openclawResp.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for retired openclaw route, got %d: %s", openclawResp.Code, openclawResp.Body.String())
 	}
 }
 

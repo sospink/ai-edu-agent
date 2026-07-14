@@ -31,7 +31,6 @@ type Project struct {
 	CreatedAt          time.Time     `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt          time.Time     `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 	DeletedAt          *time.Time    `gorm:"column:deleted_at" json:"deletedAt,omitempty"`
-	LabRuntimeMode     string        `gorm:"-" json:"labRuntimeMode,omitempty"`
 	Locale             string        `gorm:"-" json:"locale,omitempty"`
 	TranslationMissing bool          `gorm:"-" json:"translationMissing,omitempty"`
 }

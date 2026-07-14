@@ -22,7 +22,6 @@ import {
   RefreshCw,
   Server,
   ShieldCheck,
-  Terminal,
   Trash2,
   Wifi,
   XCircle,
@@ -38,7 +37,6 @@ import {
   type DashboardIntegrationCard,
   type DashboardLogsPayload,
   type DashboardOverview,
-  type DashboardRuntimeMode,
   type DashboardSession,
   type DashboardSessionDetail,
   type DashboardSessionFilters,
@@ -90,7 +88,6 @@ const kpiCards = [
   { key: 'activeSessions', labelKey: 'kpis.activeSessions', icon: PlayCircle, accent: 'text-primary-600', filter: { status: 'running' } },
   { key: 'creatingSessions', labelKey: 'kpis.creatingSessions', icon: Clock3, accent: 'text-secondary-600', filter: { status: 'creating' } },
   { key: 'errorSessions', labelKey: 'kpis.errorSessions', icon: XCircle, accent: 'text-danger-600', filter: { status: 'error' } },
-  { key: 'openClawSessions', labelKey: 'kpis.openClawSessions', icon: Terminal, accent: 'text-secondary-600', filter: { runtimeMode: 'openclaw' } },
   { key: 'recent24h', labelKey: 'kpis.recent24h', icon: Activity, accent: 'text-success-600', filter: {} },
   { key: 'expiredPending', labelKey: 'kpis.expiredPending', icon: PauseCircle, accent: 'text-warning-600', filter: { status: 'creating' } },
 ] as const;
@@ -159,8 +156,6 @@ const labelForSource = (source: string) => {
   }
 };
 
-const labelForRuntime = (runtime: DashboardRuntimeMode) => runtime === 'openclaw' ? 'OpenClaw' : 'Classic';
-
 const StatusChip: React.FC<{ status: string; children?: React.ReactNode }> = ({ status, children }) => (
   <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[status] || statusStyles.neutral}`}>
     {children || labelForStatus(status)}
@@ -191,7 +186,6 @@ const Dashboard: React.FC = () => {
 
   const [filters, setFilters] = useState<DashboardSessionFilters>({
     status: 'all',
-    runtimeMode: 'all',
     sourceType: 'all',
     timeRange: 'all',
     q: '',
@@ -347,7 +341,6 @@ const Dashboard: React.FC = () => {
   const handleKpiClick = (patch: Partial<DashboardSessionFilters>) => {
     handleFilterPatch({
       status: patch.status || 'all',
-      runtimeMode: patch.runtimeMode || 'all',
     });
   };
 
@@ -571,9 +564,7 @@ const Dashboard: React.FC = () => {
                     <StatusChip status={session.statusText} />
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <StatusChip status={session.runtimeText === 'openclaw' ? 'warning' : 'success'}>
-                      {labelForRuntime(session.runtimeText)}
-                    </StatusChip>
+                    <StatusChip status="neutral">{labelForSource(session.sourceText)}</StatusChip>
                     <span className="text-xs text-default-400">{formatRelativeTime(session.updatedAt)}</span>
                   </div>
                 </button>
@@ -623,7 +614,6 @@ const Dashboard: React.FC = () => {
               </div>
 
               <StatGroup title={tr('podPhases')} items={overview?.runtime.podPhases || []} loading={loadingOverview} />
-              <StatGroup title={tr('runtimeModes')} items={overview?.runtime.runtimeModes || []} loading={loadingOverview} />
             </div>
 
             <div className="space-y-4">
@@ -911,18 +901,6 @@ const Dashboard: React.FC = () => {
               />
 
               <ToolbarSelect
-                ariaLabel={tr('runtimeFilter')}
-                value={filters.runtimeMode || 'all'}
-                onChange={(value) => handleFilterPatch({ runtimeMode: value })}
-                options={[
-                  { key: 'all', label: tr('allRuntimes') },
-                  { key: 'classic', label: 'Classic' },
-                  { key: 'openclaw', label: 'OpenClaw' },
-                ]}
-                className="xl:w-44"
-              />
-
-              <ToolbarSelect
                 ariaLabel={tr('sourceFilter')}
                 value={filters.sourceType || 'all'}
                 onChange={(value) => handleFilterPatch({ sourceType: value })}
@@ -967,18 +945,16 @@ const Dashboard: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="min-w-full table-fixed divide-y divide-default-100">
             <colgroup>
-              <col className="w-[42%]" />
-              <col className="w-[16%]" />
-              <col className="w-[10%]" />
-              <col className="w-[16%]" />
-              <col className="w-[12%]" />
-              <col className="w-[10%]" />
+              <col className="w-[46%]" />
+              <col className="w-[18%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[8%]" />
             </colgroup>
             <thead className="bg-default-50/70">
               <tr className="text-left text-xs uppercase tracking-[0.16em] text-default-400">
                 <th className="px-6 py-4 font-semibold">{tr('session')}</th>
                 <th className="px-6 py-4 font-semibold">{tr('user')}</th>
-                <th className="px-6 py-4 font-semibold">{tr('runtimeMode')}</th>
                 <th className="px-6 py-4 font-semibold">{tr('status')}</th>
                 <th className="px-6 py-4 font-semibold">{tr('recentUpdate')}</th>
                 <th className="sticky right-0 z-10 border-l border-default-100 bg-default-50/95 px-6 py-4 font-semibold backdrop-blur">
@@ -990,7 +966,7 @@ const Dashboard: React.FC = () => {
               {loadingSessions ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <tr key={index}>
-                    <td className="px-6 py-4" colSpan={6}>
+                    <td className="px-6 py-4" colSpan={5}>
                       <SkeletonBlock className="h-14 w-full" />
                     </td>
                   </tr>
@@ -1013,7 +989,7 @@ const Dashboard: React.FC = () => {
                             </button>
                             <span className="text-xs text-default-400">#{session.id}</span>
                           </div>
-                          <div className="mt-1 truncate text-sm text-default-500">{session.imageName}</div>
+                          <div className="mt-1 truncate text-sm text-default-500">{labelForSource(session.sourceText)} · {session.imageName}</div>
                           {highlightSessions.get(session.id)?.length ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {highlightSessions.get(session.id)!.slice(0, 2).map((item) => (
@@ -1032,14 +1008,6 @@ const Dashboard: React.FC = () => {
                         <span className="font-medium text-foreground">{session.fullName || session.userName || tr('userFallback', { id: session.userId })}</span>
                         <span className="mx-2 text-default-300">·</span>
                         <span>@{session.userName || 'unknown'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 align-middle">
-                      <div className="flex items-center gap-2 whitespace-nowrap">
-                        <StatusChip status={session.runtimeText === 'openclaw' ? 'warning' : 'success'}>
-                          {labelForRuntime(session.runtimeText)}
-                        </StatusChip>
-                        <div className="truncate text-xs text-default-400">{labelForSource(session.sourceText)}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 align-middle">
@@ -1071,7 +1039,7 @@ const Dashboard: React.FC = () => {
                         <IconButton label={tr('logs')} onClick={() => void openSessionInspector(session.id, 'logs')}>
                           <FileText className="h-4 w-4" />
                         </IconButton>
-                        <IconButton label={tr('copyAddress')} onClick={() => handleCopy(session.runtimeText === 'openclaw' ? session.gatewayToken || '' : session.containerName, tr('keyInfoCopied'))}>
+                        <IconButton label={tr('copyAddress')} onClick={() => handleCopy(session.containerName, tr('keyInfoCopied'))}>
                           <Copy className="h-4 w-4" />
                         </IconButton>
                         {session.statusText === 'running' || session.statusText === 'creating' ? (
@@ -1318,9 +1286,6 @@ const SessionSummary: React.FC<{
     <div className="card-surface-muted rounded-xl px-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
         <StatusChip status={detail.session.statusText} />
-        <StatusChip status={detail.session.runtimeText === 'openclaw' ? 'warning' : 'success'}>
-          {labelForRuntime(detail.session.runtimeText)}
-        </StatusChip>
         <StatusChip status="neutral">{labelForSource(detail.session.sourceText)}</StatusChip>
       </div>
       <div className="mt-4 grid gap-3 text-sm text-default-600">
@@ -1339,7 +1304,6 @@ const SessionSummary: React.FC<{
         {[
           { key: 'Desktop', value: detail.urls.vncUrl },
           { key: 'IDE', value: detail.urls.ideUrl },
-          { key: 'Gateway', value: detail.urls.gatewayUrl },
           { key: 'Terminal', value: detail.urls.sshInfo },
           ...((detail.urls.appUrls || []).map((item) => ({
             key: `App:${item.label || item.name}`,

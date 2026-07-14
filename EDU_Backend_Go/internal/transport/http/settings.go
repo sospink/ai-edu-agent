@@ -41,12 +41,9 @@ func (h *AdminSettingsHandler) Get(c *gin.Context) {
 			"writeTimeout": cfg.Server.WriteTimeoutSeconds,
 		},
 		"runtime": gin.H{
-			"k8sEnabled":         cfg.K8S.Enabled,
-			"k8sNamespace":       cfg.K8S.Namespace,
-			"runtimeNamespace":   cfg.K8S.RuntimeNamespace,
-			"openclawGateway":    cfg.OpenClaw.GatewayURL,
-			"openclawConfigured": cfg.OpenClaw.GatewayURL != "" && cfg.OpenClaw.GatewayToken != "",
-			"feishuConfigured":   cfg.Feishu.AppID != "" && cfg.Feishu.AppSecret != "",
+			"k8sEnabled":       cfg.K8S.Enabled,
+			"k8sNamespace":     cfg.K8S.Namespace,
+			"runtimeNamespace": cfg.K8S.RuntimeNamespace,
 		},
 		"uploads": gin.H{
 			"root":       cfg.Upload.Root,

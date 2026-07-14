@@ -11,7 +11,7 @@
 - 仅修改与当前需求直接相关的文件；发现无关问题只在最终响应提示，不顺手大改
 - 保持现有代码风格与目录边界，不做无关重构
 - 禁止编辑项目目录外的文件
-- 禁止在前端代码中硬编码任何 API Key、Token、密码、飞书/OpenClaw 凭证
+- 禁止在前端代码中硬编码任何 API Key、Token、密码或外部服务凭证
 - 修改文件时，尽量避免“删除整个文件再重建整个文件”的粗暴方式
 - 搜索代码优先用 `rg`；代码编辑优先用最小补丁
 - 若为后端代码改动，函数级复杂逻辑可补充简洁中文注释，但不要堆砌空洞注释
@@ -91,7 +91,6 @@
 ### L3：大模块 / 业务子系统
 适用范围：
 - Classic Lab
-- OpenClaw 链路
 - Admin Dashboard
 - 项目管理
 - 课程管理
@@ -158,16 +157,16 @@
 1. `EDU_Frontend/`
    - React 18 + TypeScript + Vite
    - UI 体系：HeroUI + Tailwind + Framer Motion
-   - 当前主路由：`/study`、`/projects`、`/lab`、`/openclaw/*`、`/admin/*`
+   - 当前主路由：`/study`、`/projects`、`/lab`、`/teacher/*`、`/admin/*`
 
 2. `EDU_Backend_Go/`
    - 当前主后端，Go + Gin + GORM
-   - 已承接认证、课程、项目、学习、Agent、Lab、OpenClaw 视图、Dashboard 聚合等主链路
+   - 已承接认证、课程、项目、学习、Agent、Lab、Dashboard 聚合等主链路
    - 当前默认开发端口：`4000`
 
 3. `EDU_Backend/`
    - TS 旧后端，主要作为历史实现参考
-   - 用于对比契约、迁移配置、借鉴 OpenClaw / Feishu / 老链路实现
+   - 用于对比历史契约和迁移配置
    - 默认不要在这里继续堆新功能，除非用户明确要求对照或迁移
 
 ## 当前架构结论（非常重要）
@@ -180,11 +179,11 @@
 - 当前后端运行时以 K8S 为准：创建 Pod / Service、noVNC 代理、K8S exec、终端桥接、停止与清理
 - `/api/docker/*` 视为遗留旧管理面，不是当前主链路目标
 
-### 3. OpenClaw 已独立为项目场景链路
-- OpenClaw 项目不走普通 `/lab` K8S 会话中转
-- OpenClaw 项目直接进入 `/openclaw/*`
-- OpenClaw 项目识别规则以项目标签 `OpenClaw` 为准，不再依赖项目标题、slug 或全局默认配置猜测
-- 裸访问 `/openclaw` 不使用共享默认会话，应显示引导态
+### 3. 项目实训统一使用 Classic Lab
+- 项目列表、项目详情和项目单元统一进入 `/lab`
+- 当前产品不再存在第二种项目运行时或独立项目类型
+- OpenClaw 模块已于 2026-07-14 下架；完整旧实现只保存在归档分支 `codex/archive-openclaw-20260714`
+- 历史项目与作业通过 `EDU_Backend_Go/deployments/sql/20260714_retire_openclaw.sql` 下架，禁止恢复为当前产品入口
 
 ### 4. Dashboard 已重构为 K8S 工作台方向
 - `/admin/dashboard` 不再按 Docker 运维台思路开发
@@ -198,26 +197,18 @@
 - Agent：`/api/agent/*`
 - Lab：`/api/lab/create`、`/api/lab/active`、`/api/lab/execute`、`/api/lab/stop/:sessionId`
 - 终端：`/ws/terminal`（K8S exec bridge）
-- OpenClaw 视图：`/api/openclaw-view/*`
-- 运维聚合：`/api/integrations/k8s|openclaw|feishu|config|dashboard/*`
+- 运维聚合：`/api/integrations/k8s|config|dashboard/*`
 
 ### 已确认完成的重要替代
 - Classic Lab：create / active / noVNC / terminal / execute / stop 已真实联通
 - Agent 自动验证已接到 `/api/lab/execute`
 - TTL janitor / 僵尸会话回收已接入
-- OpenClaw / Feishu 健康检查接口已补齐
-- OpenClaw 网关配置与设备 identity 已从 TS 同步到 Go
 - `/study` 顶部右侧学习者榜单已改为真实接口 `/api/users/student-leaderboard`
 
 ## 当前仍需牢记的遗留 / 未完成边界
 - `/api/docker/*` 仍属于 TS 遗留接口，不作为 Go 切换阻塞项
-- OpenClaw 仍需继续做浏览器级真实联调与页面细节完善
 - 全量回归尚未完成，尤其是管理端复杂编辑链路仍需逐页验证
-- 若涉及 OpenClaw 外部网关异常，优先检查：
-  - `OPENCLAW_GATEWAY_URL`
-  - `OPENCLAW_GATEWAY_TOKEN`
-  - `.openclaw-device-identity.json`
-  - Feishu 配置是否同步
+- 历史 OpenClaw 数据列和旧 SQL 迁移只用于审计，不得重新暴露为前端字段、API 或业务类型
 
 ## 本地开发启动方式
 ### 前端
@@ -267,14 +258,11 @@ go test ./...
 - MySQL
 - JWT
 - K8S：`K8S_ENABLED`、`K8S_RUNTIME_NAMESPACE`、`K8S_KUBECONFIG`
-- OpenClaw：`OPENCLAW_GATEWAY_URL`、`OPENCLAW_GATEWAY_TOKEN`、`OPENCLAW_*`
-- Feishu：`FEISHU_*`
 - Qwen / DashScope：`QWEN_*`、`DASHSCOPE_API_KEY`
 
 ### 配置原则
 - 允许在本地 `.env` 中存在真实配置，但绝不能把敏感值写进前端源码、文档示例或最终回复
 - 若需同步 TS -> Go 配置，优先同步到 Go 的 `.env` 与 `configs/app.yaml` 的非敏感默认值
-- 若 OpenClaw 网关出现 `pairing required`，优先检查并复用 TS 后端已配对的设备 identity 文件，而不是盲目怀疑 URL
 
 ## 业务分流规则
 ### 课程 / Classic Lab
@@ -282,16 +270,10 @@ go test ./...
 - 运行时是 K8S Classic Lab
 - 依赖 `/api/lab/*` + `/ws/terminal`
 
-### 普通项目实战
-- 保持普通项目详情 / 单元 / Lab 实训链路
-- 默认走 classic 运行时
-
-### OpenClaw 项目实战
-- 必须带 `OpenClaw` 标签
-- 从项目详情进入 `/openclaw/idle?...`
-- 不创建 K8S Lab session 作为前置
-- `openclaw-view` 后端根据 `project:<projectId>[:unit:<unitId>]` 派生真实 session key
-- 不允许前端直接伪造 `agent:*` sessionKey
+### 项目实战
+- 保持项目详情 / 单元 / Lab 实训链路
+- 统一走 K8S Classic Lab，不再按标签、标题或 slug 分流运行时
+- 历史下架项目对学生不可见，也不能通过直链启动 Lab；教师不得重新创建或绑定已下架的历史类型标签
 
 ## 前端开发规范（结合当前项目）
 - 保持现有 HeroUI / Tailwind 风格，不引入突兀的新设计体系
@@ -318,7 +300,7 @@ go test ./...
 - 路由注册统一看 `EDU_Backend_Go/internal/router/router.go`
 - 业务逻辑尽量留在 domain service / repository 边界内，不把复杂逻辑塞进 handler
 - 若是聚合型管理接口，优先考虑“后端聚合后返回”，不要让前端自己拼 5~8 个接口
-- 对 K8S / OpenClaw / Feishu 相关错误，优先返回可消费的中文错误信息
+- 对 K8S 和外部集成相关错误，优先返回可消费的中文错误信息
 - 删除 / 停止 / 清理类接口要尽量保证幂等，`NotFound` 应作为可接受状态处理
 
 ## 新会话进入项目时的推荐顺序
@@ -335,7 +317,7 @@ go test ./...
    - `EDU_Backend_Go/internal/router/router.go`
    - `EDU_Frontend/src/App.tsx`
    - 相关 domain / component 文件
-5. 若任务涉及 OpenClaw / K8S / Dashboard，不要只看 TS 旧实现，必须同时看 Go 当前实现
+5. 若任务涉及 K8S / Dashboard，不要只看 TS 旧实现，必须以 Go 当前实现为准
 
 ## 常见任务处理建议
 ### 当用户说“启动项目”
@@ -352,14 +334,12 @@ go test ./...
 - Go 当前真实前端主链路
 为判断标准，而不是逐路由机械对齐
 
-### 当用户说“OpenClaw 连不上”
-优先排查：
-1. Go `.env` 是否同步 TS 配置
-2. OpenClaw device identity 是否已复用 / 已审批
-3. `/api/integrations/openclaw/health`
-4. `/api/integrations/feishu/health`
-5. 项目是否带 `OpenClaw` 标签
-6. 前端是否误走 `/lab` 而不是 `/openclaw/*`
+### 当发现历史 OpenClaw 残留
+优先确认：
+1. 当前代码是否来自归档分支，而不是 `main`
+2. `20260714_retire_openclaw.sql` 是否已执行
+3. 历史项目 / 作业是否已归档，旧运行会话是否已由 janitor 回收
+4. 不要恢复旧路由、旧标签分流、网关配置或前端入口
 
 ### 当用户说“Dashboard 要改”
 默认理解为：
@@ -394,6 +374,6 @@ npm exec tsc --noEmit
 - 页面手动冒烟结论
 
 ## 最后提醒
-- 当前项目已经从“TS + Docker”过渡到“Go + K8S + OpenClaw 独立场景”阶段
+- 当前项目已经从“TS + Docker”过渡到“Go + K8S Classic Lab + 三端教学闭环”阶段
 - 不要被旧实现带偏，尤其不要默认把 Docker 管理面当成主目标
 - 先确认当前真实链路，再做实现；优先顺着 Go 当前架构继续收口

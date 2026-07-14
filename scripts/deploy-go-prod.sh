@@ -21,7 +21,7 @@ DEPLOY_SKIP_SCHEMA_AUDIT="${DEPLOY_SKIP_SCHEMA_AUDIT:-false}"
 DEPLOY_APPLY_SCHEMA_REPAIR="${DEPLOY_APPLY_SCHEMA_REPAIR:-true}"
 DEPLOY_SKIP_DB_BACKUP="${DEPLOY_SKIP_DB_BACKUP:-false}"
 DEPLOY_SCHEMA_REPAIR_FILES="${DEPLOY_SCHEMA_REPAIR_FILES:-20260422_m1_classroom.sql,20260425_agent_teaching_v2.sql,20260425_schema_repair_lab_agent_v2.sql}"
-DEPLOY_DATA_REPAIR_FILES="${DEPLOY_DATA_REPAIR_FILES:-}"
+DEPLOY_DATA_REPAIR_FILES="${DEPLOY_DATA_REPAIR_FILES:-20260714_retire_openclaw.sql}"
 DEPLOY_K8S_NAMESPACE="${DEPLOY_K8S_NAMESPACE:-edu-backend-go-prod}"
 DEPLOY_K8S_RUNTIME_NAMESPACE="${DEPLOY_K8S_RUNTIME_NAMESPACE:-edu-runtime-prod}"
 DEPLOY_PUBLIC_DOMAIN="${DEPLOY_PUBLIC_DOMAIN:-}"
@@ -125,6 +125,28 @@ for line in lines:
 if not matched:
     updated.append(f"{key}={value}")
 path.write_text("\n".join(updated) + "\n")
+PY
+}
+
+remove_retired_runtime_env() {
+  local file="$1"
+  sudo python3 - "$file" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+if not path.exists():
+    raise SystemExit(0)
+
+retired_prefixes = ("OPENCLAW_", "FEISHU_")
+retired_keys = {"PROJECT_LAB_RUNTIME"}
+kept = []
+for line in path.read_text().splitlines():
+    key = line.split("=", 1)[0].strip() if "=" in line else ""
+    if key in retired_keys or key.startswith(retired_prefixes):
+        continue
+    kept.append(line)
+path.write_text("\n".join(kept) + "\n")
 PY
 }
 
@@ -346,9 +368,8 @@ if [ -f "$REMOTE_BACKEND_DIR/current/.env" ]; then
   if [ -f "$REMOTE_BACKEND_DIR/current/.kube/remote-dev.yaml" ]; then
     ensure_env K8S_KUBECONFIG ".kube/remote-dev.yaml" "$REMOTE_BACKEND_DIR/current/.env"
   fi
-  if [ -f "$REMOTE_BACKEND_DIR/current/.openclaw-device-identity.json" ]; then
-    ensure_env OPENCLAW_DEVICE_IDENTITY_PATH ".openclaw-device-identity.json" "$REMOTE_BACKEND_DIR/current/.env"
-  fi
+  remove_retired_runtime_env "$REMOTE_BACKEND_DIR/current/.env"
+  sudo rm -f "$REMOTE_BACKEND_DIR/current/.openclaw-device-identity.json"
 fi
 
 sudo mkdir -p "$REMOTE_BACKEND_DIR/current/EDU_Backend_Go"

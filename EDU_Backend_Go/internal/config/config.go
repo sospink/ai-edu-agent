@@ -26,8 +26,6 @@ type Config struct {
 	Docker    DockerConfig    `mapstructure:"docker"`
 	K8S       K8SConfig       `mapstructure:"k8s"`
 	Qwen      QwenConfig      `mapstructure:"qwen"`
-	OpenClaw  OpenClawConfig  `mapstructure:"openclaw"`
-	Feishu    FeishuConfig    `mapstructure:"feishu"`
 
 	LoadedEnvFiles []string `mapstructure:"-"`
 }
@@ -89,7 +87,7 @@ type JWTConfig struct {
 }
 
 type SecurityConfig struct {
-	AllowedOrigins      []string `mapstructure:"allowed_origins"`
+	AllowedOrigins       []string `mapstructure:"allowed_origins"`
 	DefaultAdminPassword string   `mapstructure:"default_admin_password"`
 }
 
@@ -157,36 +155,6 @@ type QwenConfig struct {
 	APIKey  string `mapstructure:"api_key"`
 	BaseURL string `mapstructure:"base_url"`
 	Model   string `mapstructure:"model"`
-}
-
-type OpenClawConfig struct {
-	GatewayURL         string `mapstructure:"gateway_url"`
-	GatewayToken       string `mapstructure:"gateway_token"`
-	GatewayPassword    string `mapstructure:"gateway_password"`
-	ModelID            string `mapstructure:"model_id"`
-	BaseURL            string `mapstructure:"base_url"`
-	APIKey             string `mapstructure:"api_key"`
-	APIProtocol        string `mapstructure:"api_protocol"`
-	ContextWindow      string `mapstructure:"context_window"`
-	MaxTokens          string `mapstructure:"max_tokens"`
-	ConnectTimeoutMS   int    `mapstructure:"connect_timeout_ms"`
-	RequestTimeoutMS   int    `mapstructure:"request_timeout_ms"`
-	RetryTimes         int    `mapstructure:"retry_times"`
-	ClientID           string `mapstructure:"client_id"`
-	ClientVersion      string `mapstructure:"client_version"`
-	ClientMode         string `mapstructure:"client_mode"`
-	ClientRole         string `mapstructure:"client_role"`
-	ClientScopes       string `mapstructure:"client_scopes"`
-	DeviceIdentityPath string `mapstructure:"device_identity_path"`
-	ProjectLabRuntime  string `mapstructure:"project_lab_runtime"`
-}
-
-type FeishuConfig struct {
-	AppID     string `mapstructure:"app_id"`
-	AppSecret string `mapstructure:"app_secret"`
-	Domain    string `mapstructure:"domain"`
-	ChatID    string `mapstructure:"chat_id"`
-	BotOpenID string `mapstructure:"bot_open_id"`
 }
 
 func Load() (*Config, error) {
@@ -329,31 +297,6 @@ func overrideEnv(v *viper.Viper) {
 	setString(v, "qwen.api_key", "DASHSCOPE_API_KEY")
 	setString(v, "qwen.base_url", "QWEN_BASE_URL")
 	setString(v, "qwen.model", "QWEN_MODEL")
-	setString(v, "openclaw.gateway_url", "OPENCLAW_GATEWAY_URL")
-	setString(v, "openclaw.gateway_token", "OPENCLAW_GATEWAY_TOKEN")
-	setString(v, "openclaw.gateway_password", "OPENCLAW_GATEWAY_PASSWORD")
-	setString(v, "openclaw.model_id", "OPENCLAW_MODEL_ID")
-	setString(v, "openclaw.base_url", "OPENCLAW_BASE_URL")
-	setString(v, "openclaw.api_key", "OPENCLAW_API_KEY")
-	setString(v, "openclaw.api_protocol", "OPENCLAW_API_PROTOCOL")
-	setString(v, "openclaw.context_window", "OPENCLAW_CONTEXT_WINDOW")
-	setString(v, "openclaw.max_tokens", "OPENCLAW_MAX_TOKENS")
-	setInt(v, "openclaw.connect_timeout_ms", "OPENCLAW_CONNECT_TIMEOUT_MS")
-	setInt(v, "openclaw.request_timeout_ms", "OPENCLAW_REQUEST_TIMEOUT_MS")
-	setInt(v, "openclaw.retry_times", "OPENCLAW_RETRY_TIMES")
-	setString(v, "openclaw.client_id", "OPENCLAW_CLIENT_ID")
-	setString(v, "openclaw.client_version", "OPENCLAW_CLIENT_VERSION")
-	setString(v, "openclaw.client_mode", "OPENCLAW_CLIENT_MODE")
-	setString(v, "openclaw.client_role", "OPENCLAW_CLIENT_ROLE")
-	setString(v, "openclaw.client_scopes", "OPENCLAW_CLIENT_SCOPES")
-	setString(v, "openclaw.device_identity_path", "OPENCLAW_DEVICE_IDENTITY_PATH")
-	setString(v, "openclaw.project_lab_runtime", "PROJECT_LAB_RUNTIME")
-	setString(v, "feishu.app_id", "FEISHU_APP_ID")
-	setString(v, "feishu.app_secret", "FEISHU_APP_SECRET")
-	setString(v, "feishu.domain", "FEISHU_DOMAIN")
-	setString(v, "feishu.chat_id", "FEISHU_CHAT_ID")
-	setString(v, "feishu.bot_open_id", "FEISHU_BOT_OPEN_ID")
-
 	setString(v, "server.host", "HOST")
 	setInt(v, "server.port", "PORT")
 	setString(v, "app.env", "NODE_ENV")

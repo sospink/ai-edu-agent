@@ -1,16 +1,12 @@
 package router_test
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -46,81 +42,6 @@ func TestIntegrationsRoutesRequireAdminAuth(t *testing.T) {
 	}
 }
 
-func TestIntegrationHealthRoutes(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	openClawServer := newFakeOpenClawGateway(t)
-	defer openClawServer.Close()
-
-	feishuServer := newFakeFeishuAPI(t)
-	defer feishuServer.Close()
-
-	cfg := &config.Config{
-		App: config.AppConfig{
-			Name:    "edu-platform-test",
-			Env:     "test",
-			Version: "test",
-		},
-		JWT: config.JWTConfig{
-			Secret:    "test-secret",
-			Issuer:    "edu-platform-test",
-			ExpiresIn: "7d",
-		},
-		Upload: config.UploadConfig{
-			Root: t.TempDir(),
-		},
-		OpenClaw: config.OpenClawConfig{
-			GatewayURL:         "ws" + strings.TrimPrefix(openClawServer.URL, "http"),
-			GatewayToken:       "gateway-token",
-			DeviceIdentityPath: t.TempDir() + "/openclaw-device.json",
-		},
-		Feishu: config.FeishuConfig{
-			AppID:     "cli_test_app_id",
-			AppSecret: "cli_test_app_secret",
-			Domain:    feishuServer.URL,
-		},
-	}
-
-	fixture := newIntegrationsFixture(t, cfg)
-	adminToken := mustLogin(t, fixture, fixture.admin.Username, "admin@123")
-
-	openClawResp := performJSON(t, fixture.engine, http.MethodGet, "/api/integrations/openclaw/health", nil, adminToken)
-	if openClawResp.Code != http.StatusOK {
-		t.Fatalf("expected 200 for openclaw health, got %d: %s", openClawResp.Code, openClawResp.Body.String())
-	}
-	var openClawAPI apiResponse
-	decodeJSON(t, openClawResp.Body.Bytes(), &openClawAPI)
-	if !openClawAPI.Success {
-		t.Fatalf("expected openclaw health success, got %+v", openClawAPI)
-	}
-	var openClawPayload map[string]any
-	decodeJSON(t, openClawAPI.Data, &openClawPayload)
-	if openClawPayload["provider"] != "openclaw" {
-		t.Fatalf("unexpected openclaw payload: %+v", openClawPayload)
-	}
-	if sessionsCount, ok := openClawPayload["sessionsCount"].(float64); !ok || sessionsCount != 1 {
-		t.Fatalf("expected sessionsCount=1, got %+v", openClawPayload)
-	}
-
-	feishuResp := performJSON(t, fixture.engine, http.MethodGet, "/api/integrations/feishu/health", nil, adminToken)
-	if feishuResp.Code != http.StatusOK {
-		t.Fatalf("expected 200 for feishu health, got %d: %s", feishuResp.Code, feishuResp.Body.String())
-	}
-	var feishuAPI apiResponse
-	decodeJSON(t, feishuResp.Body.Bytes(), &feishuAPI)
-	if !feishuAPI.Success {
-		t.Fatalf("expected feishu health success, got %+v", feishuAPI)
-	}
-	var feishuPayload map[string]any
-	decodeJSON(t, feishuAPI.Data, &feishuPayload)
-	if feishuPayload["provider"] != "feishu" {
-		t.Fatalf("unexpected feishu payload: %+v", feishuPayload)
-	}
-	if configured, ok := feishuPayload["configured"].(bool); !ok || !configured {
-		t.Fatalf("expected feishu configured=true, got %+v", feishuPayload)
-	}
-}
-
 func TestDashboardOverviewAndSessionsRoutes(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	adminToken := mustLogin(t, fixture.auth, fixture.auth.admin.Username, "admin@123")
@@ -146,10 +67,6 @@ func TestDashboardOverviewAndSessionsRoutes(t *testing.T) {
 	if kpis["errorSessions"].(float64) != 1 {
 		t.Fatalf("expected errorSessions=1, got %+v", kpis)
 	}
-	if kpis["openClawSessions"].(float64) != 1 {
-		t.Fatalf("expected openClawSessions=1, got %+v", kpis)
-	}
-
 	sessionsResp := performJSON(t, fixture.auth.engine, http.MethodGet, "/api/integrations/dashboard/sessions?status=running&page=1&pageSize=10", nil, adminToken)
 	if sessionsResp.Code != http.StatusOK {
 		t.Fatalf("expected 200 for sessions list, got %d: %s", sessionsResp.Code, sessionsResp.Body.String())
@@ -361,14 +278,14 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 
 	projectRecord := &project.Project{
 		ID:          202,
-		Title:       "OpenClaw 项目",
-		Slug:        "openclaw-project",
+		Title:       "K8S 项目实战",
+		Slug:        "k8s-project-practice",
 		Status:      project.ProjectStatusPublished,
-		EnvImage:    "registry.cn/edu/openclaw:v2",
+		EnvImage:    "registry.cn/edu/project:v2",
 		CreatedBy:   authFixture.admin.ID,
 		CreatedAt:   time.Now().Add(-3 * time.Hour),
 		UpdatedAt:   time.Now().Add(-3 * time.Hour),
-		Description: "openclaw",
+		Description: "project lab",
 	}
 	if err := authFixture.db.Create(projectRecord).Error; err != nil {
 		t.Fatalf("seed project failed: %v", err)
@@ -402,9 +319,7 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 		SSHPort:       uint(lab.SSHPort),
 		Status:        lab.SessionStatusCreating,
 		ExpiresAt:     &expiresCreating,
-		RuntimeMode:   lab.RuntimeModeOpenClaw,
-		GatewayPort:   uint(lab.GatewayPort),
-		GatewayToken:  "project-gw-token",
+		RuntimeMode:   lab.RuntimeModeClassic,
 		CreatedAt:     time.Now().Add(-40 * time.Minute),
 		UpdatedAt:     time.Now().Add(-3 * time.Minute),
 	}
@@ -542,9 +457,6 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 			Namespace:        "edu-backend-go-dev",
 			RuntimeNamespace: "edu-runtime-dev",
 		},
-		OpenClaw: config.OpenClawConfig{
-			ProjectLabRuntime: "openclaw",
-		},
 	}
 
 	authFixture.engine = router.New(app.Dependencies{
@@ -559,83 +471,4 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 		auth: authFixture,
 		k8s:  k8s,
 	}
-}
-
-func newFakeOpenClawGateway(t *testing.T) *httptest.Server {
-	t.Helper()
-
-	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			t.Fatalf("upgrade websocket failed: %v", err)
-		}
-		defer conn.Close()
-
-		if err := conn.WriteJSON(map[string]any{
-			"type":  "event",
-			"event": "connect.challenge",
-			"payload": map[string]any{
-				"nonce": "nonce-test",
-			},
-		}); err != nil {
-			t.Fatalf("write challenge failed: %v", err)
-		}
-
-		for {
-			var req struct {
-				Type   string         `json:"type"`
-				ID     string         `json:"id"`
-				Method string         `json:"method"`
-				Params map[string]any `json:"params"`
-			}
-			if err := conn.ReadJSON(&req); err != nil {
-				return
-			}
-
-			var payload map[string]any
-			switch req.Method {
-			case "connect":
-				payload = map[string]any{"accepted": true}
-			case "status":
-				payload = map[string]any{"status": "ok", "version": "test-gateway"}
-			case "sessions.list":
-				payload = map[string]any{
-					"sessions": []map[string]any{
-						{"id": "session-1"},
-					},
-				}
-			default:
-				payload = map[string]any{}
-			}
-
-			if err := conn.WriteJSON(map[string]any{
-				"type":    "res",
-				"id":      req.ID,
-				"ok":      true,
-				"payload": payload,
-			}); err != nil {
-				t.Fatalf("write response failed: %v", err)
-			}
-		}
-	}))
-}
-
-func newFakeFeishuAPI(t *testing.T) *httptest.Server {
-	t.Helper()
-
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/open-apis/auth/v3/tenant_access_token/internal" {
-			http.NotFound(w, r)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"code":                0,
-			"msg":                 "ok",
-			"tenant_access_token": "tenant-access-token",
-			"expire":              7200,
-		})
-	}))
 }

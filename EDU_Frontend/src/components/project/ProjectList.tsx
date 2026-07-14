@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bot, Boxes, ChevronRight, Clock, Filter, Loader2, Search } from 'lucide-react';
+import { ChevronRight, Clock, Filter, Loader2, Search } from 'lucide-react';
 import type { Project, ProjectDifficulty } from '@/types/project';
 import type { User } from '@/types';
 import { getDifficultyLevel } from '@/types/project';
@@ -37,18 +37,11 @@ const getEstimatedDuration = (labsCount: number, challengesCount: number, t: TFu
   return mins > 0 ? t('durationHoursMinutes', { hours, minutes: mins }) : t('durationHours', { hours });
 };
 
-type ProjectCategory = 'all' | 'openclaw' | 'classic';
-
-const isOpenClawProject = (project: Project): boolean =>
-  project.labRuntimeMode === 'openclaw' ||
-  (project.tags || []).some((tag) => tag.name.trim().toLowerCase().replace(/[\s_-]/g, '') === 'openclaw');
-
 const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProjectId }) => {
   const { t, i18n } = useTranslation('project');
   const [projects, setProjects] = useState<Project[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<ProjectCategory>('all');
   const [activeFilter, setActiveFilter] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredId, setHoveredId] = useState<number | null>(null);
@@ -122,43 +115,6 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProje
     loadProjects(searchQuery, tagId || undefined);
   };
 
-  const filteredProjects = useMemo(() => {
-    if (activeCategory === 'openclaw') {
-      return projects.filter(isOpenClawProject);
-    }
-    if (activeCategory === 'classic') {
-      return projects.filter((project) => !isOpenClawProject(project));
-    }
-    return projects;
-  }, [activeCategory, projects]);
-
-  const openClawCount = useMemo(() => projects.filter(isOpenClawProject).length, [projects]);
-  const classicCount = projects.length - openClawCount;
-
-  const categoryTabs = [
-    {
-      key: 'all' as const,
-      label: t('all'),
-      desc: t('allDesc'),
-      count: projects.length,
-      icon: Boxes,
-    },
-    {
-      key: 'openclaw' as const,
-      label: t('openclaw'),
-      desc: t('openclawDesc'),
-      count: openClawCount,
-      icon: Bot,
-    },
-    {
-      key: 'classic' as const,
-      label: t('classic'),
-      desc: t('classicDesc'),
-      count: classicCount,
-      icon: Clock,
-    },
-  ];
-
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -197,50 +153,6 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProje
             </button>
           </div>
         </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.15 }}
-        className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3"
-      >
-        {categoryTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isSelected = activeCategory === tab.key;
-
-          return (
-            <button
-              type="button"
-              key={tab.key}
-              onClick={() => setActiveCategory(tab.key)}
-              className={`group flex items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
-                isSelected
-                  ? 'border-slate-900 bg-slate-900 text-white shadow-[0_12px_28px_rgba(15,23,42,0.14)]'
-                  : 'border-slate-200 bg-white/80 text-slate-700 hover:border-slate-300 hover:bg-white'
-              }`}
-            >
-              <span className="flex min-w-0 items-center gap-3">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                  isSelected ? 'bg-white/12 text-white' : 'bg-slate-100 text-slate-500 group-hover:text-slate-700'
-                }`}>
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-bold">{tab.label}</span>
-                  <span className={`mt-0.5 block truncate text-xs ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>
-                    {tab.desc}
-                  </span>
-                </span>
-              </span>
-              <span className={`ml-3 rounded-full px-2 py-0.5 text-xs font-bold ${
-                isSelected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500'
-              }`}>
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
       </motion.div>
 
       <motion.div
@@ -296,7 +208,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProje
         </div>
       )}
 
-      {!loading && !loadError && filteredProjects.length === 0 && (
+      {!loading && !loadError && projects.length === 0 && (
         <div className="py-24 text-center">
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400">
             <Search className="h-6 w-6" />
@@ -306,14 +218,13 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProje
         </div>
       )}
 
-      {!loading && !loadError && filteredProjects.length > 0 && (
+      {!loading && !loadError && projects.length > 0 && (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredProjects.map((project, index) => {
+          {projects.map((project, index) => {
             const difficulty = getDifficultyLevel(project.difficulty);
             const level = getLevelBadge(difficulty, t);
             const duration = getEstimatedDuration(project.labsCount, project.challengesCount, t);
             const isActive = hoveredId === Number(project.id);
-            const isOpenClaw = isOpenClawProject(project);
             const coverCandidates = getImageUrlCandidates(project.coverUrl);
             const coverSrc = coverCandidates[0];
 
@@ -375,14 +286,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProje
                   >
                     {level.label}
                   </div>
-                  <div
-                    className={`pointer-events-none absolute right-4 top-4 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
-                      isOpenClaw
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-transparent bg-white/90 text-slate-600'
-                    }`}
-                  >
-                    {isOpenClaw ? t('openclawCard') : t('classicCard')}
+                  <div className="pointer-events-none absolute right-4 top-4 rounded-full border border-transparent bg-white/90 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                    {t('classicCard')}
                   </div>
                 </motion.div>
 
@@ -396,8 +301,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProje
                     <h3 className="line-clamp-2 min-h-[2.8rem] text-base font-bold leading-snug text-slate-900">
                       {project.title}
                     </h3>
-                    <p className={`mt-1 text-xs font-semibold ${isOpenClaw ? 'text-emerald-700' : 'text-slate-500'}`}>
-                      {isOpenClaw ? t('openclawSubtitle') : t('classicSubtitle')}
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {t('classicSubtitle')}
                     </p>
                     <p className="mt-1.5 line-clamp-2 min-h-[2.5rem] text-[13px] leading-relaxed text-slate-600">
                       {project.subtitle || project.description || t('noDescription')}

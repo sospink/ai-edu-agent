@@ -23,9 +23,6 @@ func TestBuildURLsUsesAbsoluteNoVNCPath(t *testing.T) {
 	}
 
 	urls := service.BuildURLs(session)
-	if urls.RuntimeMode != "classic" {
-		t.Fatalf("expected classic runtime mode, got %q", urls.RuntimeMode)
-	}
 	if urls.VNCURL == "" {
 		t.Fatal("expected vnc url to be set")
 	}

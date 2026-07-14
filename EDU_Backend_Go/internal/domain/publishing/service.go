@@ -37,21 +37,17 @@ const (
 	AuditResultWarning = "warning"
 )
 
-type OpenClawHealthFunc func(ctx context.Context) (map[string]interface{}, error)
-
 type Service struct {
-	db                 *gorm.DB
-	logger             *zap.Logger
-	openclawHealthFunc OpenClawHealthFunc
-	operations         *operations.Service
+	db         *gorm.DB
+	logger     *zap.Logger
+	operations *operations.Service
 }
 
-func NewService(db *gorm.DB, logger *zap.Logger, openclawHealthFunc OpenClawHealthFunc) *Service {
+func NewService(db *gorm.DB, logger *zap.Logger) *Service {
 	return &Service{
-		db:                 db,
-		logger:             logger,
-		openclawHealthFunc: openclawHealthFunc,
-		operations:         operations.NewService(db, logger),
+		db:         db,
+		logger:     logger,
+		operations: operations.NewService(db, logger),
 	}
 }
 
@@ -59,7 +55,6 @@ type LabTemplateInput struct {
 	Name               string
 	Code               string
 	Description        string
-	RuntimeMode        string
 	EnvImage           string
 	IDEImage           string
 	MainCPURequest     string
@@ -155,7 +150,7 @@ func (s *Service) UpdateLabTemplate(ctx context.Context, actorID, id uint64, inp
 	template.Name = normalized.Name
 	template.Code = normalized.Code
 	template.Description = normalized.Description
-	template.RuntimeMode = normalized.RuntimeMode
+	template.LegacyRuntimeMode = normalized.LegacyRuntimeMode
 	template.EnvImage = normalized.EnvImage
 	template.IDEImage = normalized.IDEImage
 	template.MainCPURequest = normalized.MainCPURequest
@@ -343,9 +338,13 @@ func (s *Service) CheckProject(ctx context.Context, actorID uint64, roleType int
 	if err != nil {
 		return nil, err
 	}
-	hasOpenClawTag := project.HasOpenClawTag(tags)
-
 	result := newCheckResult(ContentTypeProject, record.ID)
+	for _, tag := range tags {
+		if project.IsRetiredProjectTag(tag.Name) {
+			result.Errors = append(result.Errors, issue("PROJECT_TYPE_RETIRED", "项目类型", "该历史项目类型已下架，不能重新发布", record.ID, record.Title))
+			break
+		}
+	}
 	if strings.TrimSpace(record.Title) == "" {
 		result.Errors = append(result.Errors, issue("PROJECT_TITLE_REQUIRED", "基础信息", "项目标题不能为空", record.ID, record.Title))
 	}
@@ -355,29 +354,13 @@ func (s *Service) CheckProject(ctx context.Context, actorID uint64, roleType int
 	if len(units) == 0 {
 		result.Errors = append(result.Errors, issue("PROJECT_UNIT_REQUIRED", "项目结构", "项目至少需要一个单元", record.ID, record.Title))
 	}
-	if project.IsOpenClawProject(record) && !hasOpenClawTag {
-		result.Errors = append(result.Errors, issue("PROJECT_OPENCLAW_TAG_REQUIRED", "OpenClaw", "疑似 OpenClaw 项目必须添加 OpenClaw 标签，不能依赖标题或 Slug 识别", record.ID, record.Title))
-	}
-	if hasOpenClawTag {
-		healthCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		if s.openclawHealthFunc == nil {
-			result.Errors = append(result.Errors, issue("PROJECT_OPENCLAW_HEALTH_UNAVAILABLE", "OpenClaw", "OpenClaw 健康检查服务未初始化", record.ID, record.Title))
-		}
-		health, healthErr := s.callOpenClawHealth(healthCtx)
-		result.Snapshot["openclawHealth"] = health
-		if healthErr != nil {
-			result.Errors = append(result.Errors, issue("PROJECT_OPENCLAW_HEALTH_FAILED", "OpenClaw", "OpenClaw 健康检查失败: "+healthErr.Error(), record.ID, record.Title))
-		}
-	}
-
 	labUnits := filterProjectLabUnits(units)
 	template, templateErr := s.activeLabTemplate(ctx, record.LabTemplateID)
 	if record.LabTemplateID > 0 && templateErr != nil {
 		result.Errors = append(result.Errors, issue("PROJECT_TEMPLATE_INVALID", "Lab 模板", templateErr.Error(), record.LabTemplateID, ""))
 	}
-	if !hasOpenClawTag && len(labUnits) > 0 && template == nil && strings.TrimSpace(record.EnvImage) == "" {
-		result.Errors = append(result.Errors, issue("PROJECT_LAB_IMAGE_REQUIRED", "Lab 运行时", "Classic 项目包含实验/挑战单元时，必须配置实验镜像或绑定启用中的 Lab 模板", record.ID, record.Title))
+	if len(labUnits) > 0 && template == nil && strings.TrimSpace(record.EnvImage) == "" {
+		result.Errors = append(result.Errors, issue("PROJECT_LAB_IMAGE_REQUIRED", "Lab 运行时", "项目包含实验/挑战单元时，必须配置实验镜像或绑定启用中的 Lab 模板", record.ID, record.Title))
 	}
 
 	manualCoverage, verificationCoverage, err := s.checkProjectManuals(ctx, labUnits, result)
@@ -391,7 +374,6 @@ func (s *Service) CheckProject(ctx context.Context, actorID uint64, roleType int
 		"verificationCoverage": verificationCoverage,
 		"hasEnvImage":          strings.TrimSpace(record.EnvImage) != "",
 		"hasActiveTemplate":    template != nil,
-		"isOpenClaw":           hasOpenClawTag,
 	}
 	result.Snapshot["title"] = record.Title
 	result.Snapshot["slug"] = record.Slug
@@ -402,13 +384,6 @@ func (s *Service) CheckProject(ctx context.Context, actorID uint64, roleType int
 	result.Snapshot["labTemplate"] = nullableTemplateSnapshot(template)
 	result.Snapshot["tags"] = tags
 	return s.persistCheck(ctx, actorID, result)
-}
-
-func (s *Service) callOpenClawHealth(ctx context.Context) (map[string]interface{}, error) {
-	if s.openclawHealthFunc == nil {
-		return nil, nil
-	}
-	return s.openclawHealthFunc(ctx)
 }
 
 func (s *Service) CheckManual(ctx context.Context, actorID uint64, roleType int, manualID uint64) (*PublishCheckResult, error) {
@@ -837,7 +812,7 @@ func normalizeLabTemplateInput(input LabTemplateInput) (*LabTemplate, error) {
 		Name:               strings.TrimSpace(input.Name),
 		Code:               strings.TrimSpace(input.Code),
 		Description:        strings.TrimSpace(input.Description),
-		RuntimeMode:        strings.TrimSpace(input.RuntimeMode),
+		LegacyRuntimeMode:  "classic",
 		EnvImage:           strings.TrimSpace(input.EnvImage),
 		IDEImage:           strings.TrimSpace(input.IDEImage),
 		MainCPURequest:     defaultString(input.MainCPURequest, "250m"),
@@ -857,9 +832,6 @@ func normalizeLabTemplateInput(input LabTemplateInput) (*LabTemplate, error) {
 	}
 	template.ExposedPorts = normalizedExposedPorts
 	applyExposedPortsToTemplate(template)
-	if template.RuntimeMode == "" {
-		template.RuntimeMode = "classic"
-	}
 	if template.Status == 0 {
 		template.Status = LabTemplateStatusActive
 	}
@@ -1201,7 +1173,6 @@ func labTemplateSnapshot(template LabTemplate) JSONMap {
 		"id":                 template.ID,
 		"name":               template.Name,
 		"code":               template.Code,
-		"runtimeMode":        template.RuntimeMode,
 		"envImage":           template.EnvImage,
 		"ideImage":           template.IDEImage,
 		"mainCpuRequest":     template.MainCPURequest,

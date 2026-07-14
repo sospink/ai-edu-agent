@@ -20,7 +20,6 @@ import { ProfilePage } from '@/components/profile';
 import { ProjectList, ProjectDetail } from '@/components/project';
 import { SkillList, SkillDetail, LessonPage, LabPage } from '@/components/study';
 import { AISquare } from '@/components/ai-square';
-import OpenClawPage from '@/components/openclaw/OpenClawPage';
 import DocsPage from '@/components/docs/DocsPage';
 import { authService } from '@/services/auth';
 import type { User } from '@/types';
@@ -515,12 +514,6 @@ const AppContent: React.FC = () => {
           <Route
             path="/lab"
             element={<LabPage onLoginRequired={openStudentLoginForCurrentPage} />}
-          />
-
-          {/* OpenClaw 页面 - 独立页面，无导航栏和Footer，支持子路由 */}
-          <Route
-            path="/openclaw/*"
-            element={<OpenClawPage onLoginRequired={openStudentLoginForCurrentPage} />}
           />
 
           {/* 文档页面 - 独立页面，自定义导航 */}

@@ -345,14 +345,6 @@ animate-blob + delay-2000/4000
 - 品牌标签：`"Teacher Portal"`
 - 无通知铃铛、无面包屑 chevron
 
-### OpenClaw 页（`/openclaw/*`）
-
-- 完全独立，无 Navbar / Footer / Background
-- 深色技术感风格，`border-primary-600` 激活标签
-- 轨道动画彩色光球（`orb-orbit-1~5`、`orb-hue-rotate`）
-- `glass-panel`：`background: rgba(255,255,255,0.7); backdrop-filter: blur(8px)`
-- `premium-border`、`bg-glow`、`wave-bar` 专用 CSS 类
-
 ### 课程页（`/lesson/:lessonId`）
 
 - 独立页面，无主导航

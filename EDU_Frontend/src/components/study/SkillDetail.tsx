@@ -126,7 +126,6 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill: initialSkill, onBack, 
     courseTokens.forEach((token) => {
       if (projectText.includes(token)) score += 2;
     });
-    if (projectText.includes('openclaw') && courseTitle.includes('openclaw')) score += 4;
     return score;
   };
 

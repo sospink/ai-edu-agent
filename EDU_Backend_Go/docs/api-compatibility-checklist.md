@@ -11,7 +11,7 @@
   - REST
   - SSE
   - WebSocket
-  - iframe Gateway Proxy
+  - iframe Lab Proxy
 
 ## REST 路由分组
 
@@ -26,14 +26,13 @@
 - `/api/docker/*`
 - `/api/lab/*`
 - `/api/agent/*`
-- `/api/openclaw-view/*`
 - `/api/integrations/*`
 - `/api/health`
 
 ## 当前收口原则
 
 - 兼容目标采用“主链路替代”，不是逐行复刻 TS 历史接口。
-- 课程/项目实训、Agent、OpenClaw、上传、学习与鉴权属于切换阻塞面。
+- 课程/项目实训、Agent、上传、学习与鉴权属于切换阻塞面。
 - `/api/docker/*` 属于旧 Docker 管理面，默认不纳入 Go 切换阻塞项。
 - `/api/integrations/*` 作为管理员运维观测入口，需继续兼容管理员鉴权语义。
 
@@ -70,11 +69,11 @@ data: [DONE]
   - `transport`
   - `initialCommand`
 
-### Gateway Proxy
+### Lab Proxy
 
 - Endpoint:
-  - `/api/lab/gateway/:sessionId`
-  - `/api/lab/gateway/:sessionId/*`
+  - `/api/lab/proxy/:sessionId/:target`
+  - `/api/lab/proxy/:sessionId/:target/*`
 - 约束：
   - 支持 iframe 同源嵌入
   - 允许 `authToken` query 作为认证回退
@@ -104,17 +103,17 @@ data: [DONE]
 - `/ws/terminal` K8S exec bridge
 - `/api/lab/*` K8S Classic Lab 主链路
 - `/api/agent/*`
-- `/api/openclaw-view/*`
 - `/api/integrations/k8s/health`
-- `/api/integrations/openclaw/health`
-- `/api/integrations/feishu/health`
 - `/api/integrations/config/summary`
 
 ## 当前仍需重点验收的接口组
 
-- `/api/openclaw-view/*` 的真实外部依赖联调
-- OpenClaw 项目入口使用 `project:<projectId>[:unit:<unitId>]`，后端派生 OpenClaw session key
 - `/api/integrations/*` 的真实运维环境验证
+
+## 2026-07-14 下架说明
+
+- OpenClaw 视图、Lab Gateway 代理和与其耦合的 Feishu 健康接口不再属于当前兼容目标。
+- 下架前契约保存在 `codex/archive-openclaw-20260714`，不得据此在 Go 主线重新补齐旧入口。
 
 ## 明确不纳入本轮切换阻塞项
 

@@ -14,8 +14,9 @@ description: Agent EDU Lab 平台导航与功能引导。当用户询问如何�
 Agent EDU Lab 是一个 AI 智能体教育实训平台，由以下三端组成：
 
 - **EDU_Frontend**：React + TypeScript + Vite，使用 TailwindCSS + Lucide Icons
-- **EDU_Backend**：Node.js + Express + TypeORM + MySQL
-- **云端实训环境**：基于 Docker 的容器化工作区
+- **EDU_Backend_Go**：Go + Gin + GORM + MySQL，当前主后端
+- **EDU_Backend**：Node.js 历史后端，仅用于契约参考
+- **云端实训环境**：基于 Kubernetes Classic Lab 的容器化工作区
 
 ## 路由结构（前端）
 
@@ -26,13 +27,8 @@ Agent EDU Lab 是一个 AI 智能体教育实训平台，由以下三端组成�
 | `/lesson/:id` | 理论课页面 | 多格式资料渲染 + Dify AI 助教 |
 | `/lab` | 实训环境页面 | 云端工作区（Desktop/Terminal/IDE/CLI） |
 | `/projects` | 项目实战 | 项目列表与详情 |
-| `/projects/:id` | 项目详情 | 按单元推进，直达实训环境 |
+| `/projects/:slug` | 项目详情 | 按单元推进，直达 Classic Lab 实训环境 |
 | `/ai-square` | AI 广场 | 主流 AI 工具与模型展示 |
-| `/openclaw/*` | OpenClaw 实训 | Agent 工作流四态可视化 |
-| `/openclaw/idle` | 场景选择 | 浏览和选择工作场景 |
-| `/openclaw/thinking` | 思考中 | AI 对话 + 提示词引擎 |
-| `/openclaw/executing` | 执行中 | 执行日志 + 监控面板 |
-| `/openclaw/completed` | 完成态 | 产出物展示 + 流程回顾 |
 | `/profile` | 个人中心 | 学习档案与进度 |
 | `/admin` | 管理后台 | 课程管理与数据看板（需权限） |
 
@@ -43,51 +39,6 @@ Agent EDU Lab 是一个 AI 智能体教育实训平台，由以下三端组成�
 - `AgentWidget`：全局 AI 对话 Widget（懒加载，基于 Qwen）
 - `BackToTop`：返回顶部按钮
 
-## OpenClaw 实训模块
-
-### 组件结构
-
-```
-src/components/openclaw/
-├── OpenClawPage.tsx         # 主页面（四态路由 + 状态管理）
-├── OpenClawViews.tsx        # 四态视图组件（IdleDesktop, RunningDesktop, ApprovalObservabilityWorkspace, CompletedWorkspace）
-├── OpenClawPanels.tsx       # 右侧面板（IdleProcessPanel, RunningProcessPanel, MetricBlock, MetricLite）
-├── PromptEnginePanel.tsx    # 提示词增强引擎
-├── OpenClawGuide.tsx        # 四步使用向导
-├── constants.ts             # 场景配置、会话元数据
-├── types.ts                 # SessionState 等类型
-└── chat/                    # 聊天交互子组件
-    ├── AnimatedOrb.tsx      # 流光 AI 头像
-    ├── AnalysisWordSpan.tsx # 逐字模糊浮现动画
-    ├── ChatMarkdownRenderer.tsx  # 流式 Markdown 渲染
-    └── AudioWaveform.tsx    # 语音波形可视化
-```
-
-### 后端服务
-
-| 服务 | 文件 | 职责 |
-|------|------|------|
-| OpenclawViewService | `services/OpenclawViewService.ts` | 三态数据聚合（思考/执行/完成） |
-| OpenClawClient | `services/OpenClawClient.ts` | OpenClaw Agent HTTP 通信 |
-| FeishuClient | `services/FeishuClient.ts` | 飞书消息收发 + 事件回调 |
-| OpenclawViewController | `controllers/OpenclawViewController.ts` | REST API 端点 |
-
-### API 路由
-
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/api/openclaw-view/thinking` | GET | 获取思考态数据（飞书消息） |
-| `/api/openclaw-view/executing` | GET | 获取执行态数据（事件日志） |
-| `/api/openclaw-view/completed` | GET | 获取完成态数据（产出物） |
-| `/api/openclaw-view/chat` | POST | 发送消息到 Agent |
-| `/api/integration/feishu/event` | POST | 飞书事件回调 |
-
-### 数据轮询策略
-
-- `thinking`: 每 8 秒轮询飞书消息
-- `executing`: 每 6 秒轮询执行事件
-- `completed`: 每 12 秒轮询产出物
-
 ## 学生标准使用流程
 
 1. 登录 → 进入学习中心 `/study`
@@ -95,15 +46,15 @@ src/components/openclaw/
 3. 进入理论课 `/lesson/:id`，与 AI 助教互动
 4. 进入实训课 `/lab`，AI 教师逐步引导操作
 5. 完成课时 → 进入项目实战 `/projects`
-6. OpenClaw 实训 → 场景选择 → 思考 → 执行 → 完成
+6. 进入项目单元 → 启动 Classic Lab → 使用 Desktop / Terminal / IDE 完成实训
 
 ## 常见问题处理步骤
 
 **问题：实训环境无法启动**
 1. 检查用户是否已登录
-2. 检查后端 Docker 服务是否正常运行：`docker ps`
-3. 查看后端日志：`cd EDU_Backend && npm run dev`
-4. 确认环境变量 `.env` 已正确配置
+2. 检查运行命名空间中的 Pod / Service：`kubectl get pod,svc -n <runtime-namespace>`
+3. 查看 Go 后端日志与 `/api/health`
+4. 确认 K8S kubeconfig、运行命名空间和镜像仓库配置正确
 
 **问题：Dify 助教不响应**
 1. 检查 `EDU_Frontend/.env` 中 `VITE_DIFY_BASE_URL` 和 `VITE_DIFY_CHATBOT_TOKEN`
@@ -111,28 +62,16 @@ src/components/openclaw/
 3. 查看浏览器控制台是否有 CORS 错误
 
 **问题：课程数据不显示**
-1. 运行种子脚本：`cd EDU_Backend && npm run seed:courses`
+1. 检查 `/api/courses` 和 `/api/learning/*` 响应
 2. 确认数据库连接正常
-3. 检查 API 路由 `/api/courses` 响应
-
-**问题：OpenClaw 对话无回复**
-1. 检查 `EDU_Backend/.env` 中飞书配置：`FEISHU_APP_ID`, `FEISHU_APP_SECRET`, `FEISHU_CHAT_ID`, `FEISHU_BOT_OPEN_ID`
-2. 验证飞书 App 的 Bot 权限是否已开启（消息收发权限）
-3. 检查 OpenClaw Agent 服务是否可达：`OPENCLAW_BASE_URL`
-4. 查看后端日志中 `FeishuClient` 或 `OpenclawViewService` 的错误信息
-
-**问题：OpenClaw 执行态无数据**
-1. 确认 Agent 已处于执行阶段（需先从思考态进入）
-2. 检查 `OpenClawClient` 连接状态
-3. 查看轮询接口 `/api/openclaw-view/executing` 的响应
+3. 核对课程发布状态和当前用户权限
 
 ## 开发环境启动
 
 ```bash
 # 后端
-cd EDU_Backend
-npm install
-npm run dev
+cd EDU_Backend_Go
+go run ./cmd/server
 
 # 前端
 cd EDU_Frontend
@@ -144,32 +83,27 @@ npm run dev
 
 ### 后端 `.env`
 ```
-DB_HOST=localhost
-DB_PORT=3306
-DB_USERNAME=root
-DB_PASSWORD=***
-DB_DATABASE=edu_lab
-FEISHU_APP_ID=***
-FEISHU_APP_SECRET=***
-FEISHU_CHAT_ID=***
-FEISHU_BOT_OPEN_ID=***
-OPENCLAW_BASE_URL=***
+DATABASE_HOST=localhost
+DATABASE_PORT=3306
+DATABASE_USER=root
+DATABASE_PASSWORD=***
+DATABASE_NAME=edu_lab
+K8S_ENABLED=true
+K8S_RUNTIME_NAMESPACE=edu-runtime-dev
+K8S_KUBECONFIG=.kube/config
 QWEN_API_KEY=***
 ```
 
 ### 前端 `.env`
 ```
-VITE_API_BASE_URL=http://localhost:3001
+VITE_API_BASE_URL=http://localhost:4000
 VITE_DIFY_BASE_URL=***
 VITE_DIFY_CHATBOT_TOKEN=***
-VITE_OPENCLAW_SESSION_ID=***
 ```
 
 ## 注意事项
 
-- 实训环境需要 Docker 已安装并运行
+- 实训环境需要 Kubernetes API、运行命名空间和镜像仓库可用
 - Dify 需要独立部署或使用云端服务
 - 管理后台需要 Admin 权限账号
-- OpenClaw 功能需要飞书 App 和 OpenClaw Agent 服务都可用
-- 后端新增依赖：`@larksuiteoapi/node-sdk`（飞书 SDK）、`tweetnacl`（签名验证）
-
+- Classic Lab 需要 Kubernetes 集群、镜像仓库和 noVNC / terminal 运行时可用

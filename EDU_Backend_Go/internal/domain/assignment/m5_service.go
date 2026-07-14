@@ -595,7 +595,7 @@ func (s *Service) labFailedQuery(ctx context.Context, actorID uint64, roleType i
 		Joins(`JOIN assignment_resources ar ON ar.resource_id = ls.source_id AND (
 			(ls.source_type = ? AND ar.resource_type IN ?) OR
 			(ls.source_type = ? AND ar.resource_type IN ?)
-		)`, lab.SourceTypeCourse, []string{ResourceTypeCourse, ResourceTypeCourseLesson, ResourceTypeClassicLab}, lab.SourceTypeProject, []string{ResourceTypeProject, ResourceTypeProjectUnit, ResourceTypeOpenClawProject}).
+		)`, lab.SourceTypeCourse, []string{ResourceTypeCourse, ResourceTypeCourseLesson, ResourceTypeClassicLab}, lab.SourceTypeProject, []string{ResourceTypeProject, ResourceTypeProjectUnit}).
 		Joins("JOIN teaching_assignments ta ON ta.id = ar.assignment_id").
 		Joins("JOIN assignment_classes ac ON ac.assignment_id = ta.id").
 		Joins("JOIN classes c ON c.id = ac.class_id").

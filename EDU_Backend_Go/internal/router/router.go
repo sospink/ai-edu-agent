@@ -13,7 +13,6 @@ import (
 	"edu-platform/internal/domain/course"
 	"edu-platform/internal/domain/lab"
 	"edu-platform/internal/domain/learning"
-	"edu-platform/internal/domain/openclawview"
 	"edu-platform/internal/domain/operations"
 	"edu-platform/internal/domain/project"
 	"edu-platform/internal/domain/publishing"
@@ -45,16 +44,15 @@ func New(deps app.Dependencies) *gin.Engine {
 	uploadRoot := filepath.Clean(deps.Config.Upload.Root)
 	courseService := course.NewService(deps.DB, deps.Logger, uploadRoot)
 	learningService := learning.NewService(deps.DB, courseService)
-	projectService := project.NewService(deps.DB, deps.Logger, deps.Config)
+	projectService := project.NewService(deps.DB, deps.Logger)
 	labService := lab.NewService(deps.DB, deps.Logger, deps.Config, deps.K8S, deps.K8SRest)
 	agentAIClient := agent.NewAIClient(deps.Config.Qwen, deps.Logger)
 	agentService := agent.NewService(deps.DB, deps.Logger, agentAIClient)
 	agentService.SetRuntimeBridge(labService)
-	openclawViewService := openclawview.NewService(deps.Config, deps.Logger, deps.DB)
 	teacherService := teacher.NewService(deps.DB, deps.Logger)
 	classroomService := classroom.NewService(deps.DB, deps.Logger)
 	operationsService := operations.NewService(deps.DB, deps.Logger)
-	publishingService := publishing.NewService(deps.DB, deps.Logger, openclawViewService.GetOpenClawHealth)
+	publishingService := publishing.NewService(deps.DB, deps.Logger)
 	assignmentService := assignment.NewService(deps.DB, deps.Logger)
 	assignmentService.SetAIClient(agentAIClient)
 	assignmentService.SetOperationsService(operationsService)
@@ -69,7 +67,6 @@ func New(deps app.Dependencies) *gin.Engine {
 	teacherProjectHandler := project.NewTeacherHandler(projectService)
 	labHandler := lab.NewHandler(labService, jwtManager)
 	agentHandler := agent.NewHandler(agentService)
-	openclawViewHandler := openclawview.NewHandler(openclawViewService)
 	teacherHandler := teacher.NewHandler(teacherService)
 	classroomHandler := classroom.NewHandler(classroomService)
 	operationsHandler := operations.NewHandler(operationsService)
@@ -178,8 +175,6 @@ func New(deps app.Dependencies) *gin.Engine {
 		projectGroup.DELETE("/:id/units/:unitId", authMiddleware, casbinMiddleware, projectHandler.DeleteUnit)
 
 		labGroup := api.Group("/lab")
-		labGroup.Any("/gateway/:sessionId", labHandler.ProxyGateway)
-		labGroup.Any("/gateway/:sessionId/*proxyPath", labHandler.ProxyGateway)
 		labGroup.Any("/proxy/:sessionId/:target", labHandler.ProxyTarget)
 		labGroup.Any("/proxy/:sessionId/:target/*proxyPath", labHandler.ProxyTarget)
 		labGroup.GET("/images", authMiddleware, adminMiddleware, casbinMiddleware, labHandler.GetImages)
@@ -220,15 +215,6 @@ func New(deps app.Dependencies) *gin.Engine {
 		agentGroup.POST("/admin/import", agentHandler.ImportMarkdown)
 		agentGroup.POST("/admin/parse-preview", agentHandler.ParseMarkdownPreview)
 
-		openClawViewGroup := api.Group("/openclaw-view")
-		openClawViewGroup.Use(authMiddleware, casbinMiddleware)
-		openClawViewGroup.GET("/:sessionId/thinking", openclawViewHandler.GetThinking)
-		openClawViewGroup.GET("/:sessionId/executing", openclawViewHandler.GetExecuting)
-		openClawViewGroup.GET("/:sessionId/completed", openclawViewHandler.GetCompleted)
-		openClawViewGroup.GET("/:sessionId/phase", openclawViewHandler.GetPhase)
-		openClawViewGroup.GET("/file/:messageId/:fileKey", openclawViewHandler.DownloadFile)
-		openClawViewGroup.POST("/chat/send", openclawViewHandler.SendMessage)
-
 		api.GET("/users/student-leaderboard", middleware.OptionalAuthMiddleware(jwtManager, tokenBlacklist), userHandler.StudentLeaderboard)
 
 		userGroup := api.Group("/users")
@@ -262,8 +248,6 @@ func New(deps app.Dependencies) *gin.Engine {
 		integrationsGroup := api.Group("/integrations")
 		integrationsGroup.Use(authMiddleware, adminMiddleware, casbinMiddleware)
 		integrationsGroup.GET("/k8s/health", integrationsHandler.K8SHealth)
-		integrationsGroup.GET("/openclaw/health", integrationsHandler.OpenClawHealth)
-		integrationsGroup.GET("/feishu/health", integrationsHandler.FeishuHealth)
 		integrationsGroup.GET("/config/summary", integrationsHandler.ConfigSummary)
 		integrationsGroup.GET("/dashboard/overview", integrationsHandler.DashboardOverview)
 		integrationsGroup.GET("/dashboard/sessions", integrationsHandler.DashboardSessions)
@@ -413,8 +397,6 @@ func New(deps app.Dependencies) *gin.Engine {
 		adminGroup.PATCH("/resource-quotas/:id/status", operationsHandler.UpdateResourceQuotaStatus)
 		adminGroup.GET("/audit-logs", operationsHandler.ListAuditLogs)
 		adminGroup.GET("/integrations/k8s/health", integrationsHandler.K8SHealth)
-		adminGroup.GET("/integrations/openclaw/health", integrationsHandler.OpenClawHealth)
-		adminGroup.GET("/integrations/feishu/health", integrationsHandler.FeishuHealth)
 		adminGroup.GET("/integrations/health", integrationsHandler.IntegratedHealth)
 		adminGroup.GET("/integrations/config/summary", integrationsHandler.ConfigSummary)
 		adminGroup.GET("/settings", adminSettingsHandler.Get)

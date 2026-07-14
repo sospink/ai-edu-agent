@@ -7,34 +7,30 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"edu-platform/internal/config"
 	apperrors "edu-platform/pkg/errors"
 )
 
 type Service struct {
-	repo              *Repository
-	logger            *zap.Logger
-	projectLabRuntime string
+	repo   *Repository
+	logger *zap.Logger
 }
 
-func NewService(db *gorm.DB, logger *zap.Logger, cfg *config.Config) *Service {
-	projectLabRuntime := ""
-	if cfg != nil {
-		projectLabRuntime = cfg.OpenClaw.ProjectLabRuntime
-	}
+func NewService(db *gorm.DB, logger *zap.Logger) *Service {
 	return &Service{
-		repo:              NewRepository(db),
-		logger:            logger,
-		projectLabRuntime: projectLabRuntime,
+		repo:   NewRepository(db),
+		logger: logger,
 	}
 }
 
-func (s *Service) List(page, pageSize int, keyword string, status, difficulty *int, tagID *uint64) ([]ProjectDetail, int64, error) {
+const retiredProjectTagName = "openclaw"
+
+func (s *Service) List(page, pageSize int, keyword string, _ *int, difficulty *int, tagID *uint64) ([]ProjectDetail, int64, error) {
+	publishedStatus := int(ProjectStatusPublished)
 	return s.listByQuery(ListQuery{
 		Page:       page,
 		PageSize:   pageSize,
 		Keyword:    strings.TrimSpace(keyword),
-		Status:     status,
+		Status:     &publishedStatus,
 		Difficulty: difficulty,
 		TagID:      tagID,
 	})
@@ -90,7 +86,6 @@ func (s *Service) listByQuery(query ListQuery) ([]ProjectDetail, int64, error) {
 		if tags == nil {
 			tags = make([]Tag, 0)
 		}
-		project.LabRuntimeMode = ResolveLabRuntimeModeWithTags(project, tags, s.projectLabRuntime)
 		result = append(result, ProjectDetail{
 			Project: project,
 			Tags:    tags,
@@ -133,11 +128,40 @@ func (s *Service) FindBySlug(slug string) (*ProjectDetail, error) {
 	return s.buildDetail(project)
 }
 
+func (s *Service) FindPublishedByID(id uint64) (*ProjectDetail, error) {
+	detail, err := s.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if detail.Status != ProjectStatusPublished {
+		return nil, apperrors.NotFound("项目不存在或尚未发布")
+	}
+	return detail, nil
+}
+
+func (s *Service) FindPublishedBySlug(slug string) (*ProjectDetail, error) {
+	detail, err := s.FindBySlug(slug)
+	if err != nil {
+		return nil, err
+	}
+	if detail.Status != ProjectStatusPublished {
+		return nil, apperrors.NotFound("项目不存在或尚未发布")
+	}
+	return detail, nil
+}
+
 func (s *Service) GetUnits(projectID uint64) ([]ProjectUnit, error) {
 	if _, err := s.repo.FindProjectByID(projectID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, apperrors.NotFound("项目不存在")
 		}
+		return nil, err
+	}
+	return s.repo.FindProjectUnits(projectID)
+}
+
+func (s *Service) GetPublishedUnits(projectID uint64) ([]ProjectUnit, error) {
+	if _, err := s.FindPublishedByID(projectID); err != nil {
 		return nil, err
 	}
 	return s.repo.FindProjectUnits(projectID)
@@ -155,12 +179,25 @@ func (s *Service) GetUnitsForTeacher(actorID uint64, roleType int, projectID uin
 }
 
 func (s *Service) GetAllTags() ([]Tag, error) {
-	return s.repo.FindAllTags()
+	tags, err := s.repo.FindAllTags()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Tag, 0, len(tags))
+	for _, tag := range tags {
+		if !IsRetiredProjectTag(tag.Name) {
+			result = append(result, tag)
+		}
+	}
+	return result, nil
 }
 
 func (s *Service) CreateTag(name, styleColor string) (*Tag, error) {
 	if strings.TrimSpace(name) == "" {
 		return nil, apperrors.BadRequest("标签名称不能为空")
+	}
+	if IsRetiredProjectTag(name) {
+		return nil, apperrors.BadRequest("该历史项目标签已下架")
 	}
 	if _, err := s.repo.FindTagByName(strings.TrimSpace(name)); err == nil {
 		return nil, apperrors.BadRequest("标签已存在")
@@ -185,6 +222,12 @@ func (s *Service) UpdateTag(id uint64, name, styleColor *string) (*Tag, error) {
 		}
 		return nil, err
 	}
+	if IsRetiredProjectTag(tag.Name) {
+		return nil, apperrors.BadRequest("历史项目标签只保留审计，不能修改")
+	}
+	if name != nil && IsRetiredProjectTag(*name) {
+		return nil, apperrors.BadRequest("该历史项目标签已下架")
+	}
 	if name != nil && strings.TrimSpace(*name) != "" {
 		tag.Name = strings.TrimSpace(*name)
 	}
@@ -198,11 +241,15 @@ func (s *Service) UpdateTag(id uint64, name, styleColor *string) (*Tag, error) {
 }
 
 func (s *Service) DeleteTag(id uint64) error {
-	if _, err := s.repo.FindTagByID(id); err != nil {
+	tag, err := s.repo.FindTagByID(id)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return apperrors.NotFound("标签不存在")
 		}
 		return err
+	}
+	if IsRetiredProjectTag(tag.Name) {
+		return apperrors.BadRequest("历史项目标签只保留审计，不能删除")
 	}
 	if err := s.repo.DeleteProjectTagsByTagID(id); err != nil {
 		return err
@@ -252,6 +299,9 @@ func (s *Service) CreateProject(params CreateProjectParams) (*Project, error) {
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
+	if _, err := s.validateProjectTagIDs(params.TagIDs); err != nil {
+		return nil, err
+	}
 	project := &Project{
 		Title:         strings.TrimSpace(params.Title),
 		Slug:          strings.TrimSpace(params.Slug),
@@ -286,11 +336,23 @@ func (s *Service) UpdateProject(id uint64, params UpdateProjectParams) (*Project
 		}
 		return nil, err
 	}
+	retired, err := s.projectHasRetiredTag(id)
+	if err != nil {
+		return nil, err
+	}
+	if retired {
+		return nil, apperrors.BadRequest("历史项目已下架，不能修改")
+	}
 	if params.Slug != nil && strings.TrimSpace(*params.Slug) != "" && strings.TrimSpace(*params.Slug) != project.Slug {
 		if _, slugErr := s.repo.FindProjectBySlug(strings.TrimSpace(*params.Slug)); slugErr == nil {
 			return nil, apperrors.BadRequest("Slug 已存在")
 		} else if !errors.Is(slugErr, gorm.ErrRecordNotFound) {
 			return nil, slugErr
+		}
+	}
+	if params.TagIDs != nil {
+		if _, err := s.validateProjectTagIDs(*params.TagIDs); err != nil {
+			return nil, err
 		}
 	}
 	if params.Title != nil {
@@ -346,6 +408,13 @@ func (s *Service) DeleteProject(id uint64) error {
 			return apperrors.NotFound("项目不存在")
 		}
 		return err
+	}
+	retired, err := s.projectHasRetiredTag(id)
+	if err != nil {
+		return err
+	}
+	if retired {
+		return apperrors.BadRequest("历史项目只保留审计，不能删除")
 	}
 	if err := s.repo.DeleteUnitsByProjectID(id); err != nil {
 		return err
@@ -510,7 +579,6 @@ func (s *Service) buildDetail(project *Project) (*ProjectDetail, error) {
 		return nil, err
 	}
 	tags := nonNilTags(tagMap[project.ID])
-	project.LabRuntimeMode = ResolveLabRuntimeModeWithTags(*project, tags, s.projectLabRuntime)
 	return &ProjectDetail{
 		Project: *project,
 		Tags:    tags,
@@ -561,19 +629,76 @@ func (s *Service) buildTagMap(relations []ProjectTag) (map[uint64][]Tag, error) 
 }
 
 func (s *Service) replaceProjectTags(projectID uint64, tagIDs []uint64) error {
+	uniqueTagIDs, err := s.validateProjectTagIDs(tagIDs)
+	if err != nil {
+		return err
+	}
 	return s.repo.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("project_id = ?", projectID).Delete(&ProjectTag{}).Error; err != nil {
 			return err
 		}
-		if len(tagIDs) == 0 {
+		if len(uniqueTagIDs) == 0 {
 			return nil
 		}
-		relations := make([]ProjectTag, 0, len(tagIDs))
-		for _, tagID := range tagIDs {
+		relations := make([]ProjectTag, 0, len(uniqueTagIDs))
+		for _, tagID := range uniqueTagIDs {
 			relations = append(relations, ProjectTag{ProjectID: projectID, TagID: tagID})
 		}
 		return tx.Create(&relations).Error
 	})
+}
+
+func (s *Service) validateProjectTagIDs(tagIDs []uint64) ([]uint64, error) {
+	uniqueTagIDs := make([]uint64, 0, len(tagIDs))
+	seen := make(map[uint64]struct{}, len(tagIDs))
+	for _, tagID := range tagIDs {
+		if tagID == 0 {
+			return nil, apperrors.BadRequest("项目标签不存在")
+		}
+		if _, exists := seen[tagID]; exists {
+			continue
+		}
+		seen[tagID] = struct{}{}
+		uniqueTagIDs = append(uniqueTagIDs, tagID)
+	}
+	if len(uniqueTagIDs) > 0 {
+		tags, err := s.repo.FindTagsByIDs(uniqueTagIDs)
+		if err != nil {
+			return nil, err
+		}
+		if len(tags) != len(uniqueTagIDs) {
+			return nil, apperrors.BadRequest("项目标签不存在")
+		}
+		for _, tag := range tags {
+			if IsRetiredProjectTag(tag.Name) {
+				return nil, apperrors.BadRequest("该历史项目标签已下架")
+			}
+		}
+	}
+	return uniqueTagIDs, nil
+}
+
+func (s *Service) projectHasRetiredTag(projectID uint64) (bool, error) {
+	relations, err := s.repo.FindProjectTagsByProjectIDs([]uint64{projectID})
+	if err != nil {
+		return false, err
+	}
+	tagMap, err := s.buildTagMap(relations)
+	if err != nil {
+		return false, err
+	}
+	for _, tag := range tagMap[projectID] {
+		if IsRetiredProjectTag(tag.Name) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func IsRetiredProjectTag(name string) bool {
+	normalized := strings.ToLower(strings.Join(strings.Fields(name), ""))
+	normalized = strings.NewReplacer("-", "", "_", "").Replace(normalized)
+	return normalized == retiredProjectTagName
 }
 
 func nonNilTags(tags []Tag) []Tag {

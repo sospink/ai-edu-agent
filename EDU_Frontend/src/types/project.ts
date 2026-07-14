@@ -41,7 +41,6 @@ export interface Project {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
-  labRuntimeMode?: 'classic' | 'openclaw';
   // 关联数据
   tags?: Tag[];
 }

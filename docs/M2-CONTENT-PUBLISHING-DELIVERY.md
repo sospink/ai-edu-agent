@@ -42,7 +42,7 @@
 - 课程、项目已支持绑定 `labTemplateId`
 - Classic Lab 创建时优先使用模板镜像与资源配置
 - 未绑定模板时继续兼容旧 `envImage / ideImage`
-- OpenClaw 项目继续保持独立链路，不强绑 Classic 模板
+- 项目与课程统一使用 Classic Lab 模板；历史非 Classic 模板在下架迁移中停用
 
 ### 教师端
 
@@ -85,7 +85,7 @@
 - 结构为空会阻断
 - Classic Lab 内容缺镜像且未绑定启用中的模板会阻断
 - Lab / Challenge 课时或单元缺已发布手册或缺验证规则会阻断
-- OpenClaw 项目标签异常或健康检查失败会阻断
+- 历史已下架项目类型会被发布门禁阻断，不能重新发布
 
 ### Agent 手册
 
@@ -107,7 +107,7 @@
   - 课程实验课时缺 Agent 手册时发布返回 `409`
   - Agent 手册缺有效验证规则时直接发布返回 `409`
   - Classic Lab 绑定停用 Lab 模板时发布返回 `409`
-  - 疑似 OpenClaw 项目缺 `OpenClaw` 标签时发布返回 `409`
+  - 2026-07-14 后新增历史项目类型防回流用例，重新发布返回 `409`
 - 已核验技术债 Review 修正项：
   - `EDU_Frontend/src/services/api.ts` 当前未打印 token 片段
   - `EDU_Frontend/src/components/study/LabPage.tsx` 当前未发现 `console.log`

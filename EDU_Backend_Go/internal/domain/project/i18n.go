@@ -97,8 +97,26 @@ func (s *Service) FindByIDLocalized(ctx context.Context, id uint64) (*ProjectDet
 	return detail, nil
 }
 
+func (s *Service) FindPublishedByIDLocalized(ctx context.Context, id uint64) (*ProjectDetail, error) {
+	detail, err := s.FindPublishedByID(id)
+	if err != nil {
+		return nil, err
+	}
+	s.localizeProjectDetail(ctx, detail)
+	return detail, nil
+}
+
 func (s *Service) FindBySlugLocalized(ctx context.Context, slug string) (*ProjectDetail, error) {
 	detail, err := s.FindBySlug(slug)
+	if err != nil {
+		return nil, err
+	}
+	s.localizeProjectDetail(ctx, detail)
+	return detail, nil
+}
+
+func (s *Service) FindPublishedBySlugLocalized(ctx context.Context, slug string) (*ProjectDetail, error) {
+	detail, err := s.FindPublishedBySlug(slug)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +134,7 @@ func (s *Service) FindByIDForTeacherLocalized(ctx context.Context, actorID uint6
 }
 
 func (s *Service) GetUnitsLocalized(ctx context.Context, projectID uint64) ([]ProjectUnit, error) {
-	units, err := s.GetUnits(projectID)
+	units, err := s.GetPublishedUnits(projectID)
 	if err != nil {
 		return nil, err
 	}

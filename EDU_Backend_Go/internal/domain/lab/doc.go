@@ -1,3 +1,3 @@
 package lab
 
-// Package lab 预留给 K8S Lab 会话、Gateway 代理与终端运行时模块。
+// Package lab 提供 K8S Lab 会话、访问代理与终端运行时能力。
