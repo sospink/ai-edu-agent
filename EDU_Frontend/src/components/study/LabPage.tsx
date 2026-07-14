@@ -829,6 +829,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   const [session, setSession] = useState<LabSession | null>(null);
   const [urls, setUrls] = useState<LabUrls | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [checkedSessionSourceKey, setCheckedSessionSourceKey] = useState<string | null>(null);
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictLoading, setConflictLoading] = useState(false);
   const [timeoutHandled, setTimeoutHandled] = useState(false);
@@ -841,6 +842,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
 
   // 检查登录状态
   const isLoggedIn = !!localStorage.getItem('authToken');
+  const sessionSourceKey = `${Number(sourceType)}:${sourceId}`;
   const appUrls = urls?.appUrls || [];
   const explicitDefaultAppUrl = appUrls.find((item) => item.isDefault) || null;
   const defaultAppUrl = explicitDefaultAppUrl || appUrls[0] || null;
@@ -903,12 +905,23 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     if (!isLoggedIn) {
       setError(t('authTokenMissing'));
       setIsBooting(false);
+      setCheckedSessionSourceKey(sessionSourceKey);
       return;
     }
+
+    if (sourceId <= 0) {
+      setError(t('missingRequiredParams'));
+      setIsBooting(false);
+      setCheckedSessionSourceKey(sessionSourceKey);
+      return;
+    }
+
+    let disposed = false;
 
     const checkActiveSession = async () => {
       try {
         const response = await labApi.getActiveSession();
+        if (disposed) return;
         
         // 检查是否有错误（如未登录）
         if (!response.success) {
@@ -948,18 +961,21 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
         }
         // 如果没有活跃会话，isBooting 保持 true，BootSequence 会创建新会话
       } catch (err) {
+        if (disposed) return;
         console.error('检查活跃会话失败:', err);
         // 出错时也保持 isBooting 为 true，让 BootSequence 尝试创建新会话
+      } finally {
+        if (!disposed) {
+          setCheckedSessionSourceKey(sessionSourceKey);
+        }
       }
     };
 
-    if (sourceId > 0) {
-      checkActiveSession();
-    } else {
-      setError(t('missingRequiredParams'));
-      setIsBooting(false);
-    }
-  }, [sourceId, sourceType, isLoggedIn]);
+    void checkActiveSession();
+    return () => {
+      disposed = true;
+    };
+  }, [isLoggedIn, sessionSourceKey, sourceId, sourceType, t]);
 
   // 倒计时
   useEffect(() => {
@@ -1244,10 +1260,21 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     );
   }
 
+  if (isBooting && checkedSessionSourceKey !== sessionSourceKey) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#1e1e1e] text-white">
+        <div className="flex items-center gap-3 text-sm text-slate-300">
+          <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+          <span>{t('connecting')}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-[#1e1e1e] text-white overflow-hidden font-sans relative">
       <AnimatePresence>
-        {isBooting && (
+        {isBooting && checkedSessionSourceKey === sessionSourceKey && (
           <BootSequence
             key={retryKey}
             onComplete={handleBootComplete}
