@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,14 +12,30 @@ import (
 )
 
 func Recovery(log *zap.Logger) gin.HandlerFunc {
-	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
-		log.Error("panic recovered", zap.Any("recovered", recovered))
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   i18n.T(c.Request.Context(), "服务器内部错误"),
-			"code":    "INTERNAL_ERROR",
-		})
-	})
+	return func(c *gin.Context) {
+		defer func() {
+			recovered := recover()
+			if recovered == nil {
+				return
+			}
+			if err, ok := recovered.(error); ok && errors.Is(err, http.ErrAbortHandler) {
+				c.Abort()
+				return
+			}
+
+			log.Error("panic recovered", zap.Any("recovered", recovered))
+			if c.Writer.Written() {
+				c.Abort()
+				return
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"error":   i18n.T(c.Request.Context(), "服务器内部错误"),
+				"code":    "INTERNAL_ERROR",
+			})
+		}()
+		c.Next()
+	}
 }
 
 func NotFound() gin.HandlerFunc {
