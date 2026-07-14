@@ -7,6 +7,7 @@ export enum LabSessionStatus {
   RUNNING = 1,
   STOPPED = 2,
   ERROR = 3,
+  STOPPING = 4,
 }
 
 // 来源类型
@@ -74,6 +75,26 @@ export interface ActiveSessionResponse {
   urls?: LabUrls;
 }
 
+export interface LabCapacity {
+  active: number;
+  releasing: number;
+  limit: number;
+  retryAfterMs?: number;
+}
+
+export interface CreateSessionResponse {
+  session?: LabSession;
+  urls?: LabUrls;
+  capacity?: LabCapacity;
+}
+
+export interface StopSessionResponse {
+  sessionId: number;
+  state: 'stopping' | 'stopped' | 'creating' | 'running' | 'error';
+  released: boolean;
+  retryAfterMs?: number;
+}
+
 // 命令执行结果
 export interface ExecuteResult {
   success: boolean;
@@ -103,13 +124,17 @@ export const labApi = {
   async createSession(
     sourceType: LabSourceType,
     sourceId: number
-  ): Promise<ApiResponse<{ session: LabSession; urls: LabUrls }>> {
-    return api.post<{ session: LabSession; urls: LabUrls }>('/lab/create', { sourceType, sourceId });
+  ): Promise<ApiResponse<CreateSessionResponse>> {
+    return api.post<CreateSessionResponse>('/lab/create', { sourceType, sourceId });
   },
 
   // 停止实验环境
-  async stopSession(sessionId: number): Promise<ApiResponse<{ message: string }>> {
-    return api.post<{ message: string }>(`/lab/stop/${sessionId}`, {});
+  async stopSession(sessionId: number): Promise<ApiResponse<StopSessionResponse>> {
+    return api.post<StopSessionResponse>(`/lab/stop/${sessionId}`, {});
+  },
+
+  async getReleaseStatus(sessionId: number): Promise<ApiResponse<StopSessionResponse>> {
+    return api.get<StopSessionResponse>(`/lab/release/${sessionId}`);
   },
 
   async renewLease(sessionId: number): Promise<ApiResponse<{ sessionId: number; leaseExpiresAt: string }>> {

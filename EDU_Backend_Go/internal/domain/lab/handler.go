@@ -107,8 +107,20 @@ func (h *Handler) CreateSession(c *gin.Context) {
 			response.ErrorKey(c, http.StatusConflict, "LAB_SESSION_IN_USE", "lab.sessionInUse", nil)
 			return
 		}
-		if errors.Is(err, ErrCapacityReached) {
-			response.ErrorKey(c, http.StatusServiceUnavailable, "LAB_CAPACITY_REACHED", "lab.capacityReached", nil)
+		var capacityErr *CapacityError
+		if errors.As(err, &capacityErr) {
+			code := "LAB_CAPACITY_REACHED"
+			key := i18n.MessageKey("lab.capacityReached")
+			if errors.Is(err, ErrCapacityReleasing) {
+				code = "LAB_CAPACITY_RELEASING"
+				key = "lab.capacityReleasing"
+			}
+			c.JSON(http.StatusServiceUnavailable, response.APIResponse[gin.H]{
+				Success: false,
+				Data:    gin.H{"capacity": capacityErr.Snapshot},
+				Error:   i18n.Message(c.Request.Context(), key, nil),
+				Code:    code,
+			})
 			return
 		}
 		// 透传 service 层的具体原因（如并发上限、镜像未配置等），response.Error 会按语言翻译，
@@ -154,16 +166,39 @@ func (h *Handler) StopSession(c *gin.Context) {
 		response.ErrorKey(c, http.StatusBadRequest, "LAB_SESSION_ID_INVALID", "lab.invalidSessionId", nil)
 		return
 	}
-	if _, err := h.service.RenewSessionLease(c.Request.Context(), userID, sessionID, labClientIDForUser(c, userID)); err != nil {
-		h.writeSessionAccessError(c, err, "LAB_STOP_FAILED", "lab.stopFailed")
-		return
-	}
-	if err := h.service.StopSession(c.Request.Context(), userID, sessionID); err != nil {
+	result, err := h.service.StopSession(c.Request.Context(), userID, sessionID, labClientIDForUser(c, userID))
+	if err != nil {
+		if errors.Is(err, ErrSessionInUse) {
+			h.writeSessionAccessError(c, err, "LAB_STOP_FAILED", "lab.stopFailed")
+			return
+		}
 		response.ErrorKey(c, http.StatusBadRequest, "LAB_STOP_FAILED", "lab.stopFailed", nil)
 		return
 	}
-	message := i18n.Message(c.Request.Context(), "lab.stopped", nil)
-	response.SuccessKey(c, gin.H{"message": message}, "lab.stopped", nil)
+	key := i18n.MessageKey("lab.stopped")
+	if !result.Released {
+		key = "lab.releasing"
+	}
+	response.SuccessKey(c, result, key, nil)
+}
+
+func (h *Handler) GetReleaseStatus(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.UnauthorizedKey(c, "auth.required", nil)
+		return
+	}
+	sessionID, err := parseUintParam(c, "sessionId")
+	if err != nil {
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_SESSION_ID_INVALID", "lab.invalidSessionId", nil)
+		return
+	}
+	result, err := h.service.GetReleaseStatus(c.Request.Context(), userID, sessionID)
+	if err != nil {
+		response.ErrorKey(c, http.StatusBadRequest, "LAB_RELEASE_STATUS_FAILED", "lab.releaseStatusFailed", nil)
+		return
+	}
+	response.Success(c, result, "")
 }
 
 func (h *Handler) GetSessionURLs(c *gin.Context) {

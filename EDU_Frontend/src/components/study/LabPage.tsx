@@ -27,6 +27,7 @@ import {
   LabSourceType,
 } from '@/services/lab';
 import { courseApi } from '@/services/course';
+import PageDialog from '@/components/common/PageDialog';
 import { useTranslation } from 'react-i18next';
 
 // 懒加载 WebTerminal 组件
@@ -51,6 +52,7 @@ interface BootSequenceProps {
   sourceType: LabSourceType;
   sourceId: number;
   onSessionCreated: (session: LabSession, urls: LabUrls) => void;
+  onCancel: () => void;
 }
 
 const isSessionConflictError = (message: string): boolean => {
@@ -73,6 +75,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
   sourceType,
   sourceId,
   onSessionCreated,
+  onCancel,
 }) => {
   const { t } = useTranslation('lab');
   const [progress, setProgress] = useState(0);
@@ -83,6 +86,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
     { id: 4, text: t('boot.networking'), status: 'waiting' },
     { id: 5, text: t('boot.connecting'), status: 'waiting' },
   ]);
+  const [capacityWait, setCapacityWait] = useState<{ attempt: number; maxAttempts: number } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -102,11 +106,36 @@ const BootSequence: React.FC<BootSequenceProps> = ({
       setProgress(50);
 
       try {
-        const response = await labApi.createSession(sourceType, sourceId);
+        let response = await labApi.createSession(sourceType, sourceId);
+        let attempt = 0;
+
+        while (isMounted && !response.success) {
+          const isReleasing = response.code === 'LAB_CAPACITY_RELEASING';
+          const isFull = response.code === 'LAB_CAPACITY_REACHED';
+          if (!isReleasing && !isFull) break;
+
+          const maxAttempts = isReleasing ? 10 : 5;
+          if (attempt >= maxAttempts) break;
+          attempt += 1;
+          const retryAfterMs = response.data?.capacity?.retryAfterMs || (isReleasing ? 1500 : 3000);
+          setCapacityWait({ attempt, maxAttempts });
+          setProgress(Math.min(65, 50 + attempt * 2));
+          setSteps((prev) => prev.map((step, index) => index === 2 ? {
+            ...step,
+            text: isReleasing
+              ? t('boot.releasingPrevious', { attempt, max: maxAttempts })
+              : t('boot.waitingCapacity', { attempt, max: maxAttempts }),
+            status: 'pending',
+          } : step));
+          await new Promise((resolve) => window.setTimeout(resolve, retryAfterMs));
+          if (!isMounted) return;
+          response = await labApi.createSession(sourceType, sourceId);
+        }
 
         if (!isMounted) return;
+        setCapacityWait(null);
 
-        if (response.success && response.data) {
+        if (response.success && response.data?.session && response.data.urls) {
           setSteps((prev) => prev.map((s, idx) => (idx === 2 ? { ...s, status: 'done' } : s)));
           setProgress(70);
 
@@ -153,7 +182,7 @@ const BootSequence: React.FC<BootSequenceProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [sourceType, sourceId, onComplete, onError, onConflict, onSessionCreated]);
+  }, [sourceType, sourceId, onComplete, onError, onConflict, onSessionCreated, t]);
 
   return (
     <motion.div
@@ -255,6 +284,19 @@ const BootSequence: React.FC<BootSequenceProps> = ({
             </motion.div>
           ))}
         </div>
+
+        {capacityWait && (
+          <div className="mt-8 flex items-center justify-between rounded-md bg-white/5 px-4 py-3 text-xs text-slate-400">
+            <span>{t('boot.autoRetrying')}</span>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-slate-300 transition-colors hover:text-white"
+            >
+              {t('cancelWait')}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="absolute bottom-8 text-xs text-slate-600 font-mono">
@@ -486,6 +528,7 @@ interface LabHeaderProps {
   hasAppPorts: boolean;
   onComplete: () => void;
   completing: boolean;
+  completionStage: 'idle' | 'saving' | 'releasing';
 }
 
 const LabHeader: React.FC<LabHeaderProps> = ({
@@ -499,6 +542,7 @@ const LabHeader: React.FC<LabHeaderProps> = ({
   hasAppPorts,
   onComplete,
   completing,
+  completionStage,
 }) => {
   const { t } = useTranslation('lab');
   const tabs: Array<{ id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [];
@@ -596,7 +640,7 @@ const LabHeader: React.FC<LabHeaderProps> = ({
           {completing ? (
             <>
               <Loader2 className="w-3 h-3 animate-spin" />
-              {t('submitting')}
+              {completionStage === 'releasing' ? t('releasingEnvironment') : t('submitting')}
             </>
           ) : (
             <>
@@ -621,18 +665,14 @@ interface SessionConflictModalProps {
 const SessionConflictModal: React.FC<SessionConflictModalProps> = ({ onClose, onConfirm, loading }) => {
   const { t } = useTranslation('lab');
   return (
-    <motion.div
-      className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+    <PageDialog
+      isOpen
+      onClose={loading ? undefined : onClose}
+      closeOnBackdrop={!loading}
+      panelClassName="max-w-md rounded-xl bg-[#252526] text-white"
+      zIndexClassName="z-[10000]"
     >
-      <motion.div
-        className="bg-[#252526] rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl border border-[#333]"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-      >
+      <div className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center">
             <AlertCircle className="w-6 h-6 text-amber-500" />
@@ -670,8 +710,8 @@ const SessionConflictModal: React.FC<SessionConflictModalProps> = ({ onClose, on
             )}
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </PageDialog>
   );
 };
 
@@ -795,6 +835,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
 
   // 完成实验相关状态
   const [completing, setCompleting] = useState(false);
+  const [completionStage, setCompletionStage] = useState<'idle' | 'saving' | 'releasing'>('idle');
   // 是否是新创建的会话（用于重置 Agent 进度）
   const [isNewSession, setIsNewSession] = useState(false);
 
@@ -957,6 +998,26 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     };
   }, [session?.id, session?.status, t]);
 
+  const releaseSessionAndWait = useCallback(async (sessionId: number) => {
+    let response = await labApi.stopSession(sessionId);
+    if (!response.success || !response.data) {
+      throw new Error(response.error || t('stopFailed'));
+    }
+
+    for (let attempt = 0; !response.data.released && attempt < 20; attempt += 1) {
+      const retryAfterMs = response.data.retryAfterMs || 1500;
+      await new Promise((resolve) => window.setTimeout(resolve, retryAfterMs));
+      response = await labApi.getReleaseStatus(sessionId);
+      if (!response.success || !response.data) {
+        throw new Error(response.error || t('releaseStatusFailed'));
+      }
+    }
+
+    if (!response.data.released) {
+      throw new Error(t('releaseTimeout'));
+    }
+  }, [t]);
+
   useEffect(() => {
     if (!session || timeoutHandled || timeLeft > 0) return;
 
@@ -966,7 +1027,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     const autoStopAndExit = async () => {
       if (session.status === LabSessionStatus.RUNNING) {
         try {
-          await labApi.stopSession(session.id);
+          await releaseSessionAndWait(session.id);
         } catch (err) {
           console.error('[LabPage] 自动结束实验失败:', err);
         }
@@ -982,23 +1043,14 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     return () => {
       cancelled = true;
     };
-  }, [session, timeoutHandled, timeLeft, exitLabPage]);
+  }, [session, timeoutHandled, timeLeft, exitLabPage, releaseSessionAndWait, t]);
 
   // 完成实验
   const handleCompleteLesson = async () => {
     // 对于课程，使用 lessonId；对于项目，使用 unitId
     const targetId = sourceType === LabSourceType.PROJECT ? unitId : lessonId;
     
-    if (!targetId || targetId === 0) {
-      // 项目单元暂时不需要调用完成 API，直接停止环境并返回
-      if (sourceType === LabSourceType.PROJECT) {
-        // 停止环境
-        if (session) {
-          await labApi.stopSession(session.id);
-        }
-        exitLabPage();
-        return;
-      }
+    if (sourceType === LabSourceType.COURSE && (!targetId || targetId === 0)) {
       alert(t('invalidLesson'));
       console.error('[LabPage] 无效的lessonId:', lessonId);
       return;
@@ -1017,6 +1069,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
     }
 
     setCompleting(true);
+    setCompletionStage('saving');
     try {
       let success = false;
       
@@ -1037,17 +1090,18 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
       
       // 如果完成成功，停止环境并关闭页面
       if (success) {
-        // 先停止环境
+        setCompletionStage('releasing');
         if (session) {
-          await labApi.stopSession(session.id);
+          await releaseSessionAndWait(session.id);
         }
         exitLabPage();
       }
     } catch (err) {
       console.error('[LabPage] 完成实验异常:', err);
-      alert(t('networkError'));
+      alert(err instanceof Error ? err.message : t('networkError'));
     } finally {
       setCompleting(false);
+      setCompletionStage('idle');
     }
   };
   // 处理会话创建成功（新创建的会话）
@@ -1131,13 +1185,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
         return;
       }
 
-      const stopResponse = await labApi.stopSession(sessionToStop.id);
-      if (!stopResponse.success) {
-        setError(stopResponse.error || t('stopFailed'));
-        setShowConflictModal(false);
-        setConflictLoading(false);
-        return;
-      }
+      await releaseSessionAndWait(sessionToStop.id);
       
       // 关闭弹窗，重新启动创建流程
       setShowConflictModal(false);
@@ -1200,6 +1248,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
             sourceType={sourceType}
             sourceId={sourceId}
             onSessionCreated={handleSessionCreated}
+            onCancel={handleBack}
           />
         )}
       </AnimatePresence>
@@ -1218,6 +1267,29 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {completing && completionStage !== 'idle' && (
+          <motion.div
+            className="absolute inset-0 z-[180] flex items-center justify-center bg-[#111]/85 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="flex max-w-sm flex-col items-center px-6 text-center">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                <Loader2 className="h-7 w-7 animate-spin" />
+              </div>
+              <h2 className="text-lg font-semibold text-white">
+                {completionStage === 'releasing' ? t('releaseTitle') : t('saveProgressTitle')}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                {completionStage === 'releasing' ? t('releaseDescription') : t('saveProgressDescription')}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {!isBooting && session && urls && (
         <>
           <LabHeader
@@ -1231,6 +1303,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
             hasAppPorts={hasAppPorts}
             onComplete={handleCompleteLesson}
             completing={completing}
+            completionStage={completionStage}
           />
 
           <div className="flex-1 relative overflow-hidden bg-[#1e1e1e]">

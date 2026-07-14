@@ -97,6 +97,7 @@ const sessionTabs: Array<{ key: string; labelKey: string }> = [
   { key: 'all', labelKey: 'statuses.all' },
   { key: 'running', labelKey: 'statuses.running' },
   { key: 'creating', labelKey: 'statuses.creating' },
+  { key: 'stopping', labelKey: 'statuses.stopping' },
   { key: 'error', labelKey: 'statuses.error' },
   { key: 'stopped', labelKey: 'statuses.stopped' },
 ];
@@ -129,6 +130,8 @@ const labelForStatus = (status: string) => {
       return tr('statuses.running');
     case 'creating':
       return tr('statuses.creating');
+    case 'stopping':
+      return tr('statuses.stopping');
     case 'stopped':
       return tr('statuses.stopped');
     case 'error':

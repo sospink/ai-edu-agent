@@ -182,6 +182,7 @@ func New(deps app.Dependencies) *gin.Engine {
 		labGroup.GET("/sessions", authMiddleware, casbinMiddleware, labHandler.GetUserSessions)
 		labGroup.POST("/create", authMiddleware, casbinMiddleware, labHandler.CreateSession)
 		labGroup.POST("/stop/:sessionId", authMiddleware, casbinMiddleware, labHandler.StopSession)
+		labGroup.GET("/release/:sessionId", authMiddleware, casbinMiddleware, labHandler.GetReleaseStatus)
 		labGroup.POST("/heartbeat/:sessionId", authMiddleware, casbinMiddleware, labHandler.RenewLease)
 		labGroup.GET("/urls", authMiddleware, casbinMiddleware, labHandler.GetSessionURLs)
 		labGroup.POST("/execute", authMiddleware, casbinMiddleware, labHandler.ExecuteCommand)

@@ -1040,6 +1040,8 @@ func dashboardSessionStatusText(status lab.SessionStatus) string {
 		return "stopped"
 	case lab.SessionStatusError:
 		return "error"
+	case lab.SessionStatusStopping:
+		return "stopping"
 	default:
 		return "unknown"
 	}

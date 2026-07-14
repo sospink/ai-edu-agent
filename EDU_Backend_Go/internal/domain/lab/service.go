@@ -43,8 +43,7 @@ type Service struct {
 }
 
 var (
-	ErrSessionInUse    = errors.New("实验环境正在另一台设备中使用")
-	ErrCapacityReached = errors.New("实验环境资源已满，请稍后再试")
+	ErrSessionInUse = errors.New("实验环境正在另一台设备中使用")
 )
 
 const labLeaseDuration = 2 * time.Minute
@@ -192,7 +191,20 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 	if params.ClientID == "" {
 		return nil, errors.New("缺少实验客户端标识")
 	}
-	if err := s.ensureClusterCapacity(ctx); err != nil {
+	if err := s.ensureRuntimeNamespace(ctx); err != nil {
+		return nil, err
+	}
+	releaseCapacityLease, err := s.acquireCapacityLease(ctx)
+	if err != nil {
+		return nil, err
+	}
+	capacityLeaseHeld := true
+	defer func() {
+		if capacityLeaseHeld {
+			releaseCapacityLease()
+		}
+	}()
+	if err := s.waitForClusterCapacity(ctx, capacityReleaseWait); err != nil {
 		return nil, err
 	}
 	resolvedQuota, err := s.operations.ResolveQuotaForUser(ctx, params.UserID)
@@ -275,13 +287,11 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 	}
 	_ = s.recordRuntimeEvent(ctx, session.ID, session.UserID, operations.RuntimeEventCreated, sessionStatusText(session.Status), "实验环境记录已创建，正在创建运行时资源", 0, nil)
 
-	if err := s.ensureRuntimeNamespace(ctx); err != nil {
-		return s.markError(ctx, session, err)
-	}
-
 	if err := s.createRuntimeResources(ctx, session, source.IDEImage, source.SourceName, source.Resources); err != nil {
 		return s.markError(ctx, session, err)
 	}
+	releaseCapacityLease()
+	capacityLeaseHeld = false
 
 	if err := s.waitForPodReady(ctx, session.ContainerName, 90*time.Second); err != nil {
 		return s.markError(ctx, session, err)
@@ -301,28 +311,6 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 	return session, nil
 }
 
-func (s *Service) StopSession(ctx context.Context, userID, sessionID uint64) error {
-	session, err := s.GetOwnedSession(ctx, userID, sessionID)
-	if err != nil {
-		return err
-	}
-	if session == nil {
-		return errors.New("会话不存在")
-	}
-	if session.Status != SessionStatusRunning && session.Status != SessionStatusCreating {
-		return errors.New("会话未在运行中")
-	}
-
-	_ = s.deleteRuntimeResources(ctx, session)
-	session.Status = SessionStatusStopped
-	session.ErrorMessage = ""
-	if err := s.db.WithContext(ctx).Save(session).Error; err != nil {
-		return err
-	}
-	_ = s.recordRuntimeEvent(ctx, session.ID, session.UserID, operations.RuntimeEventStoppedByUser, sessionStatusText(session.Status), "学生停止实验环境", userID, nil)
-	return nil
-}
-
 type AdminStopResult struct {
 	SessionID uint64 `json:"sessionId"`
 	Stopped   bool   `json:"stopped"`
@@ -338,21 +326,22 @@ func (s *Service) AdminStopSession(ctx context.Context, actorID uint64, sessionI
 		_ = s.recordAudit(ctx, actorID, operations.AuditActionSessionStop, "runtime_session", sessionID, operations.AuditResultNoop, "会话不存在，无需停止", nil)
 		return &AdminStopResult{SessionID: sessionID, Stopped: false, Reason: "not_found"}, nil
 	}
-	if session.Status != SessionStatusRunning && session.Status != SessionStatusCreating {
+	if session.Status == SessionStatusStopped {
 		_ = s.recordAudit(ctx, actorID, operations.AuditActionSessionStop, "runtime_session", sessionID, operations.AuditResultNoop, "会话已处于停止状态", operations.JSONMap{"status": sessionStatusText(session.Status)})
 		return &AdminStopResult{SessionID: sessionID, Stopped: false, Reason: "already_stopped"}, nil
 	}
 
-	_ = s.deleteRuntimeResources(ctx, session)
-	session.Status = SessionStatusStopped
-	session.ErrorMessage = ""
-	if err := s.db.WithContext(ctx).Save(session).Error; err != nil {
+	result, err := s.stopSessionWithWait(ctx, session, actorID, operations.RuntimeEventStoppedByAdmin, runtimeReleaseWait)
+	if err != nil {
 		_ = s.recordAudit(ctx, actorID, operations.AuditActionSessionStop, "runtime_session", sessionID, operations.AuditResultFailed, err.Error(), nil)
 		return nil, err
 	}
-	_ = s.recordRuntimeEvent(ctx, session.ID, session.UserID, operations.RuntimeEventStoppedByAdmin, sessionStatusText(session.Status), "管理员停止实验环境", actorID, nil)
-	_ = s.recordAudit(ctx, actorID, operations.AuditActionSessionStop, "runtime_session", sessionID, operations.AuditResultSuccess, "管理员停止实验环境", operations.JSONMap{"userId": session.UserID})
-	return &AdminStopResult{SessionID: sessionID, Stopped: true, Reason: "stopped"}, nil
+	reason := result.State
+	_ = s.recordAudit(ctx, actorID, operations.AuditActionSessionStop, "runtime_session", sessionID, operations.AuditResultSuccess, "管理员停止实验环境", operations.JSONMap{
+		"userId":   session.UserID,
+		"released": result.Released,
+	})
+	return &AdminStopResult{SessionID: sessionID, Stopped: true, Reason: reason}, nil
 }
 
 func (s *Service) SyncSessionStatus(ctx context.Context, session *UserLabSession) error {
@@ -423,35 +412,10 @@ func terminatedMainContainer(pod *corev1.Pod) (string, int32, bool) {
 	return "", 0, false
 }
 
-func (s *Service) ensureClusterCapacity(ctx context.Context) error {
-	if s == nil || s.k8s == nil || s.cfg == nil || s.cfg.K8S.MaxActiveLabs <= 0 {
-		return nil
-	}
-	pods, err := s.k8s.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
-		LabelSelector: "app.kubernetes.io/name=edu-lab,app.kubernetes.io/managed-by=edu-backend-go",
-	})
-	if err != nil {
-		s.log.Warn("查询集群 Lab 容量失败，跳过容量门禁", zap.Error(err))
-		return nil
-	}
-	active := 0
-	for _, pod := range pods.Items {
-		if pod.Status.Phase == corev1.PodPending || pod.Status.Phase == corev1.PodRunning {
-			if _, _, terminated := terminatedMainContainer(&pod); !terminated {
-				active++
-			}
-		}
-	}
-	if active >= s.cfg.K8S.MaxActiveLabs {
-		return ErrCapacityReached
-	}
-	return nil
-}
-
 func (s *Service) BuildURLs(session *UserLabSession) URLs {
 	vncURL := ""
 	if session.VNCPort > 0 {
-		vncURL = fmt.Sprintf("/api/lab/proxy/%d/%s/vnc.html?resize=remote&autoconnect=true&path=%s",
+		vncURL = fmt.Sprintf("/api/lab/proxy/%d/%s/vnc.html?resize=scale&autoconnect=true&path=%s",
 			session.ID,
 			PortNameNoVNC,
 			url.QueryEscape(fmt.Sprintf("/api/lab/proxy/%d/%s/websockify", session.ID, PortNameNoVNC)),
@@ -1120,13 +1084,19 @@ func (s *Service) SweepSessions(ctx context.Context) error {
 
 	var sessions []UserLabSession
 	if err := s.db.WithContext(ctx).
-		Where("status IN ?", []SessionStatus{SessionStatusCreating, SessionStatusRunning}).
+		Where("status IN ?", []SessionStatus{SessionStatusCreating, SessionStatusRunning, SessionStatusStopping}).
 		Find(&sessions).Error; err != nil {
 		return err
 	}
 
 	for idx := range sessions {
 		session := &sessions[idx]
+		if session.Status == SessionStatusStopping {
+			if _, err := s.reconcileStoppingSession(ctx, session, 0, operations.RuntimeEventOrphanRecycled); err != nil {
+				s.log.Warn("lab janitor failed to reconcile stopping session", zap.Uint64("sessionId", session.ID), zap.Error(err))
+			}
+			continue
+		}
 		if sessionExpired(session, now) {
 			if err := s.stopExpiredSession(ctx, session); err != nil {
 				s.log.Warn("lab janitor failed to stop expired session", zap.Uint64("sessionId", session.ID), zap.Error(err))
@@ -1450,6 +1420,8 @@ func sessionStatusString(status SessionStatus) string {
 		return "stopped"
 	case SessionStatusError:
 		return "error"
+	case SessionStatusStopping:
+		return "stopping"
 	default:
 		return "unknown"
 	}

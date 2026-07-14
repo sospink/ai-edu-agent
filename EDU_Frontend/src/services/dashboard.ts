@@ -1,7 +1,7 @@
 import { api } from './api';
 import type { ApiResponse, PaginatedResponse } from '@/types';
 
-export type DashboardStatus = 'creating' | 'running' | 'stopped' | 'error' | 'unknown';
+export type DashboardStatus = 'creating' | 'running' | 'stopping' | 'stopped' | 'error' | 'unknown';
 export type DashboardSourceType = 'course' | 'project' | 'unknown';
 export type DashboardTimeRange = 'all' | '24h' | '7d' | '30d';
 

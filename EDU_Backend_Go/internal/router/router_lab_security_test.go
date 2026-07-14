@@ -96,3 +96,33 @@ func TestStudentCanRenewLabSessionLease(t *testing.T) {
 		t.Fatalf("expected lease to be renewed after %s, got %v", leaseBefore, refreshed.LeaseExpiresAt)
 	}
 }
+
+func TestStudentCanReadOwnedLabReleaseStatus(t *testing.T) {
+	fixture := newTestFixture(t)
+	if err := fixture.db.AutoMigrate(&lab.UserLabSession{}); err != nil {
+		t.Fatalf("auto migrate lab session failed: %v", err)
+	}
+
+	session := lab.UserLabSession{
+		UserID:        fixture.student.ID,
+		SourceType:    lab.SourceTypeCourse,
+		SourceID:      43,
+		ContainerName: lab.PodName(9903),
+		Status:        lab.SessionStatusStopped,
+		RuntimeMode:   lab.RuntimeModeClassic,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+	if err := fixture.db.Create(&session).Error; err != nil {
+		t.Fatalf("seed stopped lab session failed: %v", err)
+	}
+
+	token := mustLogin(t, fixture, fixture.student.Username, "student@123")
+	resp := performJSON(t, fixture.engine, http.MethodGet, fmt.Sprintf("/api/lab/release/%d", session.ID), nil, token)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("expected release status 200, got %d: %s", resp.Code, resp.Body.String())
+	}
+	if !strings.Contains(resp.Body.String(), `"released":true`) {
+		t.Fatalf("expected released response, got %s", resp.Body.String())
+	}
+}

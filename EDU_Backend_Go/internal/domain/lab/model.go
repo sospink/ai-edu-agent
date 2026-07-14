@@ -13,7 +13,15 @@ const (
 	SessionStatusRunning  SessionStatus = 1
 	SessionStatusStopped  SessionStatus = 2
 	SessionStatusError    SessionStatus = 3
+	SessionStatusStopping SessionStatus = 4
 )
+
+type StopSessionResult struct {
+	SessionID    uint64 `json:"sessionId"`
+	State        string `json:"state"`
+	Released     bool   `json:"released"`
+	RetryAfterMS int    `json:"retryAfterMs,omitempty"`
+}
 
 type SourceType uint8
 

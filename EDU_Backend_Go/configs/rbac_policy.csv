@@ -8,6 +8,7 @@ p, student, /api/lab/active, GET
 p, student, /api/lab/sessions, GET
 p, student, /api/lab/create, POST
 p, student, /api/lab/stop/*, POST
+p, student, /api/lab/release/*, GET
 p, student, /api/lab/heartbeat/*, POST
 p, student, /api/lab/urls, GET
 p, student, /api/lab/execute, POST

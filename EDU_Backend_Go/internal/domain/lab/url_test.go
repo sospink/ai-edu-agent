@@ -39,10 +39,16 @@ func TestBuildURLsUsesAbsoluteNoVNCPath(t *testing.T) {
 	if gotPath != wantPath {
 		t.Fatalf("expected path %q, got %q", wantPath, gotPath)
 	}
+	if got := parsed.Query().Get("resize"); got != "scale" {
+		t.Fatalf("expected noVNC resize mode %q, got %q", "scale", got)
+	}
+	if got := parsed.Query().Get("autoconnect"); got != "true" {
+		t.Fatalf("expected noVNC autoconnect to be enabled, got %q", got)
+	}
 }
 
 func TestRewriteVNCWebsockifyAuthPreservesAbsoluteProxyPath(t *testing.T) {
-	raw := "/api/lab/proxy/143/novnc/vnc.html?resize=remote&autoconnect=true&path=%2Fapi%2Flab%2Fproxy%2F143%2Fnovnc%2Fwebsockify"
+	raw := "/api/lab/proxy/143/novnc/vnc.html?resize=scale&autoconnect=true&path=%2Fapi%2Flab%2Fproxy%2F143%2Fnovnc%2Fwebsockify"
 
 	rewritten := rewriteVNCWebsockifyAuth(raw, "token-123")
 	parsed, err := url.Parse(rewritten)

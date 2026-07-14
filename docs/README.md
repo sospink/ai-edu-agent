@@ -34,6 +34,7 @@
 ## 前端与部署参考
 
 - [../EDU_Frontend/DESIGN.md](../EDU_Frontend/DESIGN.md)：HeroUI / Tailwind / Framer Motion 设计规范。
+- [PRODUCTION-DEPLOYMENT.md](PRODUCTION-DEPLOYMENT.md)：35 / 42 双服务器连接、生产配置、增量部署、备份与回滚手册。
 - [reference/Ubuntu24_K8S单节点部署教程.md](reference/Ubuntu24_K8S单节点部署教程.md)：K8S 单节点部署参考。
 
 ## 归档资料

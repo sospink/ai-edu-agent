@@ -74,6 +74,7 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   message?: string;
   error?: string;
+  code?: string;
 }
 
 export interface PaginatedResponse<T> {

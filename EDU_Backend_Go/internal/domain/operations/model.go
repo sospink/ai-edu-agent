@@ -14,6 +14,7 @@ const (
 	RuntimeEventCreated             = "created"
 	RuntimeEventReady               = "ready"
 	RuntimeEventError               = "error"
+	RuntimeEventStopRequested       = "stop_requested"
 	RuntimeEventStoppedByUser       = "stopped_by_user"
 	RuntimeEventStoppedByAdmin      = "stopped_by_admin"
 	RuntimeEventExpiredRecycled     = "expired_recycled"
