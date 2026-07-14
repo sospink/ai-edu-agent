@@ -837,6 +837,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   // 完成实验相关状态
   const [completing, setCompleting] = useState(false);
   const [completionStage, setCompletionStage] = useState<'idle' | 'saving' | 'releasing'>('idle');
+  const sessionReleaseInProgress = completing || timeoutHandled || conflictLoading || completionStage === 'releasing';
   // 是否是新创建的会话（用于重置 Agent 进度）
   const [isNewSession, setIsNewSession] = useState(false);
 
@@ -999,7 +1000,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   }, [session?.id]);
 
   useEffect(() => {
-    if (!session || session.status !== LabSessionStatus.RUNNING) return;
+    if (!session || session.status !== LabSessionStatus.RUNNING || sessionReleaseInProgress) return;
     let disposed = false;
     const renew = async () => {
       const response = await labApi.renewLease(session.id);
@@ -1020,7 +1021,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [session?.id, session?.status, t]);
+  }, [session?.id, session?.status, sessionReleaseInProgress, t]);
 
   const releaseSessionAndWait = useCallback(async (sessionId: number) => {
     let response = await labApi.stopSession(sessionId);
