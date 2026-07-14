@@ -84,13 +84,17 @@ func TestCapacityLeaseBlocksAnotherServiceUntilReleased(t *testing.T) {
 	}
 
 	release()
-	if _, err := k8s.CoordinationV1().Leases("edu-runtime-dev").Get(context.Background(), capacityLeaseName, metav1.GetOptions{}); err == nil {
+	if _, err := k8s.CoordinationV1().Leases("edu-backend-go-prod").Get(context.Background(), capacityLeaseName, metav1.GetOptions{}); err == nil {
 		t.Fatal("释放后容量锁仍然存在")
 	}
 }
 
 func capacityTestService(k8s *fake.Clientset, limit int) *Service {
-	cfg := &config.Config{K8S: config.K8SConfig{RuntimeNamespace: "edu-runtime-dev", MaxActiveLabs: limit}}
+	cfg := &config.Config{K8S: config.K8SConfig{
+		Namespace:        "edu-backend-go-prod",
+		RuntimeNamespace: "edu-runtime-dev",
+		MaxActiveLabs:    limit,
+	}}
 	return NewService(nil, zap.NewNop(), cfg, k8s, nil)
 }
 

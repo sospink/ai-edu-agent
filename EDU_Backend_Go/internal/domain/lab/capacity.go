@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -119,7 +120,8 @@ func (s *Service) acquireCapacityLease(ctx context.Context) (func(), error) {
 		return func() {}, nil
 	}
 	holder := fmt.Sprintf("%s-%d-%d", hostname(), os.Getpid(), time.Now().UnixNano())
-	leaseClient := s.k8s.CoordinationV1().Leases(s.runtimeNamespace())
+	leaseNamespace := s.capacityLeaseNamespace()
+	leaseClient := s.k8s.CoordinationV1().Leases(leaseNamespace)
 	deadline := time.Now().Add(capacityLockWait)
 	durationSeconds := int32(capacityLeaseDuration / time.Second)
 
@@ -129,7 +131,7 @@ func (s *Service) acquireCapacityLease(ctx context.Context) (func(), error) {
 		switch {
 		case apierrors.IsNotFound(err):
 			lease = &coordinationv1.Lease{
-				ObjectMeta: metav1.ObjectMeta{Name: capacityLeaseName, Namespace: s.runtimeNamespace()},
+				ObjectMeta: metav1.ObjectMeta{Name: capacityLeaseName, Namespace: leaseNamespace},
 				Spec: coordinationv1.LeaseSpec{
 					HolderIdentity:       stringPointer(holder),
 					LeaseDurationSeconds: int32Pointer(durationSeconds),
@@ -175,7 +177,7 @@ func (s *Service) capacityLeaseRelease(holder string) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		client := s.k8s.CoordinationV1().Leases(s.runtimeNamespace())
+		client := s.k8s.CoordinationV1().Leases(s.capacityLeaseNamespace())
 		lease, err := client.Get(ctx, capacityLeaseName, metav1.GetOptions{})
 		if err != nil || lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity != holder {
 			return
@@ -188,6 +190,16 @@ func (s *Service) capacityLeaseRelease(holder string) func() {
 			s.log.Warn("释放 K8S Lab 容量锁失败", zap.Error(err))
 		}
 	}
+}
+
+// 两个生产入口使用不同 runtime namespace，但容量上限是集群级的，锁必须落在共享控制 namespace。
+func (s *Service) capacityLeaseNamespace() string {
+	if s != nil && s.cfg != nil {
+		if namespace := strings.TrimSpace(s.cfg.K8S.Namespace); namespace != "" {
+			return namespace
+		}
+	}
+	return s.runtimeNamespace()
 }
 
 func leaseAvailable(lease *coordinationv1.Lease, now time.Time) bool {
