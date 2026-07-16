@@ -169,6 +169,56 @@ func (s *Service) UpdateProgress(ctx context.Context, userID, manualID uint64, d
 	return progress, nil
 }
 
+func (s *Service) ResetProgress(ctx context.Context, userID, manualID uint64) (*UserAgentProgress, error) {
+	var progress UserAgentProgress
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var sessionIDs []uint64
+		if err := tx.Model(&AgentChatSession{}).
+			Where("user_id = ? AND manual_id = ?", userID, manualID).
+			Pluck("id", &sessionIDs).Error; err != nil {
+			return err
+		}
+		if len(sessionIDs) > 0 {
+			if err := tx.Where("session_id IN ?", sessionIDs).Delete(&AgentChatMessage{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("id IN ?", sessionIDs).Delete(&AgentChatSession{}).Error; err != nil {
+				return err
+			}
+		}
+
+		dbResult := tx.Where("user_id = ? AND manual_id = ?", userID, manualID).First(&progress)
+		if dbResult.Error != nil && !errors.Is(dbResult.Error, gorm.ErrRecordNotFound) {
+			return dbResult.Error
+		}
+
+		now := time.Now()
+		if errors.Is(dbResult.Error, gorm.ErrRecordNotFound) {
+			progress = UserAgentProgress{
+				UserID:         userID,
+				ManualID:       manualID,
+				CurrentStep:    0,
+				CompletedSteps: []int{},
+				ChatHistory:    []ChatMessage{},
+				StartedAt:      now,
+				LastActiveAt:   now,
+			}
+			return tx.Create(&progress).Error
+		}
+
+		progress.CurrentStep = 0
+		progress.CompletedSteps = []int{}
+		progress.ChatHistory = []ChatMessage{}
+		progress.StartedAt = now
+		progress.LastActiveAt = now
+		return tx.Save(&progress).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &progress, nil
+}
+
 func (s *Service) CompleteStep(ctx context.Context, userID, manualID uint64, stepOrder int) (*UserAgentProgress, error) {
 	progress, err := s.GetOrCreateProgress(ctx, userID, manualID)
 	if err != nil {

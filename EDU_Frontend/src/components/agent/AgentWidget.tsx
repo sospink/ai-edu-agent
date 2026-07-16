@@ -16,20 +16,6 @@ import CompleteLessonDialog from '../study/CompleteLessonDialog';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
-// Debounce hook
-function useDebounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  return useCallback((...args: Parameters<T>) => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = setTimeout(() => {
-      fn(...args);
-    }, delay);
-  }, [fn, delay]);
-}
-
 // 示例步骤数据（无 API 数据时使用）
 const createDemoSteps = (t: TFunction<'agent'>): Step[] => [
   {
@@ -190,6 +176,36 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   const inputRef = useRef<HTMLTextAreaElement>(null);  // 输入框引用
   const dragRef = useRef({ startX: 0, startWidth: 620, isActive: false });
   const streamingHintLevelRef = useRef<1 | 2 | 3>(1);
+  const contextRequestRef = useRef(0);
+  const streamRequestRef = useRef(0);
+  const verificationRequestRef = useRef(0);
+  const resetAppliedRef = useRef<string | null>(null);
+
+  const resetStepInteractionState = useCallback(() => {
+    contextRequestRef.current += 1;
+    streamRequestRef.current += 1;
+    verificationRequestRef.current += 1;
+    setChatLog([]);
+    setInputValue('');
+    setIsAsking(false);
+    setIsValidating(false);
+    setIsExiting(false);
+    setStreamingContent('');
+    setStreamingHintLevel(1);
+    streamingHintLevelRef.current = 1;
+    setVerificationResult(null);
+    setVerifyError(null);
+    setCanEscalateHint(false);
+    setFaqItems([]);
+    setFaqOpen(false);
+    setShowInputBox(false);
+  }, []);
+
+  const selectStep = useCallback((stepOrder: number) => {
+    if (stepOrder === currentStep) return;
+    resetStepInteractionState();
+    setCurrentStep(stepOrder);
+  }, [currentStep, resetStepInteractionState]);
 
   // 从 API 加载手册数据
   useEffect(() => {
@@ -220,30 +236,27 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           quickQuestions: s.quickQuestions || [],
           verification: s.verification || undefined,
         })));
-        const cachedChat = restoreSessionChat(manual.id, currentLocale);
-        if (cachedChat.length > 0) {
-          setChatLog(cachedChat);
+        if (isChatMode) {
+          setChatLog(restoreSessionChat(manual.id, currentLocale));
         }
-        void loadV2Context(manual.id, currentStep);
       } else {
         setHasManual(false);
         console.log('[AgentWidget] No manual found for sourceType:', sourceType, 'sourceId:', sourceId);
       }
 
       // 如果需要重置进度（新开环境），则重置所有状态并清除服务器端进度
-      if (resetProgress) {
+      const resetKey = `${sourceType}:${sourceId}:${containerId || 'default'}`;
+      if (resetProgress && resetAppliedRef.current !== resetKey) {
         console.log('[AgentWidget] Resetting progress for new environment');
+        resetAppliedRef.current = resetKey;
+        resetStepInteractionState();
         setCurrentStep(0);
         setCompletedSteps([]);
-        setChatLog([]);
         // 清除服务器端进度
         try {
-          await AgentAPI.updateProgress(sourceType, sourceId, {
-            currentStep: 0,
-            completedSteps: [],
-            chatHistory: [],
-          });
+          await AgentAPI.resetProgress(sourceType, sourceId);
         } catch (err) {
+          resetAppliedRef.current = null;
           console.error('[AgentWidget] Failed to reset server progress:', err);
         }
         return;
@@ -252,21 +265,17 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       // 加载进度
       const progress = await AgentAPI.getProgress(sourceType, sourceId);
       if (progress) {
-        setCurrentStep(progress.currentStep);
+        const progressStep = manual?.steps?.length
+          ? Math.min(Math.max(progress.currentStep, 0), manual.steps.length - 1)
+          : 0;
+        setCurrentStep(progressStep);
         setCompletedSteps(progress.completedSteps);
-        const cachedChat = manual?.id ? restoreSessionChat(manual.id, currentLocale) : [];
-        // v1 coach 对话优先从 sessionStorage 恢复；没有本地历史时兼容旧服务端进度。
-        if (cachedChat.length > 0) {
-          setChatLog(cachedChat);
-        } else if (progress.chatHistory && progress.chatHistory.length > 0) {
-          const restoredChat = progress.chatHistory.map(msg => ({
+        if (isChatMode) {
+          const cachedChat = manual?.id ? restoreSessionChat(manual.id, currentLocale) : [];
+          setChatLog(cachedChat.length > 0 ? cachedChat : (progress.chatHistory || []).map(msg => ({
             role: msg.role === 'assistant' ? 'agent' as const : 'user' as const,
             content: msg.content,
-          }));
-          setChatLog(restoredChat);
-        }
-        if (manual?.id) {
-          void loadV2Context(manual.id, progress.currentStep);
+          })));
         }
       }
     } catch (err) {
@@ -279,58 +288,52 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
 
   const loadV2Context = async (nextManualId: number, stepOrder: number) => {
     if (isChatMode) return;
+    const requestId = ++contextRequestRef.current;
     try {
       const [history, interventions, classesResponse] = await Promise.all([
         AgentAPI.getCoachHistory(nextManualId, stepOrder),
         AgentAPI.getPendingInterventions(nextManualId),
         classId ? Promise.resolve({ data: [] }) : studentClassApi.getMyClasses(),
       ]);
-      if (history.length > 0) {
-        setChatLog(history.map(msg => ({
-          role: msg.role === 'assistant' ? 'agent' as const : 'user' as const,
-          content: msg.content,
-        })));
-      }
+      if (requestId !== contextRequestRef.current) return;
+      setChatLog(history.map(msg => ({
+        role: msg.role === 'assistant' ? 'agent' as const : 'user' as const,
+        content: msg.content,
+      })));
       setPendingInterventions(interventions);
       const fallbackClass = [...(classesResponse.data || [])].sort((a, b) => a.id - b.id)[0];
       const nextClassId = classId || fallbackClass?.id || 0;
       if (nextClassId) {
         setActiveClassId(nextClassId);
         const faq = await AgentAPI.getFAQ(nextManualId, stepOrder, nextClassId);
+        if (requestId !== contextRequestRef.current) return;
         setFaqItems(faq);
       } else {
         setActiveClassId(null);
         setFaqItems([]);
       }
     } catch (error) {
-      console.warn('[AgentWidget] load V2 context failed:', error);
+      if (requestId === contextRequestRef.current) {
+        console.warn('[AgentWidget] load V2 context failed:', error);
+      }
     }
   };
 
-  // 保存进度（带 debounce）
-  const saveProgressImpl = async (step: number, completed: number[], chat: ChatEntry[]) => {
+  const saveProgressImpl = async (step: number, completed: number[]) => {
     if (!sourceType || !sourceId) return;
     try {
-      // 转换聊天记录格式
-      const chatHistory = chat.map(msg => ({
-        role: msg.role === 'agent' ? 'assistant' as const : 'user' as const,
-        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-      }));
       await AgentAPI.updateProgress(sourceType, sourceId, {
         currentStep: step,
         completedSteps: completed,
-        chatHistory,
       });
     } catch (err) {
       console.error('[AgentWidget] Save progress error:', err);
     }
   };
 
-  const debouncedSaveProgress = useDebounce(saveProgressImpl, 1000);
-
   // 保存进度（立即保存，用于步骤切换）
-  const saveProgressNow = (step: number, completed: number[], chat: ChatEntry[] = []) => {
-    saveProgressImpl(step, completed, chat);
+  const saveProgressNow = (step: number, completed: number[]) => {
+    void saveProgressImpl(step, completed);
   };
 
   // 拖拽调整宽度
@@ -379,13 +382,14 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   }, [currentStep, chatLog, isValidating, streamingContent, verificationResult]);
 
   useEffect(() => {
-    persistSessionChat(manualId, currentLocale, chatLog);
-  }, [manualId, currentLocale, chatLog]);
+    if (isChatMode) {
+      persistSessionChat(manualId, currentLocale, chatLog);
+    }
+  }, [isChatMode, manualId, currentLocale, chatLog]);
 
   useEffect(() => {
     if (isOpen && manualId) {
       void AgentAPI.recordEvent({ manualId, stepOrder: currentStep, eventType: 'widget_open' });
-      void loadV2Context(manualId, currentStep);
     }
   }, [isOpen, manualId, classId]);
 
@@ -456,6 +460,8 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
 
   // 处理继续/下一步
   const handleContinue = async () => {
+    const requestId = ++verificationRequestRef.current;
+    const isCurrentRequest = () => requestId === verificationRequestRef.current;
     setIsValidating(true);
     setVerifyError(null);
     setVerificationResult(null);
@@ -464,6 +470,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       // 如果有 manualId 和 containerId，调用验证 API
       if (manualId && containerId) {
         const result = await AgentAPI.verifyStep(manualId, currentStep, containerId);
+        if (!isCurrentRequest()) return;
         
         // 构建验证结果对象 - 用于以对话形式显示
         const verifyResult = {
@@ -498,9 +505,11 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           // 最后一步：显示庆祝动画，然后触发离场动画，最后显示恭喜对话框
           setIsValidating(false);
           setTimeout(() => {
+            if (!isCurrentRequest()) return;
             setIsExiting(true);
             // 离场动画结束后显示恭喜对话框
             setTimeout(() => {
+              if (!isCurrentRequest()) return;
               setVerificationResult(null);
               setIsExiting(false);
               // 标记所有步骤完成
@@ -510,7 +519,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                 newCompleted.sort((a, b) => a - b);
                 setCompletedSteps(newCompleted);
               }
-              saveProgressNow(currentStep, newCompleted, chatLog);
+              saveProgressNow(currentStep, newCompleted);
               // 显示恭喜完成对话框
               setShowCompleteDialog(true);
             }, 800); // 离场动画持续 800ms
@@ -518,6 +527,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
         } else {
           // 非最后一步：正常进入下一步
           setTimeout(() => {
+            if (!isCurrentRequest()) return;
             proceedToNextStep();
           }, 1000);
         }
@@ -546,9 +556,11 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           
           // 先显示庆祝，然后触发离场动画，最后显示恭喜对话框
           setTimeout(() => {
+            if (!isCurrentRequest()) return;
             setIsExiting(true);
             // 离场动画结束后显示恭喜对话框
             setTimeout(() => {
+              if (!isCurrentRequest()) return;
               setVerificationResult(null);
               setIsExiting(false);
               // 标记所有步骤完成
@@ -558,7 +570,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                 newCompleted.sort((a, b) => a - b);
                 setCompletedSteps(newCompleted);
               }
-              saveProgressNow(currentStep, newCompleted, chatLog);
+              saveProgressNow(currentStep, newCompleted);
               // 显示恭喜完成对话框
               setShowCompleteDialog(true);
             }, 800); // 离场动画持续 800ms
@@ -570,6 +582,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
         }
       }
     } catch (err: any) {
+      if (!isCurrentRequest()) return;
       const errorResult = {
         success: false,
         message: t('verifyFailed'),
@@ -586,7 +599,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       setCanEscalateHint(true);
       setVerifyError(err.message || t('verifyFailed'));
     } finally {
-      setIsValidating(false);
+      if (isCurrentRequest()) setIsValidating(false);
     }
   };
 
@@ -601,13 +614,13 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
 
     if (currentStep < steps.length - 1) {
       const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
+      selectStep(nextStep);
 
       // 清除验证结果
       setVerificationResult(null);
       setVerifyError(null);
 
-      saveProgressNow(nextStep, newCompleted, chatLog);
+      saveProgressNow(nextStep, newCompleted);
     }
   };
 
@@ -642,6 +655,9 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
   // 处理 AI 问答（流式）
   const handleQuestion = async (question: string, options: { escalate?: boolean; troubleshootMode?: boolean } = {}) => {
     if (!question.trim()) return;
+    contextRequestRef.current += 1;
+    const requestId = ++streamRequestRef.current;
+    const isCurrentRequest = () => requestId === streamRequestRef.current;
     
     // 用户开始提问时，隐藏验证结果气泡
     setVerificationResult(null);
@@ -671,14 +687,13 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       : t('stepContext', { title: step.title, summary: step.content.map(b => b.text || b.code || '').join(' ').slice(0, 500) });
 
     const onDone = () => {
+      if (!isCurrentRequest()) return;
       setStreamingContent(currentContent => {
         if (currentContent) {
           setTimeout(() => {
+            if (!isCurrentRequest()) return;
             setChatLog(logs => {
               const newLogs = [...logs, { role: 'agent' as const, content: currentContent, hintLevel: streamingHintLevelRef.current }];
-              if (!isChatMode) {
-                debouncedSaveProgress(currentStep, completedSteps, newLogs);
-              }
               return newLogs;
             });
             setIsAsking(false);
@@ -701,14 +716,16 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
           troubleshootMode: options.troubleshootMode,
         },
         (meta) => {
+          if (!isCurrentRequest()) return;
           setStreamingHintLevel(meta.hintLevel);
           streamingHintLevelRef.current = meta.hintLevel;
         },
         (content) => {
-          setStreamingContent(prev => prev + content);
+          if (isCurrentRequest()) setStreamingContent(prev => prev + content);
         },
         onDone,
         (error) => {
+          if (!isCurrentRequest()) return;
           setChatLog(prev => [...prev, { role: 'agent', content: t('apology', { error }) }]);
           setStreamingContent('');
           setIsAsking(false);
@@ -723,10 +740,11 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
       stepContext,
       undefined,
       (content) => {
-        setStreamingContent(prev => prev + content);
+        if (isCurrentRequest()) setStreamingContent(prev => prev + content);
       },
       onDone,
       (error) => {
+        if (!isCurrentRequest()) return;
         setChatLog(prev => [...prev, { role: 'agent', content: t('apology', { error }) }]);
         setStreamingContent('');
         setIsAsking(false);
@@ -797,7 +815,7 @@ export const AgentWidget: React.FC<AgentWidgetProps> = ({
                   <button 
                     key={s.id}
                     onClick={() => {
-                      setCurrentStep(s.id);
+                      selectStep(s.id);
                       setShowToC(false);
                       setVerifyError(null);
                     }}

@@ -25,6 +25,7 @@ p, student, /api/agent/interventions/*, POST
 p, student, /api/agent/explain, POST
 p, student, /api/agent/progress/*, GET
 p, student, /api/agent/progress, POST
+p, student, /api/agent/progress/reset, POST
 p, student, /api/agent/suggestion, POST
 p, student, /api/agent/prompt-enhance, POST
 p, student, /api/student/*, GET|POST

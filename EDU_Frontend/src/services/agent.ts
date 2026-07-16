@@ -397,6 +397,13 @@ export async function updateProgress(
   await api.post('/agent/progress', { sourceType, sourceId, ...data });
 }
 
+export async function resetProgress(sourceType: number, sourceId: number): Promise<void> {
+  const res = await api.post('/agent/progress/reset', { sourceType, sourceId });
+  if (res.error) {
+    throw new Error(res.error);
+  }
+}
+
 // 获取 AI 验证建议
 export async function getVerificationSuggestion(data: {
   stepTitle?: string;

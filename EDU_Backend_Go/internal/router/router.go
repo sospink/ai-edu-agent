@@ -204,6 +204,7 @@ func New(deps app.Dependencies) *gin.Engine {
 		agentGroup.POST("/explain", agentHandler.ExplainCode)
 		agentGroup.GET("/progress/:sourceType/:sourceId", agentHandler.GetProgress)
 		agentGroup.POST("/progress", agentHandler.UpdateProgress)
+		agentGroup.POST("/progress/reset", agentHandler.ResetProgress)
 		agentGroup.POST("/suggestion", agentHandler.GetVerificationSuggestion)
 		agentGroup.POST("/prompt-enhance", agentHandler.PromptEnhance)
 		agentGroup.GET("/admin/manual/:sourceType/:sourceId", agentHandler.GetManualForAdmin)

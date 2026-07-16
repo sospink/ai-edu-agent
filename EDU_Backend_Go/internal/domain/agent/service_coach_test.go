@@ -156,6 +156,115 @@ func TestCoachStreamRecordsSingleChatEventAndResetsFailureCount(t *testing.T) {
 	}
 }
 
+func TestCoachHistoryIsIsolatedByStep(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "agent-history.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&AgentChatSession{}, &AgentChatMessage{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	service := NewService(db, zap.NewNop(), nil)
+	sessions := []AgentChatSession{
+		{UserID: 8, ManualID: 21, StepOrder: 0, LastActiveAt: nowForTest()},
+		{UserID: 8, ManualID: 21, StepOrder: 1, LastActiveAt: nowForTest()},
+	}
+	if err := db.Create(&sessions).Error; err != nil {
+		t.Fatalf("create sessions: %v", err)
+	}
+	if err := db.Create(&[]AgentChatMessage{
+		{SessionID: sessions[0].ID, Role: "user", Content: "第一关问题"},
+		{SessionID: sessions[1].ID, Role: "user", Content: "第二关问题"},
+	}).Error; err != nil {
+		t.Fatalf("create messages: %v", err)
+	}
+
+	firstStep, err := service.GetCoachHistory(context.Background(), 8, 21, 0)
+	if err != nil {
+		t.Fatalf("get first step history: %v", err)
+	}
+	secondStep, err := service.GetCoachHistory(context.Background(), 8, 21, 1)
+	if err != nil {
+		t.Fatalf("get second step history: %v", err)
+	}
+	emptyStep, err := service.GetCoachHistory(context.Background(), 8, 21, 2)
+	if err != nil {
+		t.Fatalf("get empty step history: %v", err)
+	}
+	if len(firstStep) != 1 || firstStep[0].Content != "第一关问题" {
+		t.Fatalf("unexpected first step history: %+v", firstStep)
+	}
+	if len(secondStep) != 1 || secondStep[0].Content != "第二关问题" {
+		t.Fatalf("unexpected second step history: %+v", secondStep)
+	}
+	if len(emptyStep) != 0 {
+		t.Fatalf("expected empty third step history, got %+v", emptyStep)
+	}
+}
+
+func TestResetProgressClearsCurrentUserManualChats(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "agent-reset.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&UserAgentProgress{}, &AgentChatSession{}, &AgentChatMessage{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	service := NewService(db, zap.NewNop(), nil)
+	progress := UserAgentProgress{
+		UserID:         8,
+		ManualID:       21,
+		CurrentStep:    2,
+		CompletedSteps: []int{0, 1},
+		ChatHistory:    []ChatMessage{{Role: "user", Content: "旧版历史"}},
+		StartedAt:      nowForTest(),
+		LastActiveAt:   nowForTest(),
+	}
+	if err := db.Create(&progress).Error; err != nil {
+		t.Fatalf("create progress: %v", err)
+	}
+	sessions := []AgentChatSession{
+		{UserID: 8, ManualID: 21, StepOrder: 0, LastActiveAt: nowForTest()},
+		{UserID: 8, ManualID: 21, StepOrder: 1, LastActiveAt: nowForTest()},
+		{UserID: 9, ManualID: 21, StepOrder: 0, LastActiveAt: nowForTest()},
+		{UserID: 8, ManualID: 22, StepOrder: 0, LastActiveAt: nowForTest()},
+	}
+	if err := db.Create(&sessions).Error; err != nil {
+		t.Fatalf("create sessions: %v", err)
+	}
+	for _, session := range sessions {
+		if err := db.Create(&AgentChatMessage{SessionID: session.ID, Role: "user", Content: "保留范围测试"}).Error; err != nil {
+			t.Fatalf("create message: %v", err)
+		}
+	}
+
+	reset, err := service.ResetProgress(context.Background(), 8, 21)
+	if err != nil {
+		t.Fatalf("reset progress: %v", err)
+	}
+	if reset.CurrentStep != 0 || len(reset.CompletedSteps) != 0 || len(reset.ChatHistory) != 0 {
+		t.Fatalf("unexpected reset progress: %+v", reset)
+	}
+	var targetSessions int64
+	if err := db.Model(&AgentChatSession{}).Where("user_id = ? AND manual_id = ?", 8, 21).Count(&targetSessions).Error; err != nil {
+		t.Fatalf("count target sessions: %v", err)
+	}
+	if targetSessions != 0 {
+		t.Fatalf("expected target sessions removed, got %d", targetSessions)
+	}
+	var remainingSessions int64
+	if err := db.Model(&AgentChatSession{}).Count(&remainingSessions).Error; err != nil {
+		t.Fatalf("count remaining sessions: %v", err)
+	}
+	var remainingMessages int64
+	if err := db.Model(&AgentChatMessage{}).Count(&remainingMessages).Error; err != nil {
+		t.Fatalf("count remaining messages: %v", err)
+	}
+	if remainingSessions != 2 || remainingMessages != 2 {
+		t.Fatalf("expected unrelated chats preserved, got sessions=%d messages=%d", remainingSessions, remainingMessages)
+	}
+}
+
 func TestRedactSensitiveText(t *testing.T) {
 	input := "Authorization: Bearer abc.def password=123 token=abc api_key=key secret=s\n-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----"
 	output := redactSensitiveText(input)

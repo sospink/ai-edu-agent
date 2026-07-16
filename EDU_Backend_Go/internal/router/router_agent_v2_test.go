@@ -179,3 +179,74 @@ func TestAgentV2TeacherObservatoryFAQInterventionAndTags(t *testing.T) {
 		t.Fatalf("expected assigned teacher import 200, got %d: %s", assignedImport.Code, assignedImport.Body.String())
 	}
 }
+
+func TestAgentProgressResetEndpointClearsStepChats(t *testing.T) {
+	fixture, cleanup := newM7AIFixture(t, "unused")
+	defer cleanup()
+	if err := fixture.db.AutoMigrate(
+		&agent.AgentChatSession{},
+		&agent.AgentChatMessage{},
+	); err != nil {
+		t.Fatalf("auto migrate agent chat models failed: %v", err)
+	}
+	studentToken := mustLogin(t, &testFixture{engine: fixture.engine}, fixture.studentA.Username, "student@123")
+	manual := agent.AgentManual{SourceType: agent.SourceTypeLesson, SourceID: 98702, Title: "重置测试手册", CreatorID: fixture.admin.ID, IsPublished: 1}
+	if err := fixture.db.Create(&manual).Error; err != nil {
+		t.Fatalf("seed manual failed: %v", err)
+	}
+	progress := agent.UserAgentProgress{
+		UserID:         fixture.studentA.ID,
+		ManualID:       manual.ID,
+		CurrentStep:    1,
+		CompletedSteps: []int{0},
+		ChatHistory:    []agent.ChatMessage{{Role: "user", Content: "旧版历史"}},
+		StartedAt:      time.Now(),
+		LastActiveAt:   time.Now(),
+	}
+	if err := fixture.db.Create(&progress).Error; err != nil {
+		t.Fatalf("seed progress failed: %v", err)
+	}
+	sessions := []agent.AgentChatSession{
+		{UserID: fixture.studentA.ID, ManualID: manual.ID, StepOrder: 0, LastActiveAt: time.Now()},
+		{UserID: fixture.studentA.ID, ManualID: manual.ID, StepOrder: 1, LastActiveAt: time.Now()},
+		{UserID: fixture.studentB.ID, ManualID: manual.ID, StepOrder: 0, LastActiveAt: time.Now()},
+	}
+	if err := fixture.db.Create(&sessions).Error; err != nil {
+		t.Fatalf("seed sessions failed: %v", err)
+	}
+	for _, session := range sessions {
+		if err := fixture.db.Create(&agent.AgentChatMessage{SessionID: session.ID, Role: "user", Content: "步骤历史"}).Error; err != nil {
+			t.Fatalf("seed message failed: %v", err)
+		}
+	}
+
+	resetResp := performJSON(t, fixture.engine, http.MethodPost, "/api/agent/progress/reset", map[string]any{
+		"sourceType": agent.SourceTypeLesson,
+		"sourceId":   manual.SourceID,
+	}, studentToken)
+	if resetResp.Code != http.StatusOK {
+		t.Fatalf("expected progress reset 200, got %d: %s", resetResp.Code, resetResp.Body.String())
+	}
+	if !strings.Contains(resetResp.Body.String(), `"currentStep":0`) || !strings.Contains(resetResp.Body.String(), `"completedSteps":[]`) {
+		t.Fatalf("unexpected reset response: %s", resetResp.Body.String())
+	}
+	historyResp := performJSON(t, fixture.engine, http.MethodGet, fmt.Sprintf("/api/agent/coach/history?manualId=%d&stepOrder=0", manual.ID), nil, studentToken)
+	if historyResp.Code != http.StatusOK || !strings.Contains(historyResp.Body.String(), `"items":[]`) {
+		t.Fatalf("expected empty reset history, got %d: %s", historyResp.Code, historyResp.Body.String())
+	}
+	var ownSessions int64
+	if err := fixture.db.Model(&agent.AgentChatSession{}).
+		Where("user_id = ? AND manual_id = ?", fixture.studentA.ID, manual.ID).
+		Count(&ownSessions).Error; err != nil {
+		t.Fatalf("count own sessions failed: %v", err)
+	}
+	var otherSessions int64
+	if err := fixture.db.Model(&agent.AgentChatSession{}).
+		Where("user_id = ? AND manual_id = ?", fixture.studentB.ID, manual.ID).
+		Count(&otherSessions).Error; err != nil {
+		t.Fatalf("count other sessions failed: %v", err)
+	}
+	if ownSessions != 0 || otherSessions != 1 {
+		t.Fatalf("unexpected reset scope: own=%d other=%d", ownSessions, otherSessions)
+	}
+}

@@ -457,6 +457,44 @@ func (h *Handler) UpdateProgress(c *gin.Context) {
 	})
 }
 
+func (h *Handler) ResetProgress(c *gin.Context) {
+	claims, ok := middleware.CurrentClaims(c)
+	if !ok {
+		response.UnauthorizedKey(c, "auth.required", nil)
+		return
+	}
+
+	var req struct {
+		SourceType int    `json:"sourceType"`
+		SourceID   uint64 `json:"sourceId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequestKey(c, "agent.invalidParams", nil)
+		return
+	}
+
+	manual, err := h.service.GetManual(c.Request.Context(), req.SourceType, req.SourceID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.NotFoundKey(c, "agent.manualNotFound", nil)
+		return
+	}
+	if err != nil {
+		response.InternalKey(c, "agent.internalError", nil)
+		return
+	}
+
+	progress, err := h.service.ResetProgress(c.Request.Context(), claims.UserID, manual.ID)
+	if err != nil {
+		response.InternalKey(c, "agent.internalError", nil)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"currentStep":    progress.CurrentStep,
+		"completedSteps": progress.CompletedSteps,
+		"chatHistory":    progress.ChatHistory,
+	})
+}
+
 func (h *Handler) GetVerificationSuggestion(c *gin.Context) {
 	var req VerificationHelpRequest
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.ErrorMessage) == "" {
