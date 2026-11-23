@@ -122,6 +122,14 @@ func (s *Store) Resolve(_ context.Context) (config.QwenConfig, error) {
 	return cfg, err
 }
 
+// Snapshot 将模型参数和配置版本作为一个不可分割的请求快照返回。
+func (s *Store) Snapshot(_ context.Context) (config.QwenConfig, View, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, cfg, err := s.read()
+	return cfg, r.View, err
+}
+
 func prepare(in Input, old record, previous config.QwenConfig) (config.QwenConfig, error) {
 	if in.Version != old.Version {
 		return config.QwenConfig{}, ErrConflict

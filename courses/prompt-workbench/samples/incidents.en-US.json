@@ -1,0 +1,5 @@
+[
+  {"id":"cloud-drive","title":"Campus cloud drive upload failure","input":"At 14:20 today, the campus cloud drive in Teaching Building A could not upload PDFs and displayed 503. Downloading existing files worked. Changing browsers did not fix the problem.","description":"Separate observed evidence from the unknown scope of impact."},
+  {"id":"virtual-lab","title":"Cloud lab desktop connection timeout","input":"At the start of the third class, six students in Computer Room B kept seeing connection timeout when opening their cloud lab desktops. The teacher could log in normally. No one has tried restarting the lab yet.","description":"Keep direct quotations and avoid inventing a root cause."},
+  {"id":"course-video","title":"Course video buffering","input":"Last night, course videos buffered every ten to twenty seconds over campus Wi-Fi in the dormitory. Playback worked after switching to mobile data. The exact time was not recorded.","description":"Identify missing information without inventing timestamps or network metrics."}
+]

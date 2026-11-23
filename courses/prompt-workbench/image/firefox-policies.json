@@ -1,0 +1,14 @@
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DontCheckDefaultBrowser": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "Preferences": {
+      "browser.translations.automaticallyPopup": { "Value": false, "Status": "locked" },
+      "browser.startup.homepage": { "Value": "http://127.0.0.1:8000", "Status": "default" },
+      "datareporting.policy.dataSubmissionPolicyBypassNotification": { "Value": true, "Status": "locked" }
+    }
+  }
+}

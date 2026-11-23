@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["service", "symptom", "evidence", "missing_fields"],
+  "properties": {
+    "service": {"type": "string", "pattern": "\\S"},
+    "symptom": {"type": "string", "pattern": "\\S"},
+    "evidence": {"type": "array", "items": {"type": "string", "pattern": "\\S"}},
+    "missing_fields": {"type": "array", "items": {"type": "string", "pattern": "\\S"}}
+  }
+}

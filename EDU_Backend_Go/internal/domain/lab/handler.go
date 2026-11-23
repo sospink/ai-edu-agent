@@ -303,6 +303,22 @@ func (h *Handler) proxyToTarget(c *gin.Context, target, routeBase string) {
 	if authToken != "" {
 		h.setProxyCookies(c, session.ID, routeBase, authToken, clientID)
 	}
+	c.Request.Header.Del("X-EDU-Lab-Access")
+	if resolvedTarget == "workbench" && h.service.WorkspaceDirectory(session) != "" {
+		controller := http.NewResponseController(c.Writer)
+		_ = controller.SetWriteDeadline(time.Now().Add(110 * time.Second))
+		defer controller.SetWriteDeadline(time.Time{})
+		if h.service.courseModel == nil {
+			response.Internal(c, "课程访问配置不可用")
+			return
+		}
+		access, err := h.service.courseModel.token(session)
+		if err != nil {
+			response.Internal(c, "课程访问凭证不可用")
+			return
+		}
+		c.Request.Header.Set("X-EDU-Lab-Access", access)
+	}
 
 	proxy, err := h.reverseProxy(upstream, session.ID, resolvedTarget, routeBase)
 	if err != nil {

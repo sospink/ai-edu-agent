@@ -34,12 +34,13 @@ import (
 )
 
 type Service struct {
-	db         *gorm.DB
-	log        *zap.Logger
-	cfg        *config.Config
-	k8s        kubernetes.Interface
-	restConfig *rest.Config
-	operations *operations.Service
+	db          *gorm.DB
+	log         *zap.Logger
+	cfg         *config.Config
+	k8s         kubernetes.Interface
+	restConfig  *rest.Config
+	operations  *operations.Service
+	courseModel *CourseModelGateway
 }
 
 var (
@@ -430,7 +431,11 @@ func (s *Service) BuildURLs(session *UserLabSession) URLs {
 
 	ideURL := ""
 	if session.IDEPort > 0 {
-		ideURL = fmt.Sprintf("/api/lab/proxy/%d/%s/?folder=%s", session.ID, PortNameIDE, url.QueryEscape("/workspace"))
+		folder := s.WorkspaceDirectory(session)
+		if folder == "" {
+			folder = "/workspace"
+		}
+		ideURL = fmt.Sprintf("/api/lab/proxy/%d/%s/?folder=%s", session.ID, PortNameIDE, url.QueryEscape(folder))
 	}
 
 	appURLs := buildAppURLs(session)
@@ -471,7 +476,11 @@ func buildAppURLs(session *UserLabSession) []AppURL {
 func (s *Service) ExecuteCommand(ctx context.Context, session *UserLabSession, command string) ExecuteResult {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	err := s.StreamExec(ctx, session, []string{"/bin/bash", "-lc", command}, false, nil, stdout, stderr, nil)
+	if directory := s.WorkspaceDirectory(session); directory != "" {
+		command = "cd -- '" + strings.ReplaceAll(directory, "'", "'\\''") + "' && " + command
+	}
+	execCommand := s.WorkspaceExecCommand(session, []string{"/bin/bash", "-lc", command})
+	err := s.StreamExec(ctx, session, execCommand, false, nil, stdout, stderr, nil)
 
 	output := stdout.String()
 	if output == "" {
@@ -788,6 +797,10 @@ func (s *Service) resolveActiveLabTemplate(ctx context.Context, templateID uint6
 }
 
 func (s *Service) createRuntimeResources(ctx context.Context, session *UserLabSession, ideImage, sourceName string, resources runtimeResourceProfile) error {
+	courseEnv, err := s.courseModelEnvironment(session)
+	if err != nil {
+		return err
+	}
 	labels := labLabels(session)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -833,6 +846,23 @@ func (s *Service) createRuntimeResources(ctx context.Context, session *UserLabSe
 	if s.cfg != nil && s.cfg.K8S.LabImagePullSecret != "" {
 		pod.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: s.cfg.K8S.LabImagePullSecret}}
 	}
+	if len(courseEnv) > 0 {
+		for key, value := range courseEnv {
+			pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: key, Value: value})
+		}
+		// 课程镜像自身监管桌面进程，避免通用修复钩子重复启动 websockify。
+		pod.Spec.Containers[0].Lifecycle = nil
+		pod.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+			ProbeHandler:        corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{Path: "/api/health", Port: intstr.FromInt32(8000)}},
+			InitialDelaySeconds: 3, PeriodSeconds: 3, TimeoutSeconds: 2, FailureThreshold: 40,
+		}
+		group := int64(1000)
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{FSGroup: &group}
+		mountToken := false
+		pod.Spec.AutomountServiceAccountToken = &mountToken
+		limit := resource.MustParse("1Gi")
+		pod.Spec.Volumes[0].EmptyDir.SizeLimit = &limit
+	}
 	if ideImage != "" {
 		pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
 			Name:            IDEContainerName,
@@ -868,7 +898,7 @@ func (s *Service) createRuntimeResources(ctx context.Context, session *UserLabSe
 		return fmt.Errorf("Lab Pod 配置风险，创建已终止：%w", err)
 	}
 
-	_, err := s.k8s.CoreV1().Pods(s.runtimeNamespace()).Create(ctx, pod, metav1.CreateOptions{})
+	_, err = s.k8s.CoreV1().Pods(s.runtimeNamespace()).Create(ctx, pod, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
 		_ = s.k8s.CoreV1().Pods(s.runtimeNamespace()).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 		_, err = s.k8s.CoreV1().Pods(s.runtimeNamespace()).Create(ctx, pod, metav1.CreateOptions{})

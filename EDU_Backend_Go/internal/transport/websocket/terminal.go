@@ -149,6 +149,8 @@ func (h *TerminalHandler) handleK8SExec(
 	writeMu := &sync.Mutex{}
 	outputWriter := websocketOutputWriter{conn: conn, transport: transportMode, writeMu: writeMu}
 	execCommand := buildExecCommand(mode, command, sessionPolicy, terminalID)
+	// 课程编辑、运行与 OpenCode 使用同一 UID，避免生成 root 文件后 IDE 无法编辑。
+	execCommand = h.labService.WorkspaceExecCommand(session, execCommand)
 
 	streamDone := make(chan error, 1)
 	go func() {
@@ -328,6 +330,7 @@ func normalizeTransport(raw string) terminalTransport {
 }
 
 func buildExecCommand(mode, command, sessionPolicy, terminalID string) []string {
+	projectDirectory := `if [ -n "${EDU_PROJECT_DIR:-}" ] && [ -d "$EDU_PROJECT_DIR" ]; then cd -- "$EDU_PROJECT_DIR"; fi;`
 	if mode != "exec" {
 		// 默认终端也设 TERM 并走 tmux：学生常按手册在此手动启动 opencode 等全屏 TUI，
 		// 裸 bash exec 下 TUI 高频全屏重绘会冲垮 K8S SPDY exec 流，导致
@@ -339,6 +342,7 @@ func buildExecCommand(mode, command, sessionPolicy, terminalID string) []string 
 			restart = fmt.Sprintf("tmux kill-session -t %s 2>/dev/null || true;", sessionName)
 		}
 		run := strings.Join([]string{
+			projectDirectory,
 			"export TERM=xterm-256color COLORTERM=truecolor;",
 			"if command -v tmux >/dev/null 2>&1; then",
 			restart,
@@ -362,6 +366,7 @@ func buildExecCommand(mode, command, sessionPolicy, terminalID string) []string 
 		termValue = "xterm-256color"
 	}
 	run := strings.Join([]string{
+		projectDirectory,
 		fmt.Sprintf("export TERM=%s COLORTERM=truecolor;", termValue),
 		"if command -v tmux >/dev/null 2>&1; then",
 		restart,

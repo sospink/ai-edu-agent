@@ -26,8 +26,13 @@ type Config struct {
 	Docker    DockerConfig    `mapstructure:"docker"`
 	K8S       K8SConfig       `mapstructure:"k8s"`
 	Qwen      QwenConfig      `mapstructure:"qwen"`
+	CourseLab CourseLabConfig `mapstructure:"course_lab"`
 
 	LoadedEnvFiles []string `mapstructure:"-"`
+}
+
+type CourseLabConfig struct {
+	ModelGatewayURL string `mapstructure:"model_gateway_url"`
 }
 
 type AppConfig struct {
@@ -299,6 +304,7 @@ func overrideEnv(v *viper.Viper) {
 	setString(v, "qwen.api_key", "DASHSCOPE_API_KEY")
 	setString(v, "qwen.base_url", "QWEN_BASE_URL")
 	setString(v, "qwen.model", "QWEN_MODEL")
+	setString(v, "course_lab.model_gateway_url", "COURSE_MODEL_GATEWAY_URL")
 	setString(v, "server.host", "HOST")
 	setInt(v, "server.port", "PORT")
 	setString(v, "app.env", "NODE_ENV")

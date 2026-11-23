@@ -1,0 +1,13 @@
+.venv/
+.artifacts/
+backend/data/
+frontend/node_modules
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+tests/.tmp/
+**/__pycache__/
+**/.pytest_cache/
+outputs/
+exports/
+reports/*.json

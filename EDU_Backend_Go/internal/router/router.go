@@ -51,6 +51,7 @@ func New(deps app.Dependencies) *gin.Engine {
 	modelSettings := llm.NewStore(filepath.Join(filepath.Dir(uploadRoot), ".settings"), deps.Config.Qwen)
 	agentAIClient.SetConfigResolver(modelSettings.Resolve)
 	modelSettingsHandler := httptransport.NewLLMSettingsHandler(modelSettings, deps.Logger)
+	courseModelGateway := lab.NewCourseModelGateway(labService, modelSettings)
 	agentService := agent.NewService(deps.DB, deps.Logger, agentAIClient)
 	agentService.SetRuntimeBridge(labService)
 	teacherService := teacher.NewService(deps.DB, deps.Logger)
@@ -96,6 +97,8 @@ func New(deps app.Dependencies) *gin.Engine {
 	{
 		api.GET("/health", healthHandler.Health)
 		api.GET("/version", healthHandler.Version)
+		api.GET("/course-model/v1/models", courseModelGateway.Models)
+		api.POST("/course-model/v1/chat/completions", courseModelGateway.Chat)
 
 		authGroup := api.Group("/auth")
 		authGroup.POST("/login", authHandler.Login)
