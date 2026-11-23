@@ -430,7 +430,7 @@ func (s *Service) BuildURLs(session *UserLabSession) URLs {
 
 	ideURL := ""
 	if session.IDEPort > 0 {
-		ideURL = fmt.Sprintf("/api/lab/proxy/%d/%s/", session.ID, PortNameIDE)
+		ideURL = fmt.Sprintf("/api/lab/proxy/%d/%s/?folder=%s", session.ID, PortNameIDE, url.QueryEscape("/workspace"))
 	}
 
 	appURLs := buildAppURLs(session)

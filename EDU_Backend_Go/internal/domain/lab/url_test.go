@@ -47,6 +47,31 @@ func TestBuildURLsUsesAbsoluteNoVNCPath(t *testing.T) {
 	}
 }
 
+func TestIDEURLsOpenSharedWorkspaceWithSessionAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/lab/urls", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer test-token")
+	ctx.Request.Header.Set("X-Lab-Client", "test-browser")
+	handler := &Handler{service: &Service{}}
+	session := &UserLabSession{ID: 143, IDEPort: uint(IDEPort)}
+	urls := handler.urlsFor(ctx, session)
+	parsed, err := url.Parse(urls.IDEURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Path != "/api/lab/proxy/143/ide/" || parsed.Query().Get("folder") != "/workspace" {
+		t.Fatalf("IDE must open the shared workspace: %s", urls.IDEURL)
+	}
+	if parsed.Query().Get("authToken") != "test-token" || parsed.Query().Get("labClientId") != "test-browser" {
+		t.Fatal("IDE workspace link lost session access parameters")
+	}
+	session.IDEPort = 0
+	if got := handler.urlsFor(ctx, session).IDEURL; got != "" {
+		t.Fatalf("disabled IDE should have no URL, got %s", got)
+	}
+}
+
 func TestRewriteVNCWebsockifyAuthPreservesAbsoluteProxyPath(t *testing.T) {
 	raw := "/api/lab/proxy/143/novnc/vnc.html?resize=scale&autoconnect=true&path=%2Fapi%2Flab%2Fproxy%2F143%2Fnovnc%2Fwebsockify"
 
