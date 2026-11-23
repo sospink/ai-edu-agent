@@ -150,7 +150,7 @@ func seed(ctx context.Context, db *gorm.DB, uploadRoot string, o options, a *ass
 			if len(stages) > 1 || (len(stages) == 1 && stages[0].SortOrder != 1) {
 				return fmt.Errorf("已有阶段结构不兼容，拒绝重建")
 			}
-			stage := course.CourseStage{CourseID: c.ID, Title: "大语言模型基础与应用", Description: "理论阅读与完整工作台实训", SortOrder: 1, LevelLabel: "基础"}
+			stage := course.CourseStage{CourseID: c.ID, Title: "大语言模型基础与应用", Description: "理论阅读与完整工作台实训", SortOrder: 1, LevelLabel: "L1"}
 			if err := put(tx, map[string]any{"course_id": c.ID, "sort_order": 1}, &stage, []string{"Title", "Description", "LevelLabel"}, out); err != nil {
 				return err
 			}
@@ -165,11 +165,11 @@ func seed(ctx context.Context, db *gorm.DB, uploadRoot string, o options, a *ass
 				}
 			}
 			lessons := []course.CourseLesson{
-				{CourseID: c.ID, StageID: stage.ID, Title: "理论资料阅读", Type: 4, DurationMinutes: 45, SortOrder: 1},
-				{CourseID: c.ID, StageID: stage.ID, Title: "完整提示词工作台实训", Type: 1, DurationMinutes: 105, SortOrder: 2, LabIdentifier: slug},
+				{CourseID: c.ID, StageID: stage.ID, Title: "理论资料阅读", Type: 4, DurationMinutes: 45, Points: 10, SortOrder: 1},
+				{CourseID: c.ID, StageID: stage.ID, Title: "完整提示词工作台实训", Type: 1, DurationMinutes: 105, Points: 30, SortOrder: 2, LabIdentifier: slug},
 			}
 			for i := range lessons {
-				if err := put(tx, map[string]any{"course_id": c.ID, "sort_order": i + 1}, &lessons[i], []string{"Title", "Type", "DurationMinutes", "LabIdentifier", "StageID"}, out); err != nil {
+				if err := put(tx, map[string]any{"course_id": c.ID, "sort_order": i + 1}, &lessons[i], []string{"Title", "Type", "DurationMinutes", "Points", "LabIdentifier", "StageID"}, out); err != nil {
 					return err
 				}
 				out.LessonIDs = append(out.LessonIDs, lessons[i].ID)
