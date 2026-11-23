@@ -8,7 +8,8 @@ if [ ! -e "$project/.course-initialized" ]; then
   else
     mkdir -p "$project"
     rsync -a --exclude node_modules /opt/courses/prompt-workbench/ "$project/"
-    ln -s /opt/course-deps/frontend/node_modules "$project/frontend/node_modules"
+    # 项目依赖也需进入共享卷，IDE 的 TypeScript 服务才能解析 React 等模块。
+    cp -a /opt/course-deps/frontend/node_modules "$project/frontend/node_modules"
     git init -q -b main "$project"
     git -C "$project" add .
     git -C "$project" -c user.name='Course Baseline' -c user.email='baseline@lab.local' commit -qm 'Initial course workspace'

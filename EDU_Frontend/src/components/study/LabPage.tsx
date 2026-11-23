@@ -812,6 +812,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   const agentSourceId = sourceType === LabSourceType.PROJECT ? unitId : (lessonId || sourceId);
 
   const [activeTab, setActiveTab] = useState<LabTab>('desktop');
+  const initializedTabKey = useRef('');
   const [opencodeRefreshToken, setOpencodeRefreshToken] = useState(0);
   const [selectedAppPortName, setSelectedAppPortName] = useState('');
 
@@ -851,15 +852,24 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
   const hasDesktop = Boolean(urls?.vncUrl);
   const hasAppPorts = appUrls.length > 0;
   useEffect(() => {
-    if (!urls) return;
-    if (explicitDefaultAppUrl && (!initialTabParam || initialTabParam === 'ports') && activeTab === 'desktop') {
-      setActiveTab('ports');
+    if (!urls || !session) return;
+    const key = `${session.id}:${initialTabParam || ''}`;
+    const available = new Set<LabTab>(['terminal', 'opencode']);
+    if (hasDesktop) available.add('desktop');
+    if (urls.ideUrl) available.add('ide');
+    if (defaultAppUrl) available.add('ports');
+    const fallback: LabTab = defaultAppUrl ? 'ports' : hasDesktop ? 'desktop' : 'terminal';
+    if (initializedTabKey.current !== key) {
+      initializedTabKey.current = key;
+      const requested = initialTabParam as LabTab | null;
+      setActiveTab(requested && available.has(requested) ? requested : explicitDefaultAppUrl ? 'ports' : hasDesktop ? 'desktop' : fallback);
       return;
     }
-    if (!hasDesktop && activeTab === 'desktop') {
-      setActiveTab(defaultAppUrl ? 'ports' : 'terminal');
+    // 默认入口只在会话初始化时应用，不覆盖学生之后的手动切换。
+    if (!available.has(activeTab)) {
+      setActiveTab(fallback);
     }
-  }, [activeTab, defaultAppUrl, explicitDefaultAppUrl, hasDesktop, initialTabParam, urls]);
+  }, [activeTab, defaultAppUrl, explicitDefaultAppUrl, hasDesktop, initialTabParam, session, urls]);
 
   useEffect(() => {
     if (defaultAppUrl && !selectedAppPortName) {

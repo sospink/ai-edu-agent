@@ -25,7 +25,7 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
   earnedXP,
   actionText,
   duration = '—',
-  accuracy = 100,
+  accuracy,
   manualId,
 }) => {
   const { t } = useTranslation('student');
@@ -112,13 +112,13 @@ const CompleteLessonDialog: React.FC<CompleteLessonDialogProps> = ({
                   <div className="flex items-center gap-2 mb-2">
                     <ShieldCheck className="w-4 h-4 text-[#1677FF]" />
                     <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400">
-                      {t('assessment')}
+                      {accuracy === undefined ? t('completionProgress') : t('assessment')}
                     </span>
                   </div>
 
                   <div className="relative inline-flex items-baseline gap-1">
                     <h1 className="text-6xl font-extrabold text-slate-900 tracking-tighter tabular-nums">
-                      {accuracy}
+                      {accuracy ?? 100}
                     </h1>
                     <span className="text-2xl font-bold text-slate-400 -ml-1">%</span>
                   </div>
