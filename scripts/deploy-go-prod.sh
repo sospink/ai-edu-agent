@@ -328,6 +328,7 @@ log "同步 Go 后端文件"
 sudo rsync -a --delete \
   --exclude '.env' \
   --exclude 'public/uploads' \
+  --exclude 'public/.settings' \
   --exclude 'EDU_Backend_Go' \
   "$REMOTE_UPLOAD_ROOT/backend/" "$REMOTE_BACKEND_DIR/current/"
 

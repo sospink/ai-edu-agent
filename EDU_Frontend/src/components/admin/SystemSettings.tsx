@@ -5,6 +5,7 @@ import { AlertCircle, Bot, Cloud, Database, Loader2, RefreshCw, Settings, Shield
 import { ToastContainer, useToast } from '@/components/common/Toast';
 import { adminSettingsService, type AdminAISetting, type AdminSettingsPayload } from '@/services/adminSettings';
 import { getCurrentLocale } from '@/i18n';
+import ModelSettings from './ModelSettings';
 
 interface SettingCardProps {
   title: string;
@@ -138,6 +139,8 @@ const SystemSettings: React.FC = () => {
           {t('empty')}
         </div>
       )}
+
+      <ModelSettings />
 
       {settings && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

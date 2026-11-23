@@ -13,6 +13,7 @@ import (
 
 	"edu-platform/internal/app"
 	"edu-platform/internal/domain/lab"
+	"edu-platform/internal/domain/llm"
 	"edu-platform/internal/domain/operations"
 	"edu-platform/internal/infra/authz"
 	"edu-platform/pkg/i18n"
@@ -20,10 +21,13 @@ import (
 )
 
 type IntegrationsHandler struct {
-	deps       app.Dependencies
-	labService *lab.Service
-	operations *operations.Service
+	deps          app.Dependencies
+	labService    *lab.Service
+	operations    *operations.Service
+	modelSettings *llm.Store
 }
+
+func (h *IntegrationsHandler) SetModelSettings(store *llm.Store) { h.modelSettings = store }
 
 func NewIntegrationsHandler(deps app.Dependencies, labService *lab.Service) *IntegrationsHandler {
 	return &IntegrationsHandler{
@@ -74,6 +78,15 @@ func (h *IntegrationsHandler) K8SHealth(c *gin.Context) {
 
 func (h *IntegrationsHandler) ConfigSummary(c *gin.Context) {
 	cfg := h.deps.Config
+	model := llm.View{BaseURL: cfg.Qwen.BaseURL, Model: cfg.Qwen.Model, Configured: cfg.Qwen.APIKey != "", Source: "environment"}
+	if h.modelSettings != nil {
+		var err error
+		model, err = h.modelSettings.Get()
+		if err != nil {
+			llmError(c, err)
+			return
+		}
+	}
 	response.SuccessKey(c, gin.H{
 		"configSources": gin.H{
 			"envFiles": cfg.LoadedEnvFiles,
@@ -126,10 +139,11 @@ func (h *IntegrationsHandler) ConfigSummary(c *gin.Context) {
 			"ingressClass":     cfg.K8S.IngressClass,
 		},
 		"qwen": gin.H{
-			"baseURL":   cfg.Qwen.BaseURL,
-			"model":     cfg.Qwen.Model,
-			"apiKeySet": cfg.Qwen.APIKey != "",
+			"baseURL":   model.BaseURL,
+			"model":     model.Model,
+			"apiKeySet": model.Configured,
 		},
+		"modelService": model,
 	}, "integrations.configLoaded", nil)
 }
 

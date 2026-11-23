@@ -1,4 +1,20 @@
 export const zhStaffResources = {
+  modelSettings: {
+    errors: {
+      LLM_INVALID_CONFIG: '请填写有效的供应商、模型名称和公网 HTTPS API 地址', LLM_KEY_REQUIRED: '请填写密钥；更换供应商或地址后需重新输入',
+      LLM_CONFIG_CONFLICT: '配置已被更新，请刷新后重新编辑', LLM_STORAGE_ERROR: '模型配置存储不可用，请联系管理员检查服务端配置目录与加密密钥',
+      LLM_TEST_BUSY: '已有连接测试正在运行，请稍后重试', LLM_CONNECTION_FAILED: '无法连接模型服务，请检查地址和服务器网络',
+      LLM_AUTH_FAILED: '模型服务拒绝认证，请检查密钥及模型权限', LLM_MODEL_NOT_FOUND: '模型或接口不存在，请检查 API 地址和模型名称',
+      LLM_RATE_LIMITED: '模型服务限流或额度不足，请检查账户额度', LLM_PROVIDER_ERROR: '模型服务拒绝请求，请检查模型、额度和接口兼容性',
+      LLM_INVALID_RESPONSE: '未收到有效回答，请确认模型支持 Chat Completions 文本输出',
+    },
+    title: '大模型服务', provider: '供应商', custom: '自定义（OpenAI 兼容）', model: '模型 ID', baseUrl: 'API 基础地址', apiKey: 'API Key',
+    configured: '已配置', notConfigured: '未配置', source: { none: '尚未设置模型凭证', environment: '当前使用服务器原有配置', managed: '当前使用管理端配置' },
+    unsaved: '有未保存的修改', retainKey: '留空保留现有密钥', enterKey: '输入该服务的 API Key', save: '保存并生效', test: '测试连接',
+    clear: '清除密钥', cancel: '取消', clearConfirm: '清除后平台 AI 助手和教师 AI 将无法调用模型，且不会恢复使用环境变量中的旧密钥。确认清除？',
+    saved: '配置已保存，新请求立即生效', cleared: '密钥已清除', tested: '连接成功，耗时 {{ms}} ms（配置尚未因测试而保存）', failed: '操作失败，请重试',
+    loading: '正在读取模型配置', refresh: '刷新', discard: '放弃修改并刷新',
+  },
   teacherStudents: {
     loadFailed: '获取学生进度失败', title: '学生进度', subtitle: '按课程或项目查看学生完成情况', refresh: '刷新', totalRecords: '记录总数', inProgress: '进行中', completed: '已完成', courseView: '课程视角', projectView: '项目视角', searchPlaceholder: '搜索学生或资源名称', search: '搜索', student: '学生', course: '课程', project: '项目', progress: '进度', status: '状态', recentActivity: '最近活跃', notStarted: '未开始', empty: '暂无进度记录', pageSummary: '第 {{page}} / {{totalPages}} 页，共 {{total}} 条', previous: '上一页', next: '下一页',
   },
@@ -65,6 +81,22 @@ export const zhStaffResources = {
 Object.assign(zhStaffResources.adminDashboard.statuses, { stopping: '释放中' });
 
 export const enStaffResources = {
+  modelSettings: {
+    errors: {
+      LLM_INVALID_CONFIG: 'Enter a valid provider, model name and public HTTPS API URL', LLM_KEY_REQUIRED: 'Enter an API key; a new provider or URL requires re-entering the key',
+      LLM_CONFIG_CONFLICT: 'Configuration changed. Refresh before editing again', LLM_STORAGE_ERROR: 'Model configuration storage is unavailable. Ask an administrator to check server storage and encryption key',
+      LLM_TEST_BUSY: 'A connection test is running. Try again shortly', LLM_CONNECTION_FAILED: 'Cannot reach the model service. Check the URL and server network',
+      LLM_AUTH_FAILED: 'Authentication rejected. Check the API key and model permissions', LLM_MODEL_NOT_FOUND: 'Model or endpoint not found. Check the API URL and model name',
+      LLM_RATE_LIMITED: 'Model service rate limit or quota exceeded. Check your account', LLM_PROVIDER_ERROR: 'Model service rejected the request. Check model, quota and API compatibility',
+      LLM_INVALID_RESPONSE: 'No valid answer received. Check Chat Completions text output support',
+    },
+    title: 'Model Service', provider: 'Provider', custom: 'Custom (OpenAI compatible)', model: 'Model ID', baseUrl: 'API Base URL', apiKey: 'API Key',
+    configured: 'Configured', notConfigured: 'Not configured', source: { none: 'No model credentials configured', environment: 'Using existing server configuration', managed: 'Using administrator configuration' },
+    unsaved: 'Unsaved changes', retainKey: 'Leave empty to keep the existing key', enterKey: 'Enter the API key for this service', save: 'Save and apply', test: 'Test connection',
+    clear: 'Clear key', cancel: 'Cancel', clearConfirm: 'Clearing the key stops model calls from the platform assistant and teacher AI. The old environment key will not be restored. Continue?',
+    saved: 'Saved. New requests use this configuration immediately', cleared: 'API key cleared', tested: 'Connected in {{ms}} ms (testing does not save changes)', failed: 'Operation failed. Please try again',
+    loading: 'Loading model configuration', refresh: 'Refresh', discard: 'Discard changes and refresh',
+  },
   teacherStudents: {
     loadFailed: 'Failed to load student progress', title: 'Student Progress', subtitle: 'Review student completion by course or project', refresh: 'Refresh', totalRecords: 'Total Records', inProgress: 'In Progress', completed: 'Completed', courseView: 'Course View', projectView: 'Project View', searchPlaceholder: 'Search students or resources', search: 'Search', student: 'Student', course: 'Course', project: 'Project', progress: 'Progress', status: 'Status', recentActivity: 'Recent Activity', notStarted: 'Not Started', empty: 'No progress records.', pageSummary: 'Page {{page}} of {{totalPages}} · {{total}} records', previous: 'Previous', next: 'Next',
   },

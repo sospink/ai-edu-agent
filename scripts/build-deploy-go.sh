@@ -57,7 +57,7 @@ log "构建 Go 后端二进制 (${REMOTE_GOOS}/${REMOTE_GOARCH})"
 
 log "组装后端部署目录"
 rsync -a "$BACKEND_DIR/configs/" "$BACKEND_STAGE_DIR/configs/"
-rsync -a "$BACKEND_DIR/public/" "$BACKEND_STAGE_DIR/public/"
+rsync -a --exclude '.settings/' "$BACKEND_DIR/public/" "$BACKEND_STAGE_DIR/public/"
 rsync -a "$BACKEND_DIR/deployments/" "$BACKEND_STAGE_DIR/deployments/"
 copy_if_exists "$BACKEND_DIR/.env.example" "$BACKEND_STAGE_DIR/.env.example"
 copy_if_exists "$BACKEND_DIR/.kube" "$BACKEND_STAGE_DIR/.kube"

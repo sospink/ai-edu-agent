@@ -15,17 +15,39 @@ import (
 	"go.uber.org/zap"
 
 	"edu-platform/internal/config"
+	"edu-platform/internal/domain/llm"
 	"edu-platform/pkg/i18n"
 )
 
 const defaultQwenBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 type AIClient struct {
-	apiKey  string
-	baseURL string
-	model   string
-	client  *http.Client
-	logger  *zap.Logger
+	resolve       func(context.Context) (config.QwenConfig, error)
+	managedClient *http.Client
+	apiKey        string
+	baseURL       string
+	model         string
+	client        *http.Client
+	logger        *zap.Logger
+}
+
+func (c *AIClient) SetConfigResolver(resolve func(context.Context) (config.QwenConfig, error)) {
+	c.resolve = resolve
+	c.managedClient = llm.NewHTTPClient()
+}
+
+func (c *AIClient) snapshot(ctx context.Context) (*AIClient, error) {
+	cfg, err := c.resolve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	next := NewAIClient(cfg, c.logger)
+	next.client = c.managedClient
+	// 保留管理员在启动配置中显式指定的内部服务；网页新地址仍走公网校验。
+	if strings.TrimRight(cfg.BaseURL, "/") == c.baseURL {
+		next.client = c.client
+	}
+	return next, nil
 }
 
 type ChatRequest struct {
@@ -116,14 +138,32 @@ func NewAIClient(cfg config.QwenConfig, logger *zap.Logger) *AIClient {
 }
 
 func (c *AIClient) Enabled() bool {
+	if c.resolve != nil {
+		current, err := c.snapshot(context.Background())
+		return err == nil && current.Enabled()
+	}
 	return c.apiKey != ""
 }
 
 func (c *AIClient) ModelName() string {
+	if c.resolve != nil {
+		current, err := c.snapshot(context.Background())
+		if err != nil {
+			return ""
+		}
+		return current.ModelName()
+	}
 	return c.model
 }
 
 func (c *AIClient) Complete(ctx context.Context, systemPrompt, userPrompt string) (CompletionResult, error) {
+	if c.resolve != nil {
+		current, err := c.snapshot(ctx)
+		if err != nil {
+			return CompletionResult{}, err
+		}
+		return current.Complete(ctx, systemPrompt, userPrompt)
+	}
 	startedAt := time.Now()
 	systemPrompt = withLanguageInstruction(ctx, systemPrompt)
 	completion, err := c.createCompletion(ctx, chatCompletionRequest{
@@ -158,6 +198,13 @@ func (c *AIClient) Complete(ctx context.Context, systemPrompt, userPrompt string
 }
 
 func (c *AIClient) Chat(ctx context.Context, req ChatRequest) (string, error) {
+	if c.resolve != nil {
+		current, err := c.snapshot(ctx)
+		if err != nil {
+			return "", err
+		}
+		return current.Chat(ctx, req)
+	}
 	messages := c.buildChatMessages(ctx, req)
 	completion, err := c.createCompletion(ctx, chatCompletionRequest{
 		Model:    c.model,
@@ -177,6 +224,13 @@ func (c *AIClient) Chat(ctx context.Context, req ChatRequest) (string, error) {
 }
 
 func (c *AIClient) ChatStream(ctx context.Context, req ChatRequest, onChunk func(string) error) error {
+	if c.resolve != nil {
+		current, err := c.snapshot(ctx)
+		if err != nil {
+			return err
+		}
+		return current.ChatStream(ctx, req, onChunk)
+	}
 	if !c.Enabled() {
 		return fmt.Errorf("AI 服务未配置")
 	}
@@ -204,8 +258,7 @@ func (c *AIClient) ChatStream(ctx context.Context, req ChatRequest, onChunk func
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		message, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("AI 服务异常: %s", strings.TrimSpace(string(message)))
+		return fmt.Errorf("AI 服务请求失败 (HTTP %d)", resp.StatusCode)
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -227,7 +280,7 @@ func (c *AIClient) ChatStream(ctx context.Context, req ChatRequest, onChunk func
 			continue
 		}
 		if chunk.Error != nil && strings.TrimSpace(chunk.Error.Message) != "" {
-			return errors.New(chunk.Error.Message)
+			return errors.New("AI 服务返回错误")
 		}
 		if len(chunk.Choices) == 0 {
 			continue
@@ -249,6 +302,13 @@ func (c *AIClient) ChatStream(ctx context.Context, req ChatRequest, onChunk func
 }
 
 func (c *AIClient) ExplainCode(ctx context.Context, code, language string) (string, error) {
+	if c.resolve != nil {
+		current, err := c.snapshot(ctx)
+		if err != nil {
+			return "", err
+		}
+		return current.ExplainCode(ctx, code, language)
+	}
 	if strings.TrimSpace(language) == "" {
 		language = "text"
 	}
@@ -275,6 +335,13 @@ func (c *AIClient) ExplainCode(ctx context.Context, code, language string) (stri
 }
 
 func (c *AIClient) GetVerificationHelp(ctx context.Context, req VerificationHelpRequest) (string, error) {
+	if c.resolve != nil {
+		current, err := c.snapshot(ctx)
+		if err != nil {
+			return "", err
+		}
+		return current.GetVerificationHelp(ctx, req)
+	}
 	var prompt strings.Builder
 	prompt.WriteString("学生在完成编程实验时遇到了验证失败的问题，请帮助分析原因并给出解决建议。\n\n")
 	prompt.WriteString("验证错误信息: " + req.ErrorMessage)
@@ -315,6 +382,13 @@ func (c *AIClient) GetVerificationHelp(ctx context.Context, req VerificationHelp
 }
 
 func (c *AIClient) PromptEnhance(ctx context.Context, req PromptEnhanceRequest) (PromptEnhanceResult, error) {
+	if c.resolve != nil {
+		current, err := c.snapshot(ctx)
+		if err != nil {
+			return PromptEnhanceResult{}, err
+		}
+		return current.PromptEnhance(ctx, req)
+	}
 	mode := strings.TrimSpace(req.Mode)
 	if mode == "" {
 		mode = "通用"
@@ -345,11 +419,9 @@ func (c *AIClient) PromptEnhance(ctx context.Context, req PromptEnhanceRequest) 
 }`, mode, modeGuide[mode])
 	systemPrompt = withLanguageInstruction(ctx, systemPrompt)
 
-	temperature := 0.7
 	completion, err := c.createCompletion(ctx, chatCompletionRequest{
-		Model:       c.model,
-		Messages:    []chatMessageParam{{Role: "system", Content: systemPrompt}, {Role: "user", Content: "请优化以下原始提示词：\n\n" + req.RawPrompt}},
-		Temperature: &temperature,
+		Model:    c.model,
+		Messages: []chatMessageParam{{Role: "system", Content: systemPrompt}, {Role: "user", Content: "请优化以下原始提示词：\n\n" + req.RawPrompt}},
 	})
 	if err != nil {
 		return PromptEnhanceResult{}, err
@@ -423,7 +495,7 @@ func (c *AIClient) createCompletion(ctx context.Context, reqBody chatCompletionR
 		return nil, fmt.Errorf("读取 AI 响应失败: %w", err)
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("AI 服务异常: %s", strings.TrimSpace(string(respBody)))
+		return nil, fmt.Errorf("AI 服务请求失败 (HTTP %d)", resp.StatusCode)
 	}
 
 	var parsed chatCompletionResponse
@@ -431,7 +503,7 @@ func (c *AIClient) createCompletion(ctx context.Context, reqBody chatCompletionR
 		return nil, fmt.Errorf("解析 AI 响应失败: %w", err)
 	}
 	if parsed.Error != nil && strings.TrimSpace(parsed.Error.Message) != "" {
-		return nil, errors.New(parsed.Error.Message)
+		return nil, errors.New("AI 服务返回错误")
 	}
 	return &parsed, nil
 }

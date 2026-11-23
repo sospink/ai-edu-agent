@@ -41,7 +41,35 @@ export interface AdminAISetting {
   updatedAt: string;
 }
 
+export interface ModelSettings {
+  provider: string;
+  baseUrl: string;
+  model: string;
+  configured: boolean;
+  source: 'none' | 'environment' | 'managed';
+  version: number;
+  updatedAt?: string;
+}
+
+export interface ModelSettingsInput {
+  provider: string;
+  baseUrl: string;
+  model: string;
+  apiKey: string;
+  version: number;
+  clearKey?: boolean;
+}
+
 export const adminSettingsService = {
+  getModelSettings(): Promise<ApiResponse<ModelSettings>> {
+    return adminApi.get<ModelSettings>('/model-settings');
+  },
+  saveModelSettings(input: ModelSettingsInput): Promise<ApiResponse<ModelSettings>> {
+    return adminApi.put<ModelSettings>('/model-settings', input);
+  },
+  testModelSettings(input: ModelSettingsInput): Promise<ApiResponse<{ model: string; latencyMs: number }>> {
+    return adminApi.post<{ model: string; latencyMs: number }>('/model-settings/test', input);
+  },
   getSettings(): Promise<ApiResponse<AdminSettingsPayload>> {
     return adminApi.get<AdminSettingsPayload>('/settings');
   },

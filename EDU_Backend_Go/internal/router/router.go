@@ -13,6 +13,7 @@ import (
 	"edu-platform/internal/domain/course"
 	"edu-platform/internal/domain/lab"
 	"edu-platform/internal/domain/learning"
+	"edu-platform/internal/domain/llm"
 	"edu-platform/internal/domain/operations"
 	"edu-platform/internal/domain/project"
 	"edu-platform/internal/domain/publishing"
@@ -47,6 +48,9 @@ func New(deps app.Dependencies) *gin.Engine {
 	projectService := project.NewService(deps.DB, deps.Logger)
 	labService := lab.NewService(deps.DB, deps.Logger, deps.Config, deps.K8S, deps.K8SRest)
 	agentAIClient := agent.NewAIClient(deps.Config.Qwen, deps.Logger)
+	modelSettings := llm.NewStore(filepath.Join(filepath.Dir(uploadRoot), ".settings"), deps.Config.Qwen)
+	agentAIClient.SetConfigResolver(modelSettings.Resolve)
+	modelSettingsHandler := httptransport.NewLLMSettingsHandler(modelSettings, deps.Logger)
 	agentService := agent.NewService(deps.DB, deps.Logger, agentAIClient)
 	agentService.SetRuntimeBridge(labService)
 	teacherService := teacher.NewService(deps.DB, deps.Logger)
@@ -75,6 +79,7 @@ func New(deps app.Dependencies) *gin.Engine {
 	uploadHandler := upload.NewHandler(deps.Config)
 	healthHandler := httptransport.NewHealthHandler(deps)
 	integrationsHandler := httptransport.NewIntegrationsHandler(deps, labService)
+	integrationsHandler.SetModelSettings(modelSettings)
 	adminSettingsHandler := httptransport.NewAdminSettingsHandler(deps.Config)
 	terminalHandler := wstransport.NewTerminalHandler(jwtManager, labService, deps.Config, tokenBlacklist)
 
@@ -403,6 +408,9 @@ func New(deps app.Dependencies) *gin.Engine {
 		adminGroup.GET("/integrations/health", integrationsHandler.IntegratedHealth)
 		adminGroup.GET("/integrations/config/summary", integrationsHandler.ConfigSummary)
 		adminGroup.GET("/settings", adminSettingsHandler.Get)
+		adminGroup.GET("/model-settings", modelSettingsHandler.Get)
+		adminGroup.PUT("/model-settings", modelSettingsHandler.Save)
+		adminGroup.POST("/model-settings/test", modelSettingsHandler.Test)
 		adminGroup.GET("/ai-settings", assignmentHandler.GetAdminAISettings)
 		adminGroup.PATCH("/ai-settings", assignmentHandler.UpdateAdminAISettings)
 		adminGroup.GET("/rbac/policies", integrationsHandler.RBACPolicies)

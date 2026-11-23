@@ -174,6 +174,14 @@ VITE_DIFY_CHATBOT_TOKEN_EN=<英文公开 Chatbot ID>
 
 这些变量在 `npm run build` 时写入静态 JS。只修改服务器 Go `.env` 不会改变 iframe，必须重新构建前端。
 
+### 5.5 管理端大模型配置
+
+新增 `/admin/settings` 大模型服务配置，支持 OpenAI 兼容的供应商、模型、密钥与连接测试。保存后新请求立即生效，不需要重启或继续配置模型环境变量；Dify 模型仍在 Dify 平台管理。
+
+默认配置和加密主密钥位于 `/var/www/edu-backend-go/current/public/.settings/`，必须成对备份 `llm.json` 与 `llm.key`。目录不可公开映射；构建脚本排除该目录，部署脚本保留它。35、42 的配置独立，不随数据库同步。尚未保存时兼容原有 Qwen 环境变量，主动清除密钥后不会回退旧变量。
+
+权限、协议、备份及故障恢复细节见 [MODEL-SERVICE-CONFIGURATION.md](MODEL-SERVICE-CONFIGURATION.md)。
+
 ## 6. 发布前检查与干净工作树
 
 ```bash
