@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, FlaskConical, Loader2, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { PageDialog } from '@/components/common/PageDialog';
+import { ToolbarSelect } from '@/components/common/ToolbarControls';
 import { adminSettingsService, type ModelSettings as ModelConfig, type ModelSettingsInput } from '@/services/adminSettings';
 
 const presets = [
@@ -90,11 +91,20 @@ export default function ModelSettings() {
             {dirty && <span className="text-warning-700">{t('unsaved')}</span>}
           </div>
           <fieldset disabled={!!busy} className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="grid min-w-0 gap-2 text-sm font-medium">{t('provider')}
-              <select value={form.provider} onChange={(e) => { const preset = presets.find((p) => p.id === e.target.value)!; change({ provider: preset.id, baseUrl: preset.url, model: '', apiKey: '' }); }} className={fieldClass}>
-                {presets.map((p) => <option key={p.id} value={p.id}>{p.label || t('custom')}</option>)}
-              </select>
-            </label>
+            <div className="grid min-w-0 gap-2 text-sm font-medium">
+              <span>{t('provider')}</span>
+              <ToolbarSelect
+                ariaLabel={t('provider')}
+                value={form.provider}
+                options={presets.map((p) => ({ key: p.id, label: p.label || t('custom') }))}
+                isDisabled={!!busy}
+                onChange={(value) => {
+                  const preset = presets.find((p) => p.id === value);
+                  if (!preset || value === form.provider) return;
+                  change({ provider: preset.id, baseUrl: preset.url, model: '', apiKey: '' });
+                }}
+              />
+            </div>
             <label className="grid min-w-0 gap-2 text-sm font-medium">{t('model')}
               <input required maxLength={200} value={form.model} onChange={(e) => change({ model: e.target.value })} autoComplete="off" spellCheck={false} className={fieldClass} />
             </label>
