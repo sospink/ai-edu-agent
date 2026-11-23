@@ -72,6 +72,16 @@ func TestIDEURLsOpenSharedWorkspaceWithSessionAccess(t *testing.T) {
 	}
 }
 
+func TestServiceProxyRejectsTraversalBeforeKubernetesRequest(t *testing.T) {
+	s := &Service{}
+	for _, suffix := range []string{"/../../secrets", "/%2e%2e/secrets", "/%252e%252e/secrets", "/assets/./file", "/assets/%2f../secrets", "/assets/..\\secrets"} {
+		_, err := s.ServiceProxyURL(1, "app-workbench", suffix, "")
+		if err == nil || !strings.Contains(err.Error(), "目录跳转") {
+			t.Fatalf("unsafe suffix not rejected: %s %v", suffix, err)
+		}
+	}
+}
+
 func TestRewriteVNCWebsockifyAuthPreservesAbsoluteProxyPath(t *testing.T) {
 	raw := "/api/lab/proxy/143/novnc/vnc.html?resize=scale&autoconnect=true&path=%2Fapi%2Flab%2Fproxy%2F143%2Fnovnc%2Fwebsockify"
 

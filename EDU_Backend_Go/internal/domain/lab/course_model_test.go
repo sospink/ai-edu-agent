@@ -15,6 +15,7 @@ import (
 	"edu-platform/internal/domain/course"
 	"edu-platform/internal/domain/llm"
 	"edu-platform/internal/domain/operations"
+	"edu-platform/internal/domain/publishing"
 	"edu-platform/internal/domain/user"
 	appjwt "edu-platform/pkg/jwt"
 	"github.com/gin-gonic/gin"
@@ -97,6 +98,20 @@ func TestCourseGatewayScopesAndRevocation(t *testing.T) {
 	}
 	if url := g.lab.BuildURLs(s).IDEURL; !strings.Contains(url, "%2Fworkspace%2Fprompt-workbench") {
 		t.Fatal(url)
+	}
+	s.AppPorts = []publishing.LabTemplateAppPort{{Name: "workbench", ContainerPort: 8000}}
+	target, ok := resolveProxyTarget(s, "app-workbench")
+	if !ok {
+		t.Fatal("course app target not resolved")
+	}
+	access, err := g.lab.courseProxyAccessToken(s, target)
+	if err != nil || access != token {
+		t.Fatalf("app proxy did not receive its session access token: %v", err)
+	}
+	for _, other := range []string{"workbench", "ide", "novnc"} {
+		if access, err := g.lab.courseProxyAccessToken(s, other); err != nil || access != "" {
+			t.Fatalf("credential attached to unrelated target %s", other)
+		}
 	}
 	if err = g.lab.db.Model(s).Update("status", SessionStatusStopped).Error; err != nil {
 		t.Fatal(err)

@@ -75,6 +75,16 @@ func (s *Service) WorkspaceExecCommand(session *UserLabSession, command []string
 	return command
 }
 
+func (s *Service) courseProxyAccessToken(session *UserLabSession, target string) (string, error) {
+	if target != appPortName("workbench") || s.WorkspaceDirectory(session) == "" {
+		return "", nil
+	}
+	if s.courseModel == nil {
+		return "", errors.New("课程访问配置不可用")
+	}
+	return s.courseModel.token(session)
+}
+
 func (g *CourseModelGateway) signingKey() []byte {
 	key := sha256.Sum256([]byte("agent-edu/course-model/v1\x00" + g.lab.cfg.JWT.Secret + "\x00" + g.lab.cfg.K8S.RuntimeNamespace))
 	return key[:]

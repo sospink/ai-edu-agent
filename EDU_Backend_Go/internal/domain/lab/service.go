@@ -622,6 +622,25 @@ func (s *Service) StreamExec(
 }
 
 func (s *Service) ServiceProxyURL(sessionID uint64, target, suffix, rawQuery string) (*url.URL, error) {
+	decoded := suffix
+	for pass := 0; pass < 4; pass++ {
+		for _, segment := range strings.Split(strings.ReplaceAll(decoded, "\\", "/"), "/") {
+			if segment == "." || segment == ".." {
+				return nil, errors.New("代理路径不能包含目录跳转")
+			}
+		}
+		next, err := url.PathUnescape(decoded)
+		if err != nil {
+			break
+		}
+		if next == decoded {
+			break
+		}
+		decoded = next
+		if pass == 3 {
+			return nil, errors.New("代理路径编码层级无效")
+		}
+	}
 	if s.k8s == nil {
 		return nil, errors.New("K8S client 未启用")
 	}
