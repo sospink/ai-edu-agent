@@ -17,6 +17,7 @@ type options struct {
 	Assets, Image, IDEImage string
 	CreatorID               uint64
 	DryRun, Publish         bool
+	RepairLegacyStepOrder   bool
 }
 
 func main() {
@@ -27,6 +28,7 @@ func main() {
 	flag.Uint64Var(&o.CreatorID, "creator-id", 0, "已有启用教师或管理员 ID（必填）")
 	flag.BoolVar(&o.DryRun, "dry-run", false, "仅校验素材，不连接数据库、不写文件")
 	flag.BoolVar(&o.Publish, "publish", false, "通过既有发布检查后发布手册和课程")
+	flag.BoolVar(&o.RepairLegacyStepOrder, "repair-legacy-step-order", false, "显式迁移本课程旧 1-based 步骤及关联进度，保留实体 ID")
 	flag.Parse()
 	if err := run(context.Background(), o); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -43,7 +45,7 @@ func run(ctx context.Context, o options) error {
 		return err
 	}
 	if o.DryRun {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{"slug": slug, "dryRun": true, "steps": len(a.Steps["zh-CN"]), "files": len(a.Files), "publishRequested": o.Publish, "说明": "仅完成离线素材校验，数据库权限、已有 ID 和发布检查尚未执行"})
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"slug": slug, "dryRun": true, "steps": len(a.Steps["zh-CN"]), "files": len(a.Files), "publishRequested": o.Publish, "repairLegacyStepOrderRequested": o.RepairLegacyStepOrder, "说明": "仅完成离线素材校验，数据库权限、旧步骤迁移资格、已有 ID 和发布检查尚未执行"})
 	}
 	cfg, err := config.Load()
 	if err != nil {

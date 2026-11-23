@@ -24,16 +24,18 @@ const titleZH = "大语言模型基础与应用实训：提示词工作台"
 const titleEN = "LLM Foundations: Prompt Workbench"
 
 type summary struct {
-	CourseID         uint64   `json:"courseId"`
-	StageID          uint64   `json:"stageId"`
-	LessonIDs        []uint64 `json:"lessonIds"`
-	ManualID         uint64   `json:"manualId"`
-	StepIDs          []uint64 `json:"stepIds"`
-	TemplateID       uint64   `json:"templateId"`
-	MaterialID       uint64   `json:"materialId"`
-	Created, Updated int
-	Published        bool   `json:"published"`
-	AssetRevision    string `json:"assetRevision"`
+	CourseID              uint64   `json:"courseId"`
+	StageID               uint64   `json:"stageId"`
+	LessonIDs             []uint64 `json:"lessonIds"`
+	ManualID              uint64   `json:"manualId"`
+	StepIDs               []uint64 `json:"stepIds"`
+	TemplateID            uint64   `json:"templateId"`
+	MaterialID            uint64   `json:"materialId"`
+	Created, Updated      int
+	Published             bool           `json:"published"`
+	AssetRevision         string         `json:"assetRevision"`
+	StepOrderRepaired     bool           `json:"stepOrderRepaired"`
+	StepOrderRepairCounts map[string]int `json:"stepOrderRepairCounts,omitempty"`
 }
 
 func assetRevision(a *assets) string {
@@ -179,21 +181,12 @@ func seed(ctx context.Context, db *gorm.DB, uploadRoot string, o options, a *ass
 				return err
 			}
 			out.ManualID = manual.ID
-			var oldSteps []agent.AgentStep
-			if err := tx.Where("manual_id = ?", manual.ID).Order("step_order").Find(&oldSteps).Error; err != nil {
-				return fmt.Errorf("读取原步骤失败")
-			}
-			if len(oldSteps) != 0 && len(oldSteps) != len(a.Steps["zh-CN"]) {
-				return fmt.Errorf("已有步骤数量与素材不同，拒绝删除或重建，请人工迁移")
-			}
-			for i, s := range oldSteps {
-				if s.StepOrder != i+1 {
-					return fmt.Errorf("已有步骤排序不连续，拒绝重建")
-				}
+			if err := ensureStepOrder(tx, manual.ID, len(a.Steps["zh-CN"]), o.RepairLegacyStepOrder, out); err != nil {
+				return err
 			}
 			for i, s := range a.Steps["zh-CN"] {
-				step := agent.AgentStep{ManualID: manual.ID, StepOrder: s.StepOrder, Title: s.Title, Content: s.Content, QuickQuestions: s.QuickQuestions, Verification: s.Verification}
-				if err := put(tx, map[string]any{"manual_id": manual.ID, "step_order": s.StepOrder}, &step, []string{"Title", "Content", "QuickQuestions", "Verification"}, out); err != nil {
+				step := agent.AgentStep{ManualID: manual.ID, StepOrder: i, Title: s.Title, Content: s.Content, QuickQuestions: s.QuickQuestions, Verification: s.Verification}
+				if err := put(tx, map[string]any{"manual_id": manual.ID, "step_order": i}, &step, []string{"Title", "Content", "QuickQuestions", "Verification"}, out); err != nil {
 					return err
 				}
 				out.StepIDs = append(out.StepIDs, step.ID)

@@ -47,17 +47,32 @@ manuals/steps.en-US.json
 }
 ```
 
-顺序必须从 1 连续递增；也支持所有步骤均省略 `stepOrder`（按数组顺序分配），不能部分省略。拒绝未知字段、重复排序、空标题/内容、尾随 JSON。双语数量、内容块类型/语言/可执行标识、列表项数量、快捷问题数量必须一致；验证规则必须完全一致，因为平台只有一份主步骤验证规则。`custom.command` 在没有 `script` 时同步填入 `script`，兼容现有运行时和发布检查。可带 `skillTags`，但当前 CLI 不维护步骤技能标签表，只维护上述课程课时技能关联。
+JSON 展示顺序必须从 1 连续递增；也支持所有步骤均省略 `stepOrder`（按数组顺序分配），不能部分省略。**数据库 `AgentStep.StepOrder` 始终写为数组索引 0..n-1**，与 AgentWidget、VerifyStep 和 CompleteStep 的现有契约一致，不能直接使用 JSON 展示序号。拒绝未知字段、重复排序、空标题/内容、尾随 JSON。双语数量、内容块类型/语言/可执行标识、列表项数量、快捷问题数量必须一致；验证规则必须完全一致，因为平台只有一份主步骤验证规则。`custom.command` 在没有 `script` 时同步填入 `script`，兼容现有运行时和发布检查。可带 `skillTags`，但当前 CLI 不维护步骤技能标签表，只维护上述课程课时技能关联。
 
 四个文件复制到 `cfg.Upload.Root/prompt-workbench/<内容摘要>/` 下保留相对目录；Markdown 主素材及双语翻译分别指向 `/uploads/prompt-workbench/<内容摘要>/materials/theory.<locale>.md`。内容寻址加单文件原子替换确保失败不破坏旧课程文件；失败可能留下无引用的版本目录，不自动清理。
 
 ## 重跑边界
 
-课程 slug、阶段/课时 sort_order、手册 source、步骤 step_order、翻译 entity_id+locale 是稳定键。重跑保留实体 ID，不删除任何记录，不碰用户进度。步骤数量变化、已有结构冲突、重复自然键会报错回滚，需人工迁移；同数量内按顺序更新，调用者应保持步骤语义顺序，避免将已完成进度映射到另一任务。
+课程 slug、阶段/课时 sort_order、手册 source、步骤 step_order、翻译 entity_id+locale 是稳定键。正常重跑保留实体 ID，不删除任何记录，不碰用户进度。步骤数量变化、已有结构冲突、重复自然键会报错回滚，需人工迁移；同数量内按顺序更新，调用者应保持步骤语义顺序，避免将已完成进度映射到另一任务。
 
 已有非草稿课程在不带 `--publish` 时拒绝修改，避免隐式下架或绕过发布检查。教师只能更新自己的课程，管理员可更新；专用模板若被其他课程或项目引用则拒绝修改。MySQL 使用同连接命名锁串行化本 CLI 的并发运行，平台编辑器不使用该锁，运行时应避免同时编辑本课程。
 
 成功输出 JSON，含课程、阶段、课时、素材、模板、手册、步骤 ID，以及新建数、更新处理数（包含值未变化的行）、素材摘要、发布状态；不输出凭证或镜像值。
+
+## 旧步骤排序修复
+
+新增 `--repair-legacy-step-order`。仅在所属课程 slug 严格为 `prompt-workbench`、现有步骤数量匹配素材且排序严格为 1..n 时执行迁移；未带参数会拒绝旧数据。混合索引、缺号、重复号不猜测修复。已经是 0..n-1 时该参数不做迁移，因此再次执行不会重复扣减进度。
+
+沿用原入库参数，已发布课程需同时带 `--publish --repair-legacy-step-order`；发布检查失败则连同修复一起回滚。`--dry-run` 仍然只校验文件，不连接数据库、不检查迁移资格。实际执行前由操作者备份数据库，并暂停该手册的编辑、聊天和进度写入。
+
+迁移与整个 seed 共用事务，按原步骤 ID 左移索引，不删重建；manual/step/translation ID、翻译 entityID、聊天会话和消息 ID 均保留。只处理本 manual：
+
+- `user_agent_progress`：`CompletedSteps` 中 >=1 的值减一，0 保留，再排序去重；`CurrentStep=max(0,old-1)`。
+- `agent_step_attempts`、`agent_learning_events`、`agent_chat_sessions`、`agent_faq_items`、`lab_terminal_events`：`step_order>=1` 减一，0 保留。
+- 若带 `step_id`，须验证其归属和索引对应关系；聊天会话 `(user_id,manual_id,step_order)` 迁移后冲突、越界索引或缺表时整笔报错回滚，不合并历史。
+- 不修改消息、问题、答案、命令、输出、证据 JSON 和其他原始文本，也不改仅以 stepID 关联而没有数值步骤列的记录。
+
+结果新增 `stepOrderRepaired` 和 `stepOrderRepairCounts`（各表处理数量），不输出用户进度内容。
 
 ## 验证
 
