@@ -99,7 +99,7 @@
     ],
     "verification": {
       "type": "custom",
-      "command": "cd /workspace/prompt-workbench && /opt/venvs/prompt-workbench/bin/python - <<'PY'\nimport json, urllib.request\ndef get(path):\n    with urllib.request.urlopen(\"http://127.0.0.1:8000/api/\" + path, timeout=10) as r:\n        return json.load(r)\nrecords=get(\"experiments\")\nassert records, \"no real experiment yet\"\ne=records[0]\nassert e[\"source\"] == \"live\" and e[\"requestId\"] and e[\"model\"] and e[\"createdAt\"]\nassert isinstance(e[\"latencyMs\"], (int,float)) and e[\"latencyMs\"] >= 0\nassert isinstance(e[\"response\"],str) and isinstance(e[\"validation\"],dict)\nassert e[\"prompt\"][\"input\"] and \"usage\" in e\nprint(\"live record shape verified; instructor must correlate request ID:\",e[\"id\"])\nPY"
+      "command": "cd /workspace/prompt-workbench && /opt/venvs/prompt-workbench/bin/python - <<'PY'\nimport json, urllib.request\ndef get(path):\n    with urllib.request.urlopen(\"http://127.0.0.1:8000/api/\" + path, timeout=10) as r:\n        return json.load(r)\nrecords=get(\"experiments\")\nassert records, \"no real experiment yet\"\ne=records[0]\nassert e[\"source\"] == \"live\" and e[\"requestId\"] and e[\"model\"] and e[\"createdAt\"]\nassert isinstance(e[\"latencyMs\"], (int,float)) and e[\"latencyMs\"] >= 0\nassert isinstance(e[\"response\"],str) and isinstance(e[\"validation\"],dict)\nassert e[\"prompt\"][\"input\"] and \"usage\" in e\nprint(\"live record shape verified; instructor must correlate request ID:\",e[\"requestId\"])\nPY"
     }
   },
   {

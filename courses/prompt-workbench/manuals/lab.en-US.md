@@ -136,7 +136,7 @@ assert e["source"] == "live" and e["requestId"] and e["model"] and e["createdAt"
 assert isinstance(e["latencyMs"], (int,float)) and e["latencyMs"] >= 0
 assert isinstance(e["response"],str) and isinstance(e["validation"],dict)
 assert e["prompt"]["input"] and "usage" in e
-print("live record shape verified; instructor must correlate request ID:",e["id"])
+print("live record shape verified; instructor must correlate request ID:",e["requestId"])
 PY
 ~~~
 

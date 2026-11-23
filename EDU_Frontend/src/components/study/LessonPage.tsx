@@ -941,8 +941,8 @@ const LessonPage: React.FC = () => {
 
   // 从 URL 参数获取技能名称、课时名称、课程 ID
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const skillName = searchParams.get('skillName') || t('defaultSkill');
-  const lessonName = searchParams.get('lessonName') || '';
+  const querySkillName = searchParams.get('skillName') || t('defaultSkill');
+  const queryLessonName = searchParams.get('lessonName') || '';
   const queryCourseId = searchParams.get('courseId');
   const initialCourseId = queryCourseId ? parseInt(queryCourseId, 10) : NaN;
 
@@ -960,8 +960,11 @@ const LessonPage: React.FC = () => {
   const [assistantIframeLoaded, setAssistantIframeLoaded] = useState(false);
   const [courseId, setCourseId] = useState<number | null>(Number.isNaN(initialCourseId) ? null : initialCourseId);
   const [courseTitle, setCourseTitle] = useState('');
+  const [localizedLessonTitle, setLocalizedLessonTitle] = useState('');
   const [courseDescription, setCourseDescription] = useState('');
   const [difyIframeSrc, setDifyIframeSrc] = useState('');
+  const skillName = courseTitle || querySkillName;
+  const lessonName = localizedLessonTitle || queryLessonName;
 
   // 完成实验相关状态
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
@@ -1118,6 +1121,7 @@ const LessonPage: React.FC = () => {
 
   // 加载课程上下文（用于 Dify 动态开场）
   useEffect(() => {
+    let cancelled = false;
     const fetchCourseContext = async () => {
       const lessonNumber = lessonId ? parseInt(lessonId, 10) : NaN;
       if (!lessonId || Number.isNaN(lessonNumber)) return;
@@ -1125,17 +1129,17 @@ const LessonPage: React.FC = () => {
       let resolvedCourseId = Number.isNaN(initialCourseId) ? null : initialCourseId;
 
       try {
-        if (!resolvedCourseId) {
-          const lessonResponse = await courseApi.getLessonById(lessonNumber);
-          if (lessonResponse.success && lessonResponse.data) {
-            resolvedCourseId = lessonResponse.data.courseId;
-          }
+        const lessonResponse = await courseApi.getLessonById(lessonNumber);
+        if (cancelled) return;
+        if (lessonResponse.success && lessonResponse.data) {
+          resolvedCourseId = lessonResponse.data.courseId;
+          setLocalizedLessonTitle(lessonResponse.data.title || '');
         }
 
         if (!resolvedCourseId) return;
 
         const courseResponse = await courseApi.getById(resolvedCourseId);
-        if (!courseResponse.success || !courseResponse.data) return;
+        if (cancelled || !courseResponse.success || !courseResponse.data) return;
 
         setCourseId(resolvedCourseId);
         setCourseTitle(courseResponse.data.title || '');
@@ -1146,6 +1150,7 @@ const LessonPage: React.FC = () => {
     };
 
     fetchCourseContext();
+    return () => { cancelled = true; };
   }, [lessonId, initialCourseId, i18n.language]);
 
   useEffect(() => {
