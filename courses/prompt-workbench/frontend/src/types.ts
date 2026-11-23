@@ -1,3 +1,5 @@
+import { getCurrentLocale } from "./locale";
+
 export interface Prompt {
   instruction: string;
   context: string;
@@ -47,6 +49,15 @@ export interface Experiment {
 export type Translate = (zh: string, en: string) => string;
 
 export function newPrompt(): Prompt {
+  if (getCurrentLocale() === "en") {
+    return {
+      instruction: "You are a campus cloud operations assistant. Extract structured incident information using only the original report. Do not infer a root cause.",
+      context: "Support campus cloud service operators. The report may omit the service name, incident time or error details; list missing information in missing_fields.",
+      input: "",
+      outputRequirements: "Return only a JSON object with exactly service:string, symptom:string, evidence:string[], missing_fields:string[]. No extra fields. service and symptom must not be empty. Every evidence item must quote the original input exactly.",
+      maxTokens: 4096,
+    };
+  }
   return {
     instruction:
       "你是校园云服务运维助手。请将报障内容整理为结构化信息，只依据原文，不猜测原因。",
