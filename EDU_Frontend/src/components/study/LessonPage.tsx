@@ -28,7 +28,8 @@ import {
 } from 'lucide-react';
 import { materialApi, type LessonMaterial } from '@/services/course';
 import { courseApi } from '@/services/course';
-import { getDifyChatbotUrlEncoded, getStaticUrl } from '@/config';
+import { getStaticUrl } from '@/config';
+import HarnessFrame from './HarnessFrame';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -934,7 +935,6 @@ const MaterialTabs: React.FC<MaterialTabsProps> = ({ materials, currentIndex, on
 // 主组件
 const LessonPage: React.FC = () => {
   const { t, i18n } = useTranslation('lesson');
-  const currentLocale = i18n.resolvedLanguage || i18n.language || 'zh-CN';
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -957,12 +957,8 @@ const LessonPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [markdownContent, setMarkdownContent] = useState<string>('');
   const [loadingContent, setLoadingContent] = useState(false);
-  const [assistantIframeLoaded, setAssistantIframeLoaded] = useState(false);
-  const [courseId, setCourseId] = useState<number | null>(Number.isNaN(initialCourseId) ? null : initialCourseId);
   const [courseTitle, setCourseTitle] = useState('');
   const [localizedLessonTitle, setLocalizedLessonTitle] = useState('');
-  const [courseDescription, setCourseDescription] = useState('');
-  const [difyIframeSrc, setDifyIframeSrc] = useState('');
   const skillName = courseTitle || querySkillName;
   const lessonName = localizedLessonTitle || queryLessonName;
 
@@ -1119,7 +1115,7 @@ const LessonPage: React.FC = () => {
     fetchMaterials();
   }, [lessonId, i18n.language]);
 
-  // 加载课程上下文（用于 Dify 动态开场）
+  // 从课程 API 加载当前语言的规范标题。
   useEffect(() => {
     let cancelled = false;
     const fetchCourseContext = async () => {
@@ -1141,9 +1137,7 @@ const LessonPage: React.FC = () => {
         const courseResponse = await courseApi.getById(resolvedCourseId);
         if (cancelled || !courseResponse.success || !courseResponse.data) return;
 
-        setCourseId(resolvedCourseId);
         setCourseTitle(courseResponse.data.title || '');
-        setCourseDescription(courseResponse.data.description || '');
       } catch (err) {
         console.warn('[LessonPage] 加载课程上下文失败:', err);
       }
@@ -1152,47 +1146,6 @@ const LessonPage: React.FC = () => {
     fetchCourseContext();
     return () => { cancelled = true; };
   }, [lessonId, initialCourseId, i18n.language]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const buildDifyUrl = async () => {
-      const shortCourseDesc = courseDescription.length > 320
-        ? `${courseDescription.slice(0, 320)}...`
-        : courseDescription;
-      const difyUserId = courseId && lessonId
-        ? `course-${courseId}-lesson-${lessonId}`
-        : undefined;
-
-      const url = await getDifyChatbotUrlEncoded({
-        'sys.user_id': difyUserId,
-        course_id: courseId ?? undefined,
-        course_title: courseTitle || undefined,
-        course_desc: shortCourseDesc || undefined,
-        skill_name: skillName || undefined,
-        lesson_name: lessonName || undefined,
-      }, currentLocale);
-
-      if (!cancelled) {
-        setDifyIframeSrc(url);
-      }
-    };
-
-    buildDifyUrl().catch((err) => {
-      console.warn('[LessonPage] 生成 Dify URL 失败:', err);
-      if (!cancelled) {
-        setDifyIframeSrc('');
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [courseDescription, courseId, courseTitle, currentLocale, lessonId, lessonName, skillName]);
-
-  useEffect(() => {
-    setAssistantIframeLoaded(false);
-  }, [difyIframeSrc]);
 
   // 加载 Markdown 内容
   useEffect(() => {
@@ -1529,40 +1482,9 @@ const LessonPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* 右侧面板：AI 智能体教师 */}
-      <div className="flex-1 relative h-full bg-slate-100 overflow-hidden">
-        <div className="relative h-full overflow-hidden">
-          {!difyIframeSrc && (
-            <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500 px-6 text-center">
-              {t('difyMissing')}
-            </div>
-          )}
-          {difyIframeSrc && (
-            <>
-              {!assistantIframeLoaded && (
-                <div className="absolute inset-0 bg-slate-100" />
-              )}
-              <iframe
-                key={difyIframeSrc}
-                src={difyIframeSrc}
-                className="absolute inset-0 block w-full border-0"
-                style={{
-                  // Dify 在较低 iframe 视口时会裁切首条头像，这里做纵向缩放+高度补偿规避裁切
-                  height: '105.26%',
-                  transform: 'scaleY(0.95)',
-                  transformOrigin: 'top',
-                  pointerEvents: isDragging ? 'none' : 'auto',
-                  opacity: assistantIframeLoaded ? 1 : 0,
-                  transition: 'opacity 0.2s ease',
-                  background: '#f1f5f9',
-                }}
-                onLoad={() => setAssistantIframeLoaded(true)}
-                allow="microphone"
-                title={t('aiTeacher')}
-              />
-            </>
-          )}
-        </div>
+      {/* 右侧面板：官方 Harness 工作区 */}
+      <div className="flex-1 min-w-0 relative h-full overflow-hidden" style={{ pointerEvents: isDragging ? 'none' : 'auto' }}>
+        {lessonId && <HarnessFrame lessonId={lessonId} />}
       </div>
       </div>
 

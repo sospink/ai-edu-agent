@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,7 @@ import (
 	"edu-platform/internal/domain/auth"
 	"edu-platform/internal/domain/classroom"
 	"edu-platform/internal/domain/course"
+	"edu-platform/internal/domain/courseharness"
 	"edu-platform/internal/domain/lab"
 	"edu-platform/internal/domain/learning"
 	"edu-platform/internal/domain/llm"
@@ -62,6 +64,16 @@ func New(deps app.Dependencies) *gin.Engine {
 	assignmentService.SetAIClient(agentAIClient)
 	assignmentService.SetOperationsService(operationsService)
 	tokenBlacklist := authz.NewTokenBlacklist(deps.Redis, deps.Logger)
+	if err := tokenBlacklist.SetLocalStore(filepath.Join(filepath.Dir(uploadRoot), ".settings", "auth-revocations.json")); err != nil {
+		panic("无法初始化登录撤销存储")
+	}
+	courseHarnessHandler := courseharness.NewHandler(deps.DB, courseService, modelSettings, uploadRoot, deps.Config.Server.Port, deps.Logger, func(ctx context.Context, token string) bool {
+		if _, err := jwtManager.ParseToken(token); err != nil {
+			return false
+		}
+		revoked, err := tokenBlacklist.IsRevoked(ctx, token)
+		return err == nil && !revoked
+	})
 
 	userHandler := user.NewHandler(userService)
 	authHandler := auth.NewHandler(authService, userService, tokenBlacklist)
@@ -99,6 +111,11 @@ func New(deps app.Dependencies) *gin.Engine {
 		api.GET("/version", healthHandler.Version)
 		api.GET("/course-model/v1/models", courseModelGateway.Models)
 		api.POST("/course-model/v1/chat/completions", courseModelGateway.Chat)
+		api.POST("/course-harness/lessons/:lessonId/session", authMiddleware, courseHarnessHandler.Session)
+		api.POST("/course-harness/sessions/:id/stop", authMiddleware, courseHarnessHandler.Stop)
+		api.Any("/course-harness/proxy/:id/*path", courseHarnessHandler.Proxy)
+		api.GET("/course-harness/model/:id/v1/models", courseHarnessHandler.Models)
+		api.POST("/course-harness/model/:id/v1/chat/completions", courseHarnessHandler.Chat)
 
 		authGroup := api.Group("/auth")
 		authGroup.POST("/login", authHandler.Login)
