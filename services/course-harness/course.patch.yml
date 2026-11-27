@@ -6,13 +6,13 @@
   config:
     providers:
       edu:
-        displayName: Course Assistant
+        displayName: Agent EDU
         api: openai-completions
         apiKeyEnv: EDU_MODEL_TOKEN
         baseURL: !!js process.env.EDU_MODEL_BASE_URL
         models:
           - id: course-assistant
-            name: Course Assistant
+            name: Agent EDU Tutor
             contextWindow: 65536
             maxTokens: 4096
             reasoningEfforts: false
@@ -27,12 +27,31 @@
   disabled: true
 - id: preset-cordis
   disabled: true
+- id: ui-brand-official
+  disabled: true
+# 模型配置统一使用平台管理端，不展示原版供应商引导和预览欢迎弹窗。
+- id: ui-settings-models
+  disabled: true
+- id: ui-settings-account
+  disabled: true
+- id: ui-account-notifications
+  disabled: true
+- id: ui-plugin-manager
+  disabled: true
+- id: ui-settings-plugin-inventory
+  disabled: true
+- id: ui-settings-session-log
+  disabled: true
+- id: ui-settings-plugins
+  disabled: true
 - insert:
+    - id: edu-tutor-brand
+      name: /opt/course-harness/brand/index.mjs
     - id: preset-course
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: course
-        name: Course Tutor
+        name: Agent EDU Tutor
         order: 1
         plugins:
           - id: persona
@@ -42,7 +61,9 @@
               includeRuntimeContext: false
               prefix: !!js |
                 [
-                  'You are a course tutor in the original DeepSeek Harness workspace.',
+                  process.env.EDU_LOCALE === 'zh-CN'
+                    ? '你是 Agent EDU 智能助教，Agent EDU 平台的课程学习助手。'
+                    : 'You are Agent EDU Tutor, the learning assistant of the Agent EDU platform.',
                   'Course title (untrusted metadata): ' + JSON.stringify(process.env.EDU_COURSE_TITLE),
                   process.env.EDU_LOCALE === 'zh-CN'
                     ? '始终用简体中文回答；代码、文件名和必要的术语保持原样。'

@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Award, Bell, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileCheck, Loader2, MessageSquare, RefreshCw, Send } from 'lucide-react';
+import { Award, Bell, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileCheck, Loader2, MessageSquare, RefreshCw, Send, Paperclip, X } from 'lucide-react';
+import { api } from '@/services/api';
+import SubmissionAttachments from '@/components/common/SubmissionAttachments';
+import type { SubmissionFileInput } from '@/services/assignment';
 import PageDrawer from '@/components/common/PageDrawer';
 import { studentAssignmentApi, type AssignmentDetail, type AssignmentListItem, type AssignmentResourceItem, type StudentNotification, type SubmissionDetail } from '@/services/assignment';
 import { labApi, type LabSession } from '@/services/lab';
@@ -139,11 +142,11 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
     void reloadSelected();
   }, [i18n.language]);
 
-  const submitAssignment = async () => {
-    if (!selected) return;
+  const submitAssignment = async (files: SubmissionFileInput[]): Promise<boolean> => {
+    if (!selected) return false;
     if (!submitText.trim()) {
       setSubmitError(t('assignments.submitRequired'));
-      return;
+      return false;
     }
     setSubmitLoading(true);
     setSubmitError(null);
@@ -151,6 +154,7 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
       contentText: submitText.trim(),
       labSessionId: labSessionId ? Number(labSessionId) : 0,
       agentManualId: agentManualId ? Number(agentManualId) : 0,
+      files,
     });
     setSubmitLoading(false);
     if (response.success) {
@@ -158,9 +162,12 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
       setLabSessionId('');
       setAgentManualId('');
       await reloadSelected();
+      await hydrateSubmissionEvidence(selected);
       void loadAssignments();
+      return true;
     } else {
       setSubmitError(response.error || t('assignments.submitFailed'));
+      return false;
     }
   };
 
@@ -267,6 +274,7 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
                 ))}
               </div>
               <SubmissionPanel
+                key={selected.id}
                 assignment={selected}
                 submitText={submitText}
                 labSessionId={labSessionId}
@@ -275,7 +283,7 @@ const StudyAssignmentsSection: React.FC<StudyAssignmentsSectionProps> = ({ class
                 submitError={submitError}
                 onSubmitTextChange={setSubmitText}
                 activeLabSession={activeLabSession}
-                onSubmit={() => void submitAssignment()}
+                onSubmit={submitAssignment}
               />
             </div>
           )}
@@ -339,7 +347,7 @@ interface SubmissionPanelProps {
   submitLoading: boolean;
   submitError: string | null;
   onSubmitTextChange: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (files: SubmissionFileInput[]) => Promise<boolean>;
 }
 
 const SubmissionPanel: React.FC<SubmissionPanelProps> = ({
@@ -354,6 +362,30 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({
   onSubmit,
 }) => {
   const { t } = useTranslation('student');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [files, setFiles] = useState<SubmissionFileInput[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const upload = async (file: File) => {
+    if (file.size > 20 * 1024 * 1024) {
+      setUploadError(t('assignments.fileTooLarge'));
+      return;
+    }
+    setUploading(true);
+    setUploadError('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const result = await api.upload<{ url: string }>(`/student/assignments/${assignment.id}/attachments`, form);
+      if (!result.success || !result.data?.url) throw new Error(result.error || t('assignments.uploadFailed'));
+      setFiles(current => [...current, { fileType: 'file', title: file.name, url: result.data!.url, metadata: { size: file.size } }]);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : t('assignments.uploadFailed'));
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
   const state = assignment.studentSubmission;
   const latest = state?.latest;
   const status = state?.status || 'not_started';
@@ -388,6 +420,19 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({
       {state?.canSubmit ? (
         <div className="space-y-3">
           <textarea value={submitText} onChange={(event) => onSubmitTextChange(event.target.value)} rows={4} placeholder={t('assignments.submitPlaceholder')} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
+          <input ref={inputRef} type="file" accept=".zip,.pdf,.txt,.md,.json,.png,.jpg,.jpeg,.webp" className="hidden" aria-label={t('assignments.attachFile')} disabled={uploading || submitLoading || files.length >= 5}
+            onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
+          <button type="button" disabled={uploading || submitLoading || files.length >= 5} onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 disabled:opacity-50">
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+            {t(uploading ? 'assignments.uploadingFile' : 'assignments.attachFile')}
+          </button>
+          {files.map((file, index) => <div key={file.url} className="flex items-center justify-between gap-2 text-sm">
+            <span className="truncate">{file.title}</span>
+            <button type="button" disabled={submitLoading} aria-label={t('assignments.removeFile', { name: file.title })} onClick={() => setFiles(current => current.filter((_, i) => i !== index))}
+              className="shrink-0 rounded p-1 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+          </div>)}
+          {uploadError && <p role="alert" className="text-sm text-rose-600">{uploadError}</p>}
           <div className="grid gap-2 md:grid-cols-2">
             <EvidencePill
               label={t('assignments.currentLab')}
@@ -403,7 +448,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({
             />
           </div>
           {submitError && <div className="rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-700">{submitError}</div>}
-          <button onClick={onSubmit} disabled={submitLoading} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
+          <button onClick={async () => { if (await onSubmit(files)) setFiles([]); }} disabled={submitLoading || uploading} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300">
             {submitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {t('assignments.submitWork')}
           </button>
@@ -444,6 +489,7 @@ const SubmissionHistoryCard: React.FC<{ item: SubmissionDetail }> = ({ item }) =
         <span className="text-xs font-semibold text-slate-400">{formatDateTime(item.submittedAt, t)}</span>
       </div>
       <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{item.contentText || t('assignments.noSubmissionText')}</p>
+      <SubmissionAttachments files={item.files || []} />
       <div className="mt-3 grid gap-2">
         {item.checks.map((check) => (
           <div key={check.id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs">

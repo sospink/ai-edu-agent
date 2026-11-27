@@ -41,6 +41,7 @@ def main():
     parser.add_argument("--name", default="course-harness-smoke-20261126")
     parser.add_argument("--port", type=int, default=13080)
     parser.add_argument("--existing", action="store_true", help="只检查指定的已存在测试容器")
+    parser.add_argument("--image", default=IMAGE, help="待验证的课程运行时镜像")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     snapshot = root / ".artifacts" / "snapshot"
@@ -66,7 +67,7 @@ def main():
                "-p", f"127.0.0.1:{args.port}:3080"]
     for key in env:
         command += ["-e", key]
-    command += [IMAGE]
+    command += [args.image]
     if not args.existing:
         result = subprocess.run(command, env={**os.environ, **env}, capture_output=True, text=True)
         if result.returncode:
@@ -104,7 +105,7 @@ def main():
     if status != 200 or b"<html" not in body.lower():
         raise SystemExit(f"官方页面读取失败：HTTP {status}")
     info = json.loads(docker("inspect", args.name))[0]
-    image = json.loads(docker("image", "inspect", IMAGE))[0]
+    image = json.loads(docker("image", "inspect", info["Image"]))[0]
     report = {
         "container": args.name, "port": args.port,
         "imageId": image["Id"], "repoDigests": image.get("RepoDigests", []),

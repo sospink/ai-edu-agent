@@ -15,6 +15,7 @@ import (
 	"edu-platform/internal/domain/course"
 	"edu-platform/internal/domain/llm"
 	"edu-platform/internal/domain/operations"
+	"edu-platform/internal/domain/project"
 	"edu-platform/internal/domain/publishing"
 	"edu-platform/internal/domain/user"
 	appjwt "edu-platform/pkg/jwt"
@@ -25,6 +26,35 @@ import (
 )
 
 type gatewayTransport func(*http.Request) (*http.Response, error)
+
+func TestProjectWorkbenchGatewayAndDirectory(t *testing.T) {
+	g, session, router, token := gatewayFixture(t)
+	if err := g.lab.db.AutoMigrate(&project.Project{}); err != nil {
+		t.Fatal(err)
+	}
+	p := project.Project{ID: 91, Slug: PromptWorkbenchSlug, Status: project.ProjectStatusPublished}
+	if err := g.lab.db.Create(&p).Error; err != nil {
+		t.Fatal(err)
+	}
+	session.SourceType, session.SourceID = SourceTypeProject, p.ID
+	if err := g.lab.db.Save(session).Error; err != nil {
+		t.Fatal(err)
+	}
+	if g.lab.WorkspaceDirectory(session) != PromptWorkbenchDirectory {
+		t.Fatal("项目工作目录未绑定")
+	}
+	if w := gatewayRequest(router, token, "GET", "/models", ""); w.Code != 200 {
+		t.Fatalf("项目模型鉴权失败: %d", w.Code)
+	}
+	g.lab.db.Model(&p).Update("status", project.ProjectStatusArchived)
+	if w := gatewayRequest(router, token, "GET", "/models", ""); w.Code != 401 {
+		t.Fatal("下架项目仍可调用模型")
+	}
+	g.lab.db.Model(&p).Updates(map[string]any{"status": 1, "slug": "other"})
+	if g.lab.WorkspaceDirectory(session) != "" {
+		t.Fatal("普通项目获得专用工作区")
+	}
+}
 
 func (f gatewayTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 

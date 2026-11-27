@@ -314,6 +314,7 @@ interface IframeContentProps {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
+  allowDownloads?: boolean;
 }
 
 const appendRetryParam = (rawUrl: string, key: string, value: number): string => {
@@ -344,7 +345,7 @@ const buildIframeRetryUrl = (rawUrl: string, retryCount: number): string => {
   }
 };
 
-const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, description }) => {
+const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, description, allowDownloads = false }) => {
   const { t } = useTranslation('lab');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -480,7 +481,7 @@ const IframeContent: React.FC<IframeContentProps> = ({ url, title, icon: Icon, d
         className="w-full h-full border-0 overflow-hidden"
         title={title}
         allow="cross-origin-isolated"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-modals allow-popups"
+        sandbox={`allow-same-origin allow-scripts allow-forms allow-modals allow-popups${allowDownloads ? ' allow-downloads' : ''}`}
         style={{ display: 'block' }}
         onLoad={handleFrameLoad}
         onError={handleFrameError}
@@ -1411,6 +1412,7 @@ const LabPage: React.FC<LabPageProps> = ({ onLoginRequired }) => {
                 {selectedAppUrl ? (
                   <IframeContent
                     url={selectedAppUrl.url}
+                    allowDownloads
                     title={selectedAppUrl.label || selectedAppUrl.name}
                     icon={Globe}
                     description={t('portDesc', { containerPort: selectedAppUrl.containerPort, servicePort: selectedAppUrl.servicePort })}

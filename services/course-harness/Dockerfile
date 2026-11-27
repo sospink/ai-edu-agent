@@ -10,6 +10,7 @@ RUN apt-get update \
 COPY requirements.txt /opt/course-harness/requirements.txt
 RUN /opt/venv/bin/pip install --no-cache-dir -r /opt/course-harness/requirements.txt
 COPY entrypoint.py course.patch.yml workspace-bootstrap.mjs course-policy.mjs /opt/course-harness/
+COPY brand/ /opt/course-harness/brand/
 ENV PATH="/opt/venv/bin:${PATH}" \
     HOME="/home/harness" \
     DSH_HOME="/home/harness" \

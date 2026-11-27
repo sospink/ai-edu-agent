@@ -23,6 +23,7 @@ import (
 	"edu-platform/internal/domain/course"
 	"edu-platform/internal/domain/llm"
 	"edu-platform/internal/domain/operations"
+	"edu-platform/internal/domain/project"
 )
 
 const PromptWorkbenchSlug = "prompt-workbench"
@@ -58,11 +59,20 @@ func NewCourseModelGateway(service *Service, settings *llm.Store) *CourseModelGa
 }
 
 func (s *Service) WorkspaceDirectory(session *UserLabSession) string {
-	if session == nil || session.SourceType != SourceTypeCourse || s.db == nil {
+	if session == nil || s.db == nil {
+		return ""
+	}
+	var source any
+	switch session.SourceType {
+	case SourceTypeCourse:
+		source = &course.Course{}
+	case SourceTypeProject:
+		source = &project.Project{}
+	default:
 		return ""
 	}
 	var count int64
-	if s.db.Model(&course.Course{}).Where("id = ? AND slug = ?", session.SourceID, PromptWorkbenchSlug).Count(&count).Error == nil && count == 1 {
+	if s.db.Model(source).Where("id = ? AND slug = ?", session.SourceID, PromptWorkbenchSlug).Count(&count).Error == nil && count == 1 {
 		return PromptWorkbenchDirectory
 	}
 	return ""
@@ -142,7 +152,11 @@ func (g *CourseModelGateway) authenticate(c *gin.Context) (*UserLabSession, erro
 		return nil, errors.New("用户不可用")
 	}
 	var published int64
-	if err := g.lab.db.Model(&course.Course{}).Where("id = ? AND status = ?", session.SourceID, course.CourseStatusPublished).Count(&published).Error; err != nil || published != 1 {
+	var source any = &course.Course{}
+	if session.SourceType == SourceTypeProject {
+		source = &project.Project{}
+	}
+	if err := g.lab.db.Model(source).Where("id = ? AND status = ?", session.SourceID, 1).Count(&published).Error; err != nil || published != 1 {
 		return nil, errors.New("课程未发布")
 	}
 	return &session, nil

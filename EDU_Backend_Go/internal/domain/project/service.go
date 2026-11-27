@@ -81,15 +81,31 @@ func (s *Service) listByQuery(query ListQuery) ([]ProjectDetail, int64, error) {
 	}
 
 	result := make([]ProjectDetail, 0, len(projects))
+	var durations []struct {
+		ProjectID uint64
+		Minutes   int
+	}
+	if len(projectIDs) > 0 {
+		if err := s.repo.db.Model(&ProjectUnit{}).
+			Select("project_id, SUM(CASE WHEN time_limit > 0 THEN time_limit ELSE 0 END) AS minutes").
+			Where("project_id IN ? AND is_hidden = 0", projectIDs).Group("project_id").Scan(&durations).Error; err != nil {
+			return nil, 0, err
+		}
+	}
+	durationMap := make(map[uint64]int, len(durations))
+	for _, duration := range durations {
+		durationMap[duration.ProjectID] = duration.Minutes
+	}
 	for _, project := range projects {
 		tags := tagMap[project.ID]
 		if tags == nil {
 			tags = make([]Tag, 0)
 		}
 		result = append(result, ProjectDetail{
-			Project: project,
-			Tags:    tags,
-			Units:   make([]ProjectUnit, 0),
+			Project:         project,
+			DurationMinutes: durationMap[project.ID],
+			Tags:            tags,
+			Units:           make([]ProjectUnit, 0),
 		})
 	}
 	return result, total, nil
@@ -579,10 +595,17 @@ func (s *Service) buildDetail(project *Project) (*ProjectDetail, error) {
 		return nil, err
 	}
 	tags := nonNilTags(tagMap[project.ID])
+	duration := 0
+	for _, unit := range units {
+		if unit.IsHidden == 0 && unit.TimeLimit > 0 {
+			duration += unit.TimeLimit
+		}
+	}
 	return &ProjectDetail{
-		Project: *project,
-		Tags:    tags,
-		Units:   nonNilUnits(units),
+		Project:         *project,
+		DurationMinutes: duration,
+		Tags:            tags,
+		Units:           nonNilUnits(units),
 	}, nil
 }
 

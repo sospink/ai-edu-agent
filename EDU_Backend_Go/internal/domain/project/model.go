@@ -84,8 +84,9 @@ func (ProjectTag) TableName() string {
 
 type ProjectDetail struct {
 	Project
-	Tags  []Tag         `json:"tags"`
-	Units []ProjectUnit `json:"units"`
+	DurationMinutes int           `json:"durationMinutes"`
+	Tags            []Tag         `json:"tags"`
+	Units           []ProjectUnit `json:"units"`
 }
 
 type ProjectTranslation struct {

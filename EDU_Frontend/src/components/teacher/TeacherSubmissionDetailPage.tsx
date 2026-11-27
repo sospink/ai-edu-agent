@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import SubmissionAttachments from '@/components/common/SubmissionAttachments';
 import { ArrowLeft, Award, Bot, CheckCircle2, FileCheck, Loader2, RefreshCw, RotateCcw, Send, Sparkles, Undo2, XCircle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ToastContainer, useToast } from '@/components/common/Toast';
@@ -219,6 +220,7 @@ const TeacherSubmissionDetailPage: React.FC = () => {
             <section className="card-surface-muted rounded-2xl p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-900">{t('submissionNotes')}</h2>
               <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">{detail.contentText || t('noNotes')}</p>
+              <SubmissionAttachments files={detail.files || []} />
             </section>
 
             <section className="card-surface-muted rounded-2xl p-4">

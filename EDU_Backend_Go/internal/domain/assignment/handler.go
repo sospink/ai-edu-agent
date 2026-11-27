@@ -2,6 +2,7 @@ package assignment
 
 import (
 	"context"
+	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -158,6 +159,33 @@ func (h *Handler) CreateStudentSubmission(c *gin.Context) {
 		return
 	}
 	response.CreatedKey(c, result, "assignment.submitted", nil)
+}
+
+// 附件只允许当前仍可提交的班级成员上传，不开放教师通用上传接口。
+func (h *Handler) RequireStudentAttachmentAccess(c *gin.Context) {
+	claims, ok := middleware.CurrentClaims(c)
+	if !ok || claims == nil {
+		response.UnauthorizedKey(c, "auth.required", nil)
+		c.Abort()
+		return
+	}
+	id, ok := parseIDParam(c, "id")
+	if !ok {
+		c.Abort()
+		return
+	}
+	detail, err := h.service.GetForStudent(c.Request.Context(), claims.UserID, id)
+	if err != nil {
+		_ = c.Error(err)
+		c.Abort()
+		return
+	}
+	if detail.StudentSubmission == nil || !detail.StudentSubmission.CanSubmit {
+		response.ErrorKey(c, http.StatusForbidden, "ASSIGNMENT_UPLOAD_FORBIDDEN", "auth.accessForbidden", nil)
+		c.Abort()
+		return
+	}
+	c.Next()
 }
 
 func (h *Handler) GetStudentSubmission(c *gin.Context) {

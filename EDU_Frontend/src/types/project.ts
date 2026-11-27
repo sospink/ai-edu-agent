@@ -33,6 +33,7 @@ export interface Project {
   learningGoals?: string[];
   prerequisites?: string[];
   labsCount: number;
+  durationMinutes?: number;
   challengesCount: number;
   studentsCount: number;
   envImage?: string;

@@ -5,6 +5,7 @@ import {
   CheckCircle2, FileText, Share2, Star, ChevronLeft, ChevronRight, Tag, Loader2, LogIn
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import EnergyRobotGif from '@/images/Energy Robot.gif';
 import type { Project, ProjectUnit } from '@/types/project';
 import type { User } from '@/types';
@@ -77,15 +78,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
 
   // 计算预估时长
   const getEstimatedDuration = (): string => {
-    const totalMinutes = (project.labsCount || 0) * 15 + (project.challengesCount || 0) * 30;
-    if (totalMinutes === 0) {
-      // 根据单元计算
-      const unitMinutes = units.reduce((sum, u) => sum + (u.timeLimit || 0), 0);
-      if (unitMinutes < 60) return t('durationMinutes', { minutes: unitMinutes || 30 });
-      const hours = Math.floor(unitMinutes / 60);
-      const mins = unitMinutes % 60;
-      return mins > 0 ? t('durationHoursMinutes', { hours, minutes: mins }) : t('durationHours', { hours });
-    }
+    const unitMinutes = units.reduce((sum, unit) => sum + Math.max(0, unit.timeLimit || 0), 0);
+    const totalMinutes = unitMinutes || (project.labsCount || 0) * 15 + (project.challengesCount || 0) * 30 || 30;
     if (totalMinutes < 60) return t('durationMinutes', { minutes: totalMinutes });
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
@@ -133,7 +127,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
         /* Main Grid Layout */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* LEFT COLUMN: Content */}
-          <div className="lg:col-span-2">
+          <div className="min-w-0 lg:col-span-2">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               {/* Project Header Title */}
               <div className="mb-6">
@@ -247,7 +241,19 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project: initialProject, 
                       <h3 className="text-lg font-bold text-slate-800 mb-4">{t('background')}</h3>
                       <div className="prose prose-slate prose-sm max-w-none prose-headings:text-slate-800 prose-headings:font-bold prose-p:text-slate-600 prose-p:leading-7 prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-slate-700 prose-code:text-primary-600 prose-code:bg-slate-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-ul:text-slate-600 prose-ol:text-slate-600 prose-li:marker:text-slate-400 prose-blockquote:border-l-primary-500 prose-blockquote:text-slate-500 prose-hr:border-slate-200">
                         {project.description ? (
-                          <ReactMarkdown>{project.description}</ReactMarkdown>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              table: ({ node, ...props }) => (
+                                <div className="max-w-full overflow-x-auto">
+                                  <table {...props} />
+                                </div>
+                              ),
+                              pre: ({ node, ...props }) => (
+                                <pre {...props} className="max-w-full overflow-x-auto [&>code]:!bg-transparent [&>code]:!p-0 [&>code]:!text-inherit [&>code]:!rounded-none" />
+                              ),
+                            }}
+                          >{project.description}</ReactMarkdown>
                         ) : project.prerequisites && project.prerequisites.length > 0 ? (
                           project.prerequisites.map((p, i) => <p key={i}>{p}</p>)
                         ) : (

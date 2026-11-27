@@ -48,7 +48,7 @@ func (h *Handler) Session(c *gin.Context) {
 		return
 	}
 	if h.image == "" || h.origin == "" {
-		failure(c, 503, "HARNESS_UNAVAILABLE", "Harness尚未部署", "Harness is not deployed")
+		failure(c, 503, "HARNESS_UNAVAILABLE", "智能助教尚未部署", "Agent EDU Tutor is not deployed")
 		return
 	}
 	lesson, err := h.courses.GetLessonByIDLocalized(c.Request.Context(), lessonID)
@@ -208,6 +208,13 @@ func (h *Handler) Proxy(c *gin.Context) {
 			r.URL.RawQuery = q.Encode()
 		}
 		r.Header.Del("Authorization")
+		if isFrontendAsset(r, path) || path == "/" {
+			// 静态资源统一由Nginx压缩，避免上游低压缩等级使入口配置失效。
+			r.Header.Set("Accept-Encoding", "identity")
+			// 品牌展示按语言转换后再校验，不能复用上游未转换版本的304。
+			r.Header.Del("If-None-Match")
+			r.Header.Del("If-Modified-Since")
+		}
 		// 代理不向容器转发平台其他Cookie。
 		cookies := r.Cookies()
 		r.Header.Del("Cookie")
@@ -238,11 +245,13 @@ func (h *Handler) Proxy(c *gin.Context) {
 		}
 		policies = append(policies, "frame-ancestors 'self'")
 		resp.Header.Set("Content-Security-Policy", strings.Join(policies, "; "))
-		resp.Header.Set("Cache-Control", "no-store")
-		return nil
+		if err := brandResponse(resp, c.Request, path, s.Locale); err != nil {
+			return err
+		}
+		return revalidateAsset(resp, c.Request, path)
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		http.Error(w, "Harness workspace unavailable; reopen from course", 502)
+		http.Error(w, "Agent EDU Tutor workspace unavailable; reopen from course", 502)
 	}
 	proxy.FlushInterval = -1
 	_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Time{})

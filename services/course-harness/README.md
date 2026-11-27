@@ -1,6 +1,18 @@
 # 官方 Harness 课程运行时
 
-本目录仅封装官方 `deepseek-harness-runtime-bin==0.2.2rc2` 的原始 Web 应用，不修改或替换官方客户端资源。`0.2.3` 源码只用于参考；镜像、CLI 和启动验收均以 wheel 的 `0.2.2rc2` 为准。Go 服务负责授权、独立实例生命周期、登录桥接、前缀剥离代理和模型网关。
+本目录封装官方 `deepseek-harness-runtime-bin==0.2.2rc2` 的 Web 应用，保留原版聊天、历史和工具交互。品牌扩展将用户可见名称统一为“Agent EDU 智能助教 / Agent EDU Tutor”；Go 代理仅对 HTML/JS 中固化的产品标题短语做展示适配。`0.2.3` 源码只用于参考；镜像、CLI 和启动验收均以 wheel 的 `0.2.2rc2` 为准。Go 服务负责授权、独立实例生命周期、登录桥接、前缀剥离代理和模型网关。
+
+## 平台品牌
+
+- `brand/` 使用原版 `sidebar.brand.mark`、`sidebar.brand.name`、`conversation.hero.brand.mark` 插槽，复用运行时 React，不另造聊天页面。
+- Host 的 `webServer.tapIndex` 设置初始标题、EDU 图标及启动文字。客户端只监听 `<title>` 的产品后缀，确保切换会话与语言后仍保留平台名称；不扫描页面正文。
+- 平台统一管理模型、账号及插件。课程配置关闭对应上游设置、欢迎弹窗和日志上传设置，保持通用设置与课程预设可用。
+- Go 的 `branding.go` 仅处理应用 HTML/JS，不修改课程文件、用户历史、模型 ID、包名、许可证与源码归属。内容变更后重新生成缓存校验标识。
+- 当前品牌镜像：`registry.cn-beijing.aliyuncs.com/svinsight/course@sha256:531af4f7a167371f19b576b8acae65c22c41e1dbae8eaa244ce6655ad4422522`。
+- `brand/assets/platform-logo.gif` 与平台导航栏的 `EDU_Frontend/src/images/AI logo Foriday.gif` 字节一致；侧栏、首页及favicon共用该资源，通过已鉴权的只读GIF路由提供。
+- 品牌样式隐藏固定版本客户端首页的 `_previewBadge`，中英文均不显示版本徽标，不替换“文件预览”等业务文案。升级上游客户端时必须重新验证该CSS类与Logo渲染。
+- 发布新镜像后，旧实例在用户下次打开课程时替换，沿用原用户、课时、语言下的持久化历史目录。
+- 本地验证可给 `smoke.py` 传入 `--image`、`--name`、`--port`；仅报告实际运行镜像，不展示启动令牌。
 
 ## 构建
 

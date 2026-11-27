@@ -29,8 +29,8 @@ const getLevelBadge = (level: ProjectDifficulty, t: TFunction<'project'>) => {
   }
 };
 
-const getEstimatedDuration = (labsCount: number, challengesCount: number, t: TFunction<'project'>): string => {
-  const totalMinutes = (labsCount || 0) * 15 + (challengesCount || 0) * 30;
+const getEstimatedDuration = (labsCount: number, challengesCount: number, t: TFunction<'project'>, durationMinutes?: number): string => {
+  const totalMinutes = durationMinutes ?? ((labsCount || 0) * 15 + (challengesCount || 0) * 30);
   if (totalMinutes < 60) return t('durationMinutes', { minutes: totalMinutes || 30 });
   const hours = Math.floor(totalMinutes / 60);
   const mins = totalMinutes % 60;
@@ -223,7 +223,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, initialProje
           {projects.map((project, index) => {
             const difficulty = getDifficultyLevel(project.difficulty);
             const level = getLevelBadge(difficulty, t);
-            const duration = getEstimatedDuration(project.labsCount, project.challengesCount, t);
+            const duration = getEstimatedDuration(project.labsCount, project.challengesCount, t, project.durationMinutes);
             const isActive = hoveredId === Number(project.id);
             const coverCandidates = getImageUrlCandidates(project.coverUrl);
             const coverSrc = coverCandidates[0];

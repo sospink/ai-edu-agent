@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Spinner } from '@heroui/react';
-import { ExternalLink, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { API_BASE_URL } from '@/config';
 import { api } from '@/services/api';
@@ -38,11 +38,14 @@ export default function HarnessFrame({ lessonId }: HarnessFrameProps) {
 
 function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { locale: string; retry: () => void }) {
   const { t } = useTranslation('lesson');
+  const translate = useRef(t);
+  translate.current = t;
   const [session, setSession] = useState<HarnessSession | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const t = translate.current;
     if (!authService.isLoggedIn()) {
       setError(t('harness.login'));
       return;
@@ -101,7 +104,7 @@ function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { local
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [lessonId, locale, t]);
+  }, [lessonId, locale]);
 
   useEffect(() => {
     if (!session || loaded || error) return;
@@ -111,20 +114,6 @@ function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { local
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white" aria-label={t('harness.title')}>
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-2">
-        <h2 className="text-sm font-semibold text-slate-800">{t('harness.title')}</h2>
-        {session && (
-          <div className="flex items-center gap-2">
-            <Button isIconOnly size="sm" variant="light" aria-label={t('harness.retry')} title={t('harness.retry')} onPress={retry}>
-              <RefreshCw size={14} />
-            </Button>
-            <a href={session.url} target="_blank" rel="noopener noreferrer" title={t('harness.open')} className="inline-flex items-center gap-1.5 text-xs text-primary">
-              <ExternalLink size={14} />
-              {t('harness.open')}
-            </a>
-          </div>
-        )}
-      </header>
       <div className="relative min-h-0 flex-1">
         {session && !error && (
           <iframe
@@ -143,7 +132,7 @@ function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { local
         ) : !loaded && (
           <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
             <Spinner size="sm" />
-            <p className="text-sm text-slate-500">{t('harness.loading')}</p>
+            <p className="text-sm text-slate-500">{t(session ? 'harness.loadingInterface' : 'harness.loading')}</p>
           </div>
         )}
       </div>

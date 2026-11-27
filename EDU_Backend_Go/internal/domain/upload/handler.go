@@ -57,6 +57,19 @@ func (h *Handler) UploadFile(c *gin.Context) {
 	h.save(c, "file", nil)
 }
 
+func (h *Handler) UploadSubmissionFile(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 21<<20)
+	file, err := c.FormFile("file")
+	if err != nil || file.Size > 20<<20 {
+		response.BadRequestKey(c, "common.invalidParams", nil)
+		return
+	}
+	h.save(c, "file", map[string]bool{
+		".zip": true, ".pdf": true, ".txt": true, ".md": true, ".json": true,
+		".png": true, ".jpg": true, ".jpeg": true, ".webp": true,
+	})
+}
+
 func (h *Handler) UploadMaterial(c *gin.Context) {
 	h.save(c, "material", map[string]bool{
 		".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true,

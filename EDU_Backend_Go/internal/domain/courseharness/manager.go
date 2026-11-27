@@ -219,8 +219,9 @@ func (h *Handler) start(ctx context.Context, user uint64, lesson *course.CourseL
 	h.mu.Unlock()
 	for _, s := range list {
 		if s.UserID == user && s.LessonID == lesson.ID && s.Locale == locale && time.Until(s.ExpiresAt) > 2*time.Minute {
-			running, _ := docker(ctx, "inspect", s.Container, "--format", "{{.State.Running}}")
-			if running == "true" {
+			// 发布新镜像后在用户下次打开时更新实例，保留原持久化历史目录。
+			running, _ := docker(ctx, "inspect", s.Container, "--format", "{{.State.Running}} {{.Config.Image}}")
+			if running == "true "+h.image {
 				if !same(s.PlatformToken, platformToken) {
 					s.AccessKey = randomKey()
 				}

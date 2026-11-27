@@ -178,6 +178,7 @@ func New(deps app.Dependencies) *gin.Engine {
 		studentGroup.GET("/assignments", assignmentHandler.ListStudentAssignments)
 		studentGroup.GET("/assignments/:id", assignmentHandler.GetStudentAssignment)
 		studentGroup.POST("/assignments/:id/submissions", assignmentHandler.CreateStudentSubmission)
+		studentGroup.POST("/assignments/:id/attachments", assignmentHandler.RequireStudentAttachmentAccess, uploadHandler.UploadSubmissionFile)
 		studentGroup.GET("/submissions/:id", assignmentHandler.GetStudentSubmission)
 		studentGroup.GET("/grades", assignmentHandler.ListStudentGrades)
 		studentGroup.GET("/notifications", assignmentHandler.ListStudentNotifications)
