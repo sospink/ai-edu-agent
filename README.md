@@ -45,6 +45,16 @@ flowchart LR
 
 ## 本地开发
 
+首次拉取请使用 [同事拉取与本地运行指南](docs/LOCAL-DEVELOPMENT.md)。独立本地数据库和前后端可通过以下命令启动，无需生产环境配置：
+
+```bash
+bash scripts/local-dev.sh init
+bash scripts/local-dev.sh up
+bash scripts/local-dev.sh check
+```
+
+默认访问 `http://localhost:3000`，管理员为 `admin`，首次随机密码保存在本机 `.runtime/local-dev.env`。K8S 实训和嵌入式助教需要额外运行时配置，具体边界见上述指南。
+
 ### 前端
 
 ```bash

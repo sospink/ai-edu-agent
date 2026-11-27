@@ -1,0 +1,13 @@
+**
+!EDU_Backend_Go/
+!EDU_Backend_Go/go.mod
+!EDU_Backend_Go/go.sum
+!EDU_Backend_Go/internal/
+!EDU_Backend_Go/internal/**
+!EDU_Backend_Go/pkg/
+!EDU_Backend_Go/pkg/**
+!EDU_Backend_Go/cmd/
+!EDU_Backend_Go/cmd/server/
+!EDU_Backend_Go/cmd/server/**
+!EDU_Backend_Go/configs/
+!EDU_Backend_Go/configs/**

@@ -1,0 +1,8 @@
+**
+!EDU_Frontend/
+!EDU_Frontend/**
+EDU_Frontend/node_modules
+EDU_Frontend/dist
+EDU_Frontend/.env*
+EDU_Frontend/.artifacts
+EDU_Frontend/.git
