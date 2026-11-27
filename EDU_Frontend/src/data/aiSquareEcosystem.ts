@@ -1,0 +1,765 @@
+import type {
+  CapabilityLayer,
+  CapabilityTrackId,
+  EcosystemTool,
+  FoundationModelGuide,
+  ToolCategoryId,
+} from '@/types/aiSquareEcosystem';
+
+export const TOOL_CATEGORIES: Array<{ id: 'all' | ToolCategoryId; label: string }> = [
+  { id: 'all', label: '全部工具' },
+  { id: 'ai-coding', label: 'AI 编程开发' },
+  { id: 'agent-orchestration', label: 'Agent 编排' },
+  { id: 'mcp-ecosystem', label: 'MCP 协议生态' },
+  { id: 'model-runtime', label: '模型服务与本地运行' },
+  { id: 'prototype-docs', label: '原型与汇报演示' },
+];
+
+export const ECOSYSTEM_TOOLS: EcosystemTool[] = [
+  // ---------- AI 编程开发 ----------
+  {
+    id: 'cursor',
+    name: 'Cursor',
+    vendor: 'AI-First IDE',
+    category: 'ai-coding',
+    tagline: '基于 VS Code 深度集成对话、多文件编辑与代码补全，适合课程项目全链路开发。',
+    accessBadge: '免费额度',
+    courseLinkLabel: '全课程通用开发',
+    url: 'https://www.cursor.com/',
+    logoText: 'CR',
+    accentClass: 'bg-slate-900 text-white',
+    teachingUsage: {
+      summary: '目前高校与工程团队使用最广的 AI 编程 IDE，支持代码库级上下文检索与多文件重构。',
+      whenToUse: '当你在做《智能体框架与开发》或项目实战、需要跨文件编写 Agent 与单元测试时。',
+      quickSteps: [
+        '在设置中可接入 DeepSeek 或其他 OpenAI 兼容 API Key',
+        '用 @Codebase 让 AI 先读懂项目目录，再提出最小改动需求',
+        '结合平台「代码审查与重构专家」Skill 对生成的 PR 做二次体检',
+      ],
+      relatedSkillSlugs: ['code-review-architect', 'error-stack-doctor'],
+    },
+  },
+  {
+    id: 'cline',
+    name: 'Cline',
+    vendor: 'VS Code Agent 插件',
+    category: 'ai-coding',
+    tagline: '开源自主编程 Agent 插件，原生支持 DeepSeek API 与 MCP Server 挂载。',
+    accessBadge: '开源免费',
+    courseLinkLabel: 'MCP Server 开发',
+    url: 'https://github.com/cline/cline',
+    logoText: 'CL',
+    accentClass: 'bg-blue-100 text-blue-700',
+    teachingUsage: {
+      summary: '在标准 VS Code 或云端 WebIDE 中安装即可获得自主读写文件、跑终端命令和调用 MCP 的能力。',
+      whenToUse: '学生想在开源免费环境里直连 DeepSeek-V3/R1，并实测自己开发的 MCP Server 时。',
+      quickSteps: [
+        '在 VS Code 扩展市场搜索安装 Cline',
+        'API Provider 选择 DeepSeek 或 OpenAI Compatible，填入平台/个人 Key',
+        '在 MCP Servers 面板中导入你写的 FastMCP 配置即可实时联调',
+      ],
+      relatedSkillSlugs: ['mcp-schema-designer', 'error-stack-doctor'],
+    },
+  },
+  {
+    id: 'trae',
+    name: 'Trae',
+    vendor: '字节跳动 AI IDE',
+    category: 'ai-coding',
+    tagline: '中文体验友好的免费 AI IDE，内置 Builder 模式与主流大模型切换，零门槛上手。',
+    accessBadge: '免费额度',
+    courseLinkLabel: '零基础项目入门',
+    url: 'https://www.trae.cn/',
+    logoText: 'TR',
+    accentClass: 'bg-emerald-100 text-emerald-700',
+    teachingUsage: {
+      summary: '开箱即用的国产 AI IDE，适合大一/大二初学者快速搭建课程原型和调试页面。',
+      whenToUse: '课堂上需要零配置体验 AI 辅助建站、脚本编写或快速复现演示 Demo 时。',
+      quickSteps: [
+        '打开实训项目目录，先用 Chat 模式理清模块结构',
+        '使用 Builder 模式按步骤生成基础骨架，并逐行审阅 Diff',
+        '遇到终端报错直接复制到「报错堆栈诊断师」定位根因',
+      ],
+      relatedSkillSlugs: ['error-stack-doctor', 'socratic-algo-coach'],
+    },
+  },
+
+  // ---------- Agent 编排 ----------
+  {
+    id: 'dify',
+    name: 'Dify',
+    vendor: '开源 LLM 应用编排',
+    category: 'agent-orchestration',
+    tagline: '可视化工作流、RAG 知识库与模型管理一体化，课程与企业落地最常用的编排底座。',
+    accessBadge: '平台核心生态',
+    courseLinkLabel: '理论课助教 · 编排实训',
+    url: 'https://dify.ai/',
+    logoText: 'DF',
+    accentClass: 'bg-indigo-100 text-indigo-700',
+    teachingUsage: {
+      summary: 'Agent EDU Lab 理论课 AI 助教即采用 Dify 架构，支持拖拽式编排复杂条件分支与知识检索。',
+      whenToUse: '需要快速把 Prompt Skill 升级为带知识库、变量流转和 Web 嵌入的完整 AI 应用时。',
+      quickSteps: [
+        '在「模型供应商」中配置 DeepSeek 或通义千问 API',
+        '创建 Chatflow / Workflow，把 Agent Hub 中的 System Prompt 粘贴进 LLM 节点',
+        '挂载知识库或 HTTP 工具节点，开启对话日志进行效果评测',
+      ],
+      relatedSkillSlugs: ['prompt-five-principles', 'agent-redteam-guard'],
+    },
+  },
+  {
+    id: 'langgraph',
+    name: 'LangGraph',
+    vendor: 'LangChain 状态图框架',
+    category: 'agent-orchestration',
+    tagline: '以有向图精确控制多 Agent 状态流转、循环重试与人工审批断点，代码级工程首选。',
+    accessBadge: '开源免费',
+    courseLinkLabel: '智能体框架与开发',
+    url: 'https://www.langchain.com/langgraph',
+    logoText: 'LG',
+    accentClass: 'bg-teal-100 text-teal-700',
+    teachingUsage: {
+      summary: '《智能体框架与开发》第二阶段核心框架，支撑“毒舌 Gordon”与“创意风暴”多 Agent 实训。',
+      whenToUse: '当线性 Chain 不够用，需要条件路由、多角色辩论、最大轮次熔断和状态持久化时。',
+      quickSteps: [
+        '用 TypedDict 定义全局 GraphState，明确消息与中间状态字段',
+        '编写各个 Agent Node 函数并注册 Conditional Edge 终止条件',
+        '启用 Checkpointer 保存工作记忆，实现中断后断点续跑',
+      ],
+      commandHint: 'pip install -U langgraph langchain-openai',
+      relatedSkillSlugs: ['code-review-architect', 'tech-mock-interviewer'],
+    },
+  },
+  {
+    id: 'coze',
+    name: 'Coze（扣子）',
+    vendor: '低门槛智能体平台',
+    category: 'agent-orchestration',
+    tagline: '插件生态丰富、支持一键发布到飞书/微信生态，适合非纯码方向快速验证智能体创意。',
+    accessBadge: '免费额度',
+    courseLinkLabel: '提示词工程 · 竞赛原型',
+    url: 'https://www.coze.cn/',
+    logoText: 'CZ',
+    accentClass: 'bg-sky-100 text-sky-700',
+    teachingUsage: {
+      summary: '内置大量开箱即用的搜索、绘图表、文档解析插件，适合 1 小时内搭出可演示的智能体作品。',
+      whenToUse: '课程创新作业、跨学科竞赛或售前原型演示需要快速对接飞书/网页渠道时。',
+      quickSteps: [
+        '新建 Bot，将「提示词五大原则重构器」优化后的模板填入人设与回复逻辑',
+        '按需挂载插件和长期记忆变量，控制好单轮输出边界',
+        '发布到飞书或 Web SDK 供小组成员体验评测',
+      ],
+      relatedSkillSlugs: ['multi-platform-copywriter', 'presales-solution-outline'],
+    },
+  },
+  {
+    id: 'n8n',
+    name: 'n8n',
+    vendor: '自动化工作流引擎',
+    category: 'agent-orchestration',
+    tagline: '连接 400+ 外部系统与 AI Agent 节点，适合构建定时触发、Webhook 与业务自动化闭环。',
+    accessBadge: '开源免费',
+    courseLinkLabel: '自动化实战扩展',
+    url: 'https://n8n.io/',
+    logoText: 'N8',
+    accentClass: 'bg-orange-100 text-orange-700',
+    teachingUsage: {
+      summary: '将传统自动化（定时任务、邮件、飞书群通知、数据库读写）与 AI 决策节点无缝拼接。',
+      whenToUse: '想让 Agent 真正“在后台自动干活”，比如每天定时汇总 GitHub 提交或实验异常日志时。',
+      quickSteps: [
+        '使用 Docker 一键在本地或实验容器启动 n8n',
+        '添加 Schedule / Webhook 触发器 + AI Agent 节点',
+        '将结构化 JSON 结果写入表格或推送到飞书机器人',
+      ],
+      commandHint: 'docker run -it --rm -p 5678:5678 n8nio/n8n',
+      relatedSkillSlugs: ['presales-solution-outline', 'mcp-schema-designer'],
+    },
+  },
+
+  // ---------- MCP 协议生态 ----------
+  {
+    id: 'fastmcp',
+    name: 'FastMCP',
+    vendor: 'Python MCP 开发框架',
+    category: 'mcp-ecosystem',
+    tagline: '像写 FastAPI 一样用装饰器声明 MCP Tools、Resources 与 Prompts，开发效率极高。',
+    accessBadge: '开源免费',
+    courseLinkLabel: 'MCP Server 开发',
+    url: 'https://github.com/jlowin/fastmcp',
+    logoText: 'FM',
+    accentClass: 'bg-amber-100 text-amber-700',
+    teachingUsage: {
+      summary: '课程第三阶段核心工具链：只需 @mcp.tool() 与类型注解即可自动生成符合规范的 JSON Schema。',
+      whenToUse: '学习 MCP 协议并将自己的数据库、脚本或校园接口封装成 AI 可调用工具时。',
+      quickSteps: [
+        '先在 Agent Hub 用「MCP Tool Schema 生成器」生成标准 server.py',
+        '确保 stdio 模式下调试日志统一写到 stderr，避免污染 JSON-RPC 通道',
+        '配合 MCP Inspector 在浏览器可视化验证每个工具入参与返回',
+      ],
+      commandHint: 'pip install mcp fastmcp && mcp dev server.py',
+      relatedSkillSlugs: ['mcp-schema-designer', 'code-review-architect'],
+    },
+  },
+  {
+    id: 'mcp-inspector',
+    name: 'MCP Inspector',
+    vendor: 'Anthropic 官方调试器',
+    category: 'mcp-ecosystem',
+    tagline: 'MCP Server 专属“Postman”，可视化列出 Tools/Resources 并单步调试 JSON-RPC 请求。',
+    accessBadge: '开源免费',
+    courseLinkLabel: 'MCP Server 开发',
+    url: 'https://modelcontextprotocol.io/docs/tools/inspector',
+    logoText: 'MI',
+    accentClass: 'bg-violet-100 text-violet-700',
+    teachingUsage: {
+      summary: '脱离大模型客户端独立验证 MCP 服务是否正确暴露能力，排错效率远高于盲测对话。',
+      whenToUse: '每写完一个 MCP Tool 或 Resource 后，先用它做接口级自检，再接入 IDE/Agent。',
+      quickSteps: [
+        '终端执行 npx @modelcontextprotocol/inspector 启动调试界面',
+        '填入 python3 与你的 server.py 路径建立 stdio 连接',
+        '逐个测试边界参数与异常返回值，截图即可直接写进实训报告',
+      ],
+      commandHint: 'npx @modelcontextprotocol/inspector python3 server.py',
+      relatedSkillSlugs: ['mcp-schema-designer', 'lab-report-reviewer'],
+    },
+  },
+  {
+    id: 'smithery',
+    name: 'Smithery / MCP Registry',
+    vendor: 'MCP 工具市场',
+    category: 'mcp-ecosystem',
+    tagline: '发现与检索社区热门现成 MCP Server（GitHub、数据库、浏览器、文件系统等）。',
+    accessBadge: '免费额度',
+    courseLinkLabel: 'MCP 生态选型',
+    url: 'https://smithery.ai/',
+    logoText: 'SM',
+    accentClass: 'bg-cyan-100 text-cyan-700',
+    teachingUsage: {
+      summary: '做项目实战前先查社区是否已有成熟 MCP Server，避免重复造轮子，学习优秀 Schema 写法。',
+      whenToUse: '项目技术选型、寻找现成外部能力连接器或参考开源 MCP 文档设计时。',
+      quickSteps: [
+        '按关键词检索目标系统（如 Postgres、GitHub、Notion）的 MCP Server',
+        '对比其 Tools 描述风格与权限最小化设计',
+        '评估安全风险后再配置到自己的开发环境',
+      ],
+      relatedSkillSlugs: ['mcp-schema-designer', 'agent-redteam-guard'],
+    },
+  },
+
+  // ---------- 模型服务与本地运行 ----------
+  {
+    id: 'ollama',
+    name: 'Ollama',
+    vendor: '本地大模型运行时',
+    category: 'model-runtime',
+    tagline: '一条命令在本地电脑或实验机拉起 DeepSeek-R1 蒸馏版、Qwen 等开源模型，隐私离线可用。',
+    accessBadge: '本地免费',
+    courseLinkLabel: 'ADE 配置 · 离线实训',
+    url: 'https://ollama.com/',
+    logoText: 'OL',
+    accentClass: 'bg-slate-800 text-white',
+    teachingUsage: {
+      summary: '无 API 费用、提供 OpenAI 兼容端点（localhost:11434/v1），非常适合本地调试与安全红队实验。',
+      whenToUse: '没有外网/API 额度，或需要在内网实训室演示开源模型部署与推理对比时。',
+      quickSteps: [
+        '安装 Ollama 后拉取适合显存/内存的量化模型（如 deepseek-r1:7b / qwen2.5:7b）',
+        'Python 代码只需把 base_url 改为 http://localhost:11434/v1 即可无缝切换',
+        '对比本地 7B 模型与云端满血 DeepSeek-R1 的推理差异',
+      ],
+      commandHint: 'ollama run deepseek-r1:7b',
+      relatedSkillSlugs: ['error-stack-doctor', 'agent-redteam-guard'],
+    },
+  },
+  {
+    id: 'siliconflow',
+    name: '硅基流动（SiliconFlow）',
+    vendor: '多模型统一 API 聚合',
+    category: 'model-runtime',
+    tagline: '一个 OpenAI 兼容接口同时调用 DeepSeek-R1/V3、Qwen、GLM 等国产开源模型。',
+    accessBadge: '免费额度',
+    courseLinkLabel: '项目实战 API 接入',
+    url: 'https://cloud.siliconflow.cn/',
+    logoText: 'SF',
+    accentClass: 'bg-purple-100 text-purple-700',
+    teachingUsage: {
+      summary: '适合课程中横向评测不同模型（如对比 R1、V3 与 Qwen2.5 在同一套测试用例下的表现）。',
+      whenToUse: '实训作业需要快速拿免费/低价 API Key 做多模型对比评测或高并发备用链路时。',
+      quickSteps: [
+        '注册获取 API Key，复制兼容端点 https://api.siliconflow.cn/v1',
+        '仅修改 model 参数即可在 DeepSeek-R1 与 Qwen 之间自由切换',
+        '记录不同模型的延迟与 JSON 稳定率写入实验对比表',
+      ],
+      relatedSkillSlugs: ['prompt-five-principles', 'lab-report-reviewer'],
+    },
+  },
+
+  // ---------- 原型与汇报演示 ----------
+  {
+    id: 'napkin-ai',
+    name: 'Napkin AI',
+    vendor: '文本一键转架构图',
+    category: 'prototype-docs',
+    tagline: '粘贴课程方案或实验流程文字，秒级生成清爽信息图，答辩 PPT 和实验报告配图神器。',
+    accessBadge: '免费额度',
+    courseLinkLabel: '项目汇报 · 实验报告',
+    url: 'https://www.napkin.ai/',
+    logoText: 'NP',
+    accentClass: 'bg-pink-100 text-pink-700',
+    teachingUsage: {
+      summary: '解决学生写项目答辩、大创申报书时“大段纯文字没配图”的痛点，一键导出 SVG/PNG。',
+      whenToUse: '把「售前需求拆解与方案架构师」或「知识图谱生成器」产出的流程文本可视化放进 PPT 时。',
+      quickSteps: [
+        '先用 Agent Hub 把架构思路梳理成 3-5 条清晰步骤',
+        '粘贴进 Napkin AI 点击闪电图标生成多种流程图/矩阵样式',
+        '微调中文文案后导出透明背景 PNG 嵌入答辩文档',
+      ],
+      relatedSkillSlugs: ['concept-card-maker', 'presales-solution-outline'],
+    },
+  },
+  {
+    id: 'gamma',
+    name: 'Gamma',
+    vendor: 'AI 演示文档生成',
+    category: 'prototype-docs',
+    tagline: '输入 Markdown 大纲即可生成排版现代的课程汇报、文献分享与项目路演幻灯片。',
+    accessBadge: '免费额度',
+    courseLinkLabel: '论文汇报 · 结课路演',
+    url: 'https://gamma.app/',
+    logoText: 'GM',
+    accentClass: 'bg-rose-100 text-rose-700',
+    teachingUsage: {
+      summary: '配合「论文结构化精读器」使用，10 分钟内完成从英文论文到高质量课堂分享 PPT 的全流程。',
+      whenToUse: '课程小组结课答辩、论文 Seminar 汇报或技术方案宣讲前快速成稿时。',
+      quickSteps: [
+        '先用「论文结构化精读器」提炼五段式研读卡',
+        '选择 Paste in text 导入大纲，指定每页卡片结构',
+        '人工核查关键实验指标与架构图后导出 PPTX/PDF',
+      ],
+      relatedSkillSlugs: ['paper-xray-reader', 'multi-platform-copywriter'],
+    },
+  },
+];
+
+export const CAPABILITY_TRACKS: Array<{
+  id: CapabilityTrackId;
+  label: string;
+  desc: string;
+}> = [
+  { id: 'all', label: '全景图谱（L1-L5）', desc: '完整展示 AI Agent 工程师 5 大核心能力层' },
+  { id: 'beginner', label: '零基础入门路线', desc: '先掌握模型选型、工程化 Prompt 与基础应用搭建' },
+  { id: 'orchestration', label: '应用编排方向', desc: '聚焦 ReAct 循环、记忆/RAG、Dify/LangGraph 多 Agent 编排' },
+  { id: 'engineering', label: 'MCP 与工程开发方向', desc: '深耕协议开发、容器实训排错与企业级安全护栏' },
+];
+
+export const CAPABILITY_LAYERS: CapabilityLayer[] = [
+  {
+    id: 'layer-1',
+    level: 'L1',
+    title: '模型认知与提示词工程',
+    subtitle: '理解大模型能力边界，从“写一句话”升级到构建可复用、可测试的提示词系统',
+    courseTitle: '提示词工程',
+    estimatedHours: '8-12 学时',
+    accentColor: '#2563eb',
+    badgeClass: 'bg-blue-50 text-blue-700 border border-blue-200',
+    borderClass: 'border-blue-200/80',
+    nodes: [
+      {
+        id: 'l1-model-selection',
+        layerId: 'layer-1',
+        code: 'L1.1',
+        title: '大模型选型与推理差异',
+        subtitle: '理解推理模型（R1）与通用对话模型（V3）的成本、延迟与任务适配边界',
+        summary: '能够针对代码排错、长文总结、实时问答等不同场景合理选择模型，理解上下文窗口、温度参数与 OpenAI 兼容 API 规范。',
+        masteryCriteria: [
+          '能清晰区分 DeepSeek-R1（慢思考推理）与 DeepSeek-V3（高性价比通用）的适用任务',
+          '会用 Python OpenAI SDK 调用至少 2 家国产模型 API 并处理流式输出',
+        ],
+        recommendedToolIds: ['ollama', 'siliconflow'],
+        relatedSkillSlugs: ['paper-xray-reader', 'concept-card-maker'],
+        relatedCourseTitle: '提示词工程',
+        tracks: ['beginner', 'orchestration', 'engineering'],
+      },
+      {
+        id: 'l1-five-principles',
+        layerId: 'layer-1',
+        code: 'L1.2',
+        title: '五大工程化提示词设计',
+        subtitle: '模块化、参数化、版本化、可测试性与可观测性落地',
+        summary: '将散乱的自然语言指令拆解为 Role / Objective / Variables / Guardrails / Output 五大模块，支持单模板多场景复用。',
+        masteryCriteria: [
+          '能独立拆解一个生产级 System Prompt 的防错约束与输出契约',
+          '能用 {{variable}} 抽象业务变量，完成“万能跨平台文案生成器”类多态任务',
+        ],
+        recommendedToolIds: ['coze', 'dify'],
+        relatedSkillSlugs: ['prompt-five-principles', 'multi-platform-copywriter'],
+        relatedCourseTitle: '提示词工程',
+        tracks: ['beginner', 'orchestration'],
+      },
+      {
+        id: 'l1-structured-eval',
+        layerId: 'layer-1',
+        code: 'L1.3',
+        title: '结构化输出与测试集评测',
+        subtitle: 'JSON Schema 约束、正向/边界/负向三类用例回归验收',
+        summary: '保证大模型输出可被下游代码稳定解析，并用最小测试集定量验证 Prompt 改版是否真的变好，而非凭感觉调优。',
+        masteryCriteria: [
+          '能设计覆盖空输入、离题输入和注入输入的最小验收测试集',
+          '能让模型稳定输出合法 JSON 或 Mermaid 语法且解析通过率 ≥ 95%',
+        ],
+        recommendedToolIds: ['dify', 'siliconflow'],
+        relatedSkillSlugs: ['prompt-five-principles', 'socratic-algo-coach'],
+        relatedCourseTitle: '提示词工程',
+        tracks: ['beginner', 'engineering'],
+      },
+    ],
+  },
+  {
+    id: 'layer-2',
+    level: 'L2',
+    title: '工具调用与 MCP 协议连接',
+    subtitle: '突破纯文本对话边界，通过统一协议让 Agent 安全连接数据库、代码库与外部服务',
+    courseTitle: 'MCP Server 开发',
+    estimatedHours: '10-14 学时',
+    accentColor: '#d97706',
+    badgeClass: 'bg-amber-50 text-amber-700 border border-amber-200',
+    borderClass: 'border-amber-200/80',
+    nodes: [
+      {
+        id: 'l2-tool-calling',
+        layerId: 'layer-2',
+        code: 'L2.1',
+        title: 'Function Calling 与描述规范',
+        subtitle: '编写让 LLM 精准识别“何时调用、何时不调用”的 Schema 与 docstring',
+        summary: '理解模型如何把自然语言意图映射为结构化工具调用参数，避免因参数类型模糊或描述含糊引发误调与死循环。',
+        masteryCriteria: [
+          '能用 Pydantic / 类型注解精确约束枚举参数与必填项',
+          '会编写包含“适用场景 + 禁止场景”的高质量工具描述文档',
+        ],
+        recommendedToolIds: ['fastmcp', 'cursor'],
+        relatedSkillSlugs: ['mcp-schema-designer', 'code-review-architect'],
+        relatedCourseTitle: 'MCP Server 开发',
+        tracks: ['orchestration', 'engineering'],
+      },
+      {
+        id: 'l2-mcp-primitives',
+        layerId: 'layer-2',
+        code: 'L2.2',
+        title: 'MCP 三大核心原语架构',
+        subtitle: '明确 Tools（动作）、Resources（只读上下文）与 Prompts（模板）的职责边界',
+        summary: '理解 MCP 作为“AI 世界 USB-C 接口”的生态价值，在真实业务中合理拆分只读资源 URI 与有副作用的工具调用。',
+        masteryCriteria: [
+          '能准确判断一项需求应设计为 Tool、Resource 还是 Prompt',
+          '掌握 stdio 与 SSE 传输机制及标准输入输出排错要点',
+        ],
+        recommendedToolIds: ['fastmcp', 'smithery'],
+        relatedSkillSlugs: ['mcp-schema-designer'],
+        relatedCourseTitle: 'MCP Server 开发',
+        tracks: ['engineering'],
+      },
+      {
+        id: 'l2-mcp-debug',
+        layerId: 'layer-2',
+        code: 'L2.3',
+        title: 'MCP Server 调试与客户端联调',
+        subtitle: '使用 MCP Inspector 单步验证并接入 Cline / Cursor / OpenClaw',
+        summary: '完成从本地开发、协议级调试到真实 AI 客户端挂载调用的完整交付链路，排查常见路径、编码与环境变量坑。',
+        masteryCriteria: [
+          '能熟练使用 MCP Inspector 验证工具 Schema 与异常返回',
+          '能编写客户端 mcpServers JSON 配置并跑通端到端对话调用',
+        ],
+        recommendedToolIds: ['mcp-inspector', 'cline'],
+        relatedSkillSlugs: ['mcp-schema-designer', 'error-stack-doctor'],
+        relatedCourseTitle: 'MCP Server 开发',
+        tracks: ['engineering'],
+      },
+    ],
+  },
+  {
+    id: 'layer-3',
+    level: 'L3',
+    title: 'Agent 编排与多智能体架构',
+    subtitle: '掌握 ReAct 自主循环、四类记忆系统与图编排，打造能自主规划与协同的复杂 Agent',
+    courseTitle: '智能体框架与开发',
+    estimatedHours: '15-20 学时',
+    accentColor: '#059669',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    borderClass: 'border-emerald-200/80',
+    nodes: [
+      {
+        id: 'l3-react-pra',
+        layerId: 'layer-3',
+        code: 'L3.1',
+        title: 'PRA 与 ReAct 自主推理循环',
+        subtitle: '感知-推理-行动闭环，让 Agent 根据外部观察结果动态修正执行计划',
+        summary: '打通“思考 Thought → 行动 Action → 观察 Observation”迭代机制，并合理设置最大步数熔断以控制延迟和成本。',
+        masteryCriteria: [
+          '能独立实现单 Agent ReAct 工具调用项目（如课程“毒舌 Gordon”）',
+          '理解循环终止条件与工具异常重试降级策略',
+        ],
+        recommendedToolIds: ['langgraph', 'dify'],
+        relatedSkillSlugs: ['paper-xray-reader', 'tech-mock-interviewer'],
+        relatedCourseTitle: '智能体框架与开发',
+        tracks: ['beginner', 'orchestration', 'engineering'],
+      },
+      {
+        id: 'l3-memory-rag',
+        layerId: 'layer-3',
+        code: 'L3.2',
+        title: '记忆系统与 RAG 知识检索',
+        subtitle: '协同运用短期记忆、工作记忆、长期记忆与向量语义检索',
+        summary: '解决大模型“无状态健忘”与“缺乏私有领域知识”两大核心局限，在上下文长度、召回精度和延迟之间做出工程权衡。',
+        masteryCriteria: [
+          '能区分四类记忆的存储介质与生命周期，合理控制上下文预算',
+          '能在 Dify 或代码中构建带文档溯源引用的 RAG 问答流程',
+        ],
+        recommendedToolIds: ['dify', 'langgraph'],
+        relatedSkillSlugs: ['concept-card-maker', 'presales-solution-outline'],
+        relatedCourseTitle: '智能体框架与开发',
+        tracks: ['orchestration', 'engineering'],
+      },
+      {
+        id: 'l3-multi-agent',
+        layerId: 'layer-3',
+        code: 'L3.3',
+        title: '工作流与多 Agent 协作系统',
+        subtitle: '角色分工、条件路由、辩论收敛与人机协同审批（Human-in-the-Loop）',
+        summary: '基于 LangGraph / Dify / n8n 编排多个专职 Agent 协同交付复杂任务（如创意风暴、售前方案生成与代码评审闭环）。',
+        masteryCriteria: [
+          '能设计清晰的多 Agent State 流转图与收敛主持人角色',
+          '能判断何时该用单 Agent 工作流、何时值得引入多 Agent 架构',
+        ],
+        recommendedToolIds: ['langgraph', 'n8n', 'coze'],
+        relatedSkillSlugs: ['presales-solution-outline', 'tech-mock-interviewer'],
+        relatedCourseTitle: '智能体框架与开发',
+        tracks: ['orchestration', 'engineering'],
+      },
+    ],
+  },
+  {
+    id: 'layer-4',
+    level: 'L4',
+    title: '工程化配置与实训落地',
+    subtitle: '把 Demo 变成可运行、可排错、可验收的工程产物，打通容器环境与交付闭环',
+    courseTitle: 'ADE 配置与智能体开发',
+    estimatedHours: '10-14 学时',
+    accentColor: '#7c3aed',
+    badgeClass: 'bg-violet-50 text-violet-700 border border-violet-200',
+    borderClass: 'border-violet-200/80',
+    nodes: [
+      {
+        id: 'l4-ade-env',
+        layerId: 'layer-4',
+        code: 'L4.1',
+        title: 'ADE 环境配置与容器工作区',
+        subtitle: '虚拟环境隔离、环境变量管理、端口映射与云端实训环境运维',
+        summary: '彻底告别“在我电脑上能跑”的环境玄学，规范管理 Python venv、Docker 映射端口与敏感 API Key 环境变量。',
+        masteryCriteria: [
+          '能快速排查虚拟环境错位、依赖冲突与端口占用等常见环境故障',
+          '严格通过 .env / 环境变量注入密钥，绝不把 API Key 硬编码进源码',
+        ],
+        recommendedToolIds: ['cursor', 'trae', 'ollama'],
+        relatedSkillSlugs: ['error-stack-doctor'],
+        relatedCourseTitle: 'ADE 配置与智能体开发',
+        tracks: ['beginner', 'engineering'],
+      },
+      {
+        id: 'l4-observability',
+        layerId: 'layer-4',
+        code: 'L4.2',
+        title: '代码审查与运行可观测性',
+        subtitle: '日志追踪、延迟/Token 成本监控与结构化 Code Review',
+        summary: '给黑盒的大模型调用加上日志、耗时和错误追踪，在上线或提交作业前通过严格审查兜底工程质量。',
+        masteryCriteria: [
+          '能针对 Agent 工具函数识别命令注入、路径穿越与并发竞态缺陷',
+          '能通过步骤日志快速还原多轮推理失败的具体节点',
+        ],
+        recommendedToolIds: ['cursor', 'langgraph'],
+        relatedSkillSlugs: ['code-review-architect', 'error-stack-doctor'],
+        relatedCourseTitle: 'ADE 配置与智能体开发',
+        tracks: ['engineering'],
+      },
+      {
+        id: 'l4-delivery-report',
+        layerId: 'layer-4',
+        code: 'L4.3',
+        title: '成果验证与专业化交付',
+        subtitle: '可复现实验文档、架构图可视化与技术方案汇报呈现',
+        summary: '把做出来的智能体项目沉淀为证据充分的实训报告、架构图与路演材料，形成求职和竞赛可直接展示的作品集。',
+        masteryCriteria: [
+          '实验报告具备可复现步骤、验证截图/日志与有深度的排错复盘',
+          '能用清晰架构图与 STAR 法则向面试官讲清技术选型与量化收益',
+        ],
+        recommendedToolIds: ['napkin-ai', 'gamma'],
+        relatedSkillSlugs: ['lab-report-reviewer', 'tech-mock-interviewer'],
+        relatedCourseTitle: 'ADE 配置与智能体开发',
+        tracks: ['beginner', 'orchestration'],
+      },
+    ],
+  },
+  {
+    id: 'layer-5',
+    level: 'L5',
+    title: '安全护栏与合规治理',
+    subtitle: '为面向真实用户的智能体筑牢防线，防范提示词注入、越权操作与内容合规风险',
+    courseTitle: '安全与合规',
+    estimatedHours: '6-10 学时',
+    accentColor: '#e11d48',
+    badgeClass: 'bg-rose-50 text-rose-700 border border-rose-200',
+    borderClass: 'border-rose-200/80',
+    nodes: [
+      {
+        id: 'l5-prompt-injection',
+        layerId: 'layer-5',
+        code: 'L5.1',
+        title: '提示词注入与红队攻防',
+        subtitle: '识别指令劫持、情境伪装与系统提示词套取攻击并完成加固',
+        summary: '掌握直接注入与间接注入（藏在外部文档/代码注释里的恶意指令）原理，建立数据与指令隔离思维。',
+        masteryCriteria: [
+          '能构造至少 3 类红队用例压测自有 Agent 设定',
+          '会编写最高优先级安全声明，抵御角色切换和提示词泄露攻击',
+        ],
+        recommendedToolIds: ['dify', 'ollama'],
+        relatedSkillSlugs: ['agent-redteam-guard', 'prompt-five-principles'],
+        relatedCourseTitle: '安全与合规',
+        tracks: ['orchestration', 'engineering'],
+      },
+      {
+        id: 'l5-guardrails',
+        layerId: 'layer-5',
+        code: 'L5.2',
+        title: '输入输出内容护栏体系',
+        subtitle: '敏感话题拦截、事实溯源校验与优雅拒答引导',
+        summary: '结合课程“AI 酒吧调酒师”实战，在模型前后构建多层内容过滤与合规策略，兼顾安全性与可用体验。',
+        masteryCriteria: [
+          '能针对特定行业规则（如未成年人保护、学术诚信）设计显式护栏',
+          '触发拦截时能给出温和替代方案，避免生硬报错或泄露内部规则',
+        ],
+        recommendedToolIds: ['dify', 'coze'],
+        relatedSkillSlugs: ['agent-redteam-guard', 'socratic-algo-coach'],
+        relatedCourseTitle: '安全与合规',
+        tracks: ['beginner', 'orchestration'],
+      },
+      {
+        id: 'l5-least-privilege',
+        layerId: 'layer-5',
+        code: 'L5.3',
+        title: '工具最小权限与审计闭环',
+        subtitle: '写操作 dry_run、目录沙箱白名单与高危动作人工确认',
+        summary: '当 Agent 拥有终端、数据库或外部发信能力时，通过代码层硬校验（而非仅靠 Prompt 劝说）防止越权破坏。',
+        masteryCriteria: [
+          '在工具代码层实现路径白名单与参数校验，绝不将用户输入直接拼进 Shell',
+          '高危写操作具备人工确认门禁或 dry_run 预览机制',
+        ],
+        recommendedToolIds: ['fastmcp', 'mcp-inspector'],
+        relatedSkillSlugs: ['code-review-architect', 'mcp-schema-designer'],
+        relatedCourseTitle: '安全与合规',
+        tracks: ['engineering'],
+      },
+    ],
+  },
+];
+
+export const FOUNDATION_MODEL_GUIDES: FoundationModelGuide[] = [
+  {
+    id: 'deepseek-v3',
+    name: 'DeepSeek',
+    vendor: '深度求索',
+    desc: '代码与深度推理（R1/V3）表现突出、API 性价比极高，是平台编程实训与复杂问题拆解的首选主力引擎。',
+    logoText: 'DS',
+    iconClass: 'text-blue-600',
+    logoUrl: 'https://cdn.deepseek.com/logo.png?x-image-process=image%2Fresize%2Cw_1920',
+    url: 'https://www.deepseek.com/',
+    strengthTags: ['强推理 R1', '代码首选', '高性价比 API'],
+    bestForLabs: '算法引导、报错根因诊断、MCP 开发与复杂架构推理',
+    apiBaseUrl: 'https://api.deepseek.com',
+    recommendedApiModel: 'deepseek-reasoner',
+    apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+  },
+  {
+    id: 'qwen-max',
+    name: '通义千问',
+    vendor: '阿里云百炼',
+    desc: '覆盖文本、代码与多模态全栈能力，兼容模式一站式聚合多款开源模型，适合企业级中文场景与课程集成。',
+    logoText: 'QW',
+    iconClass: 'text-amber-600',
+    logoUrl: 'https://img.alicdn.com/imgextra/i4/O1CN01P8z9P91OBXM3D0VOt_!!6000000001667-2-tps-174-60.png',
+    url: 'https://bailian.console.aliyun.com/',
+    strengthTags: ['平台默认接入', '中文稳健', '多模态全面'],
+    bestForLabs: '平台内建 AI 辅导、RAG 知识库问答与中文长文档处理',
+    apiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    recommendedApiModel: 'qwen-max',
+    apiKeyEnvVar: 'DASHSCOPE_API_KEY',
+  },
+  {
+    id: 'glm-4-plus',
+    name: 'GLM-4',
+    vendor: '智谱 AI',
+    desc: '中文指令遵循与 Function Calling 工具调用稳定，对教学问答、函数编排和长上下文解析支持良好。',
+    logoText: 'GLM',
+    iconClass: 'text-violet-600',
+    logoUrl: 'https://www.zhipuai.cn/logo.svg',
+    url: 'https://open.bigmodel.cn/',
+    strengthTags: ['工具调用稳', '长上下文', '中文理解佳'],
+    bestForLabs: 'Function Calling 实训、多轮工具编排与实验报告核查',
+    apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    recommendedApiModel: 'glm-4-plus',
+    apiKeyEnvVar: 'ZHIPU_API_KEY',
+  },
+  {
+    id: 'doubao-1-5-pro',
+    name: '豆包大模型',
+    vendor: '字节跳动 · 火山引擎',
+    desc: '低延迟高吞吐、中文口语与创意表达自然，适合实时交互、内容改写和低门槛智能体应用集成。',
+    logoText: 'DB',
+    iconClass: 'text-rose-600',
+    logoUrl: 'https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/samantha/logo-icon-white-bg.png',
+    url: 'https://www.volcengine.com/product/doubao',
+    strengthTags: ['极速低延迟', '表达自然', '高并发友好'],
+    bestForLabs: '跨平台文案创作、角色扮演护栏实训与实时对话助手',
+    apiBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    recommendedApiModel: 'doubao-1-5-pro-32k',
+    apiKeyEnvVar: 'ARK_API_KEY',
+  },
+];
+
+export function getEcosystemToolById(id: string): EcosystemTool | undefined {
+  return ECOSYSTEM_TOOLS.find((item) => item.id === id);
+}
+
+export function getFoundationModelById(id: string): FoundationModelGuide | undefined {
+  return FOUNDATION_MODEL_GUIDES.find((item) => item.id === id);
+}
+
+export function buildHarnessProviderYaml(model: FoundationModelGuide): string {
+  const providerKey = model.id.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+  return `# 放入 ~/.dsh/profiles/default/cordis.patch.yml（或 $DSH_HOME 对应配置）
+providers:
+  ${providerKey}:
+    displayName: "${model.name} (${model.vendor})"
+    api: openai-completions
+    baseURL: "${model.apiBaseUrl}"
+    apiKeyEnv: "${model.apiKeyEnvVar}"
+    models:
+      - id: "${model.recommendedApiModel}"
+        name: "${model.name} · ${model.recommendedApiModel}"`;
+}
+
+export function buildModelApiSnippet(model: FoundationModelGuide): string {
+  return `import os
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ.get("${model.apiKeyEnvVar}", "YOUR_API_KEY"),
+    base_url="${model.apiBaseUrl}",
+)
+
+resp = client.chat.completions.create(
+    model="${model.recommendedApiModel}",
+    messages=[
+        {"role": "system", "content": "你是 Agent EDU Lab 实训助教，回答简洁且给出可验证步骤。"},
+        {"role": "user", "content": "用 3 句话说明 MCP 协议里 Tool 和 Resource 的区别。"},
+    ],
+)
+
+print(resp.choices[0].message.content)`;
+}
