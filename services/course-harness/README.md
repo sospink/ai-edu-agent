@@ -4,6 +4,8 @@
 
 ## 平台品牌
 
+完整上游参考源码已随仓库提交在 `third_party/deepseek-harness/`；固定提交、许可证和线上运行时版本差异见 `third_party/DEEPSEEK-HARNESS.md`。
+
 - `brand/` 使用原版 `sidebar.brand.mark`、`sidebar.brand.name`、`conversation.hero.brand.mark` 插槽，复用运行时 React，不另造聊天页面。
 - Host 的 `webServer.tapIndex` 设置初始标题、EDU 图标及启动文字。客户端只监听 `<title>` 的产品后缀，确保切换会话与语言后仍保留平台名称；不扫描页面正文。
 - 平台统一管理模型、账号及插件。课程配置关闭对应上游设置、欢迎弹窗和日志上传设置，保持通用设置与课程预设可用。
