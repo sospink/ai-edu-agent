@@ -1,25 +1,113 @@
-name: edu-backend-go-ci
+name: Agent EDU CI and Deploy 42
 
 on:
   push:
     paths:
       - "EDU_Backend_Go/**"
+      - "EDU_Frontend/**"
+      - "scripts/ci/**"
       - ".github/workflows/edu-backend-go-ci.yml"
   pull_request:
     paths:
       - "EDU_Backend_Go/**"
+      - "EDU_Frontend/**"
+      - "scripts/ci/**"
+      - ".github/workflows/edu-backend-go-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: EDU_Backend_Go
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: EDU_Backend_Go/go.mod
-      - run: go mod tidy
-      - run: go test ./...
-      - run: go build ./cmd/server
+          cache-dependency-path: EDU_Backend_Go/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: EDU_Frontend/package-lock.json
+      - name: Test release archive boundaries
+        run: python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+      - name: Test Go backend
+        working-directory: EDU_Backend_Go
+        run: go test -mod=readonly ./...
+      - name: Install frontend dependencies
+        working-directory: EDU_Frontend
+        run: npm ci
+      - name: Build frontend
+        working-directory: EDU_Frontend
+        env:
+          VITE_API_BASE_URL: /api
+        run: npm run build
+      - name: Package tested revision
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          mkdir -p release
+          (cd EDU_Backend_Go && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -trimpath -o ../release/edu-backend-go ./cmd/server)
+          tar -czf release/frontend.tar.gz -C EDU_Frontend/dist .
+          printf '%s\n' "$REVISION" > release/REVISION
+          tar -czf release.tar.gz -C release edu-backend-go frontend.tar.gz REVISION
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ github.sha }}
+          path: release.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_42_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-42
+    concurrency:
+      group: production-42
+      cancel-in-progress: false
+    steps:
+      - name: Skip superseded revisions
+        id: revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+        run: |
+          current="$(gh api "repos/$REPO/commits/main" --jq .sha)"
+          if [[ "$current" == "$REVISION" ]]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipped: a newer main revision is available." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: steps.revision.outputs.current == 'true'
+        with:
+          name: release-${{ github.sha }}
+      - name: Deploy and verify 42
+        if: steps.revision.outputs.current == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.EDU42_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.EDU42_KNOWN_HOSTS }}
+          REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          umask 077
+          key="$RUNNER_TEMP/edu42-key"
+          hosts="$RUNNER_TEMP/edu42-hosts"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$hosts"
+          unset DEPLOY_KEY KNOWN_HOSTS
+          args=(-i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$hosts" -o ConnectTimeout=15)
+          ssh "${args[@]}" ubuntu@42.240.132.79 "upload $REVISION" < release.tar.gz
+          ssh "${args[@]}" ubuntu@42.240.132.79 "deploy $REVISION"
+          ssh "${args[@]}" ubuntu@42.240.132.79 "status $REVISION"
+          echo "Deployed \`$REVISION\` to **42**. Backend and frontend health checks passed." >> "$GITHUB_STEP_SUMMARY"
