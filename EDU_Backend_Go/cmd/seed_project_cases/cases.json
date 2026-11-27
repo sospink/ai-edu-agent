@@ -1,0 +1,102 @@
+[
+  {
+    "slug": "enterprise-knowledge-assistant",
+    "tags": ["RAG", "Python", "React"],
+    "difficulty": 2,
+    "zh": {
+      "title": "企业知识库问答系统",
+      "subtitle": "从资料整理到引用溯源，设计可验证的企业知识问答应用。",
+      "scenario": "面向企业内部制度、产品文档和常见问题，设计一个带资料管理、检索问答和引用查看界面的知识服务。重点处理回答无依据、文档版本混淆和敏感信息泄露等问题。",
+      "modules": ["资料管理：文件接入、版本记录与解析状态", "检索问答：文本分段、检索策略与上下文组织", "引用溯源：展示来源片段并支持人工核对", "质量评估：有答案、无答案及冲突资料的测试集"],
+      "goals": ["理解 RAG 从文档到回答的处理链路", "设计带引用与拒答机制的问答交互", "使用 AI 辅助编写测试用例并人工核验"],
+      "prerequisites": ["掌握 Python 和 HTTP JSON 基础", "了解提示词结构与前端表单"],
+      "deliverables": ["系统模块图和接口清单", "资料样例与不少于 10 条评测问题", "问答页面原型、引用展示规则及测试计划"],
+      "question": "请帮助我拆解知识库问答的模块，并说明哪些结果必须人工验证。"
+    },
+    "en": {
+      "title": "Enterprise Knowledge Assistant",
+      "subtitle": "Design evidence-based enterprise Q&A with document management and traceable citations.",
+      "scenario": "Design a knowledge service for internal policies, product documentation and frequently asked questions. Include document management, retrieval-based Q&A and source inspection, addressing unsupported answers, conflicting versions and sensitive information.",
+      "modules": ["Document management: ingestion, version tracking and parsing status", "Retrieval and Q&A: chunking, retrieval strategy and context assembly", "Source inspection: cited passages and human verification", "Evaluation: answerable, unanswerable and conflicting-document cases"],
+      "goals": ["Explain the RAG pipeline from documents to answers", "Design citation and abstention interactions", "Use AI to draft tests and verify results manually"],
+      "prerequisites": ["Basic Python and HTTP JSON", "Prompt structure and frontend forms"],
+      "deliverables": ["System diagram and API inventory", "Sample documents and at least 10 evaluation questions", "Q&A screen prototype, citation rules and test plan"],
+      "question": "Help me break down a knowledge assistant into modules and identify results that need human verification."
+    }
+  },
+  {
+    "slug": "cloud-operations-copilot",
+    "tags": ["Cloud", "Python", "Observability"],
+    "difficulty": 2,
+    "zh": {
+      "title": "云服务智能运维台",
+      "subtitle": "围绕监控、日志与故障分析，设计可追溯的 AI 运维工作台。",
+      "scenario": "面向教学用云服务，设计统一展示服务状态、日志证据和故障工单的运维台。AI 负责提出排查假设和建议，实际执行由用户确认，禁止直接操作真实生产环境。",
+      "modules": ["服务概览：健康状态、指标趋势与异常提示", "日志检索：时间窗口、关键字段和证据关联", "智能诊断：区分事实、假设和待验证项", "处置记录：人工确认、执行结果与复盘归档"],
+      "goals": ["建立监控、日志与事件之间的关联", "设计有证据约束的诊断提示词", "定义人工审批和恢复验证流程"],
+      "prerequisites": ["了解 Linux 常用命令和 HTTP 服务", "能够阅读 JSON 日志与简单 Python 代码"],
+      "deliverables": ["运维台页面原型与状态模型", "三类故障场景及脱敏日志样例", "排查清单、审批规则与恢复验收标准"],
+      "question": "请根据模拟日志设计排障流程，明确事实、假设和需要人工确认的操作。"
+    },
+    "en": {
+      "title": "Cloud Operations Copilot",
+      "subtitle": "Design an evidence-driven AI operations console for monitoring, logs and incident triage.",
+      "scenario": "Design a console for teaching services that connects service status, log evidence and incident tickets. AI proposes hypotheses and actions; users approve execution. Do not operate real production infrastructure.",
+      "modules": ["Service overview: health, metric trends and anomaly indicators", "Log search: time windows, key fields and linked evidence", "Diagnosis: separate facts, hypotheses and pending checks", "Response records: approvals, execution results and review"],
+      "goals": ["Connect metrics, logs and events", "Design evidence-constrained diagnostic prompts", "Define human approval and recovery verification"],
+      "prerequisites": ["Basic Linux commands and HTTP services", "Ability to read JSON logs and simple Python"],
+      "deliverables": ["Console prototype and state model", "Three incident scenarios with sanitized sample logs", "Triage checklist, approval rules and recovery criteria"],
+      "question": "Design a triage workflow from simulated logs, separating facts, hypotheses and actions requiring approval."
+    }
+  },
+  {
+    "slug": "mcp-tool-service-development",
+    "tags": ["MCP", "TypeScript", "Python"],
+    "difficulty": 2,
+    "zh": {
+      "title": "MCP 工具服务开发",
+      "subtitle": "围绕工具、资源与提示模板，设计可测试的智能体服务接口。",
+      "scenario": "以知识条目查询和任务记录为场景，设计一个供智能体使用的 MCP 服务。通过明确的工具输入输出、权限范围和错误反馈，降低模型误调用和越权访问风险。",
+      "modules": ["工具契约：输入 Schema、返回结构与错误分类", "资源组织：资源标识、读取范围和更新约定", "提示模板：参数约束和上下文说明", "调用测试：正常、非法参数、越权和超时场景"],
+      "goals": ["区分 Tools、Resources 与 Prompts 的职责", "设计最小权限的工具调用接口", "编写覆盖错误分支的契约测试方案"],
+      "prerequisites": ["掌握 Python 或 TypeScript 基础", "了解 JSON Schema 和客户端服务端通信"],
+      "deliverables": ["MCP 服务设计说明与接口契约", "至少三个工具的输入输出示例", "权限矩阵、错误码清单和测试用例"],
+      "question": "请帮我设计三个最小权限 MCP 工具，并补充输入校验和失败测试用例。"
+    },
+    "en": {
+      "title": "MCP Tool Service Development",
+      "subtitle": "Design testable agent interfaces for tools, resources and prompt templates.",
+      "scenario": "Design an MCP service for knowledge lookup and task records. Define explicit tool inputs, outputs, permissions and errors to reduce incorrect calls and unauthorized access.",
+      "modules": ["Tool contracts: input schemas, response structures and error categories", "Resources: identifiers, read scopes and update conventions", "Prompt templates: parameters and context guidance", "Call tests: valid input, invalid input, denied access and timeouts"],
+      "goals": ["Distinguish Tools, Resources and Prompts", "Design least-privilege tool interfaces", "Plan contract tests covering failure paths"],
+      "prerequisites": ["Basic Python or TypeScript", "JSON Schema and client-server communication"],
+      "deliverables": ["MCP service design and interface contracts", "Input/output examples for at least three tools", "Permission matrix, error codes and test cases"],
+      "question": "Help me design three least-privilege MCP tools with input validation and failure test cases."
+    }
+  },
+  {
+    "slug": "multi-agent-ticket-workflow",
+    "tags": ["Agents", "Workflow", "React"],
+    "difficulty": 3,
+    "zh": {
+      "title": "多智能体工单协作系统",
+      "subtitle": "设计分类、分派、协作与人工审核相结合的工单处理流程。",
+      "scenario": "面向校园 IT 服务请求，设计带工单列表、处理详情和审批记录的协作系统。将分类、资料检索、方案起草分配给不同角色，最终结论由人工审核，保留完整流转证据。",
+      "modules": ["工单受理：字段校验、分类与优先级", "任务编排：角色职责、交接状态和失败重试", "协作处理：资料证据、方案草稿与冲突处理", "人工审核：退回、确认、关闭和审计记录"],
+      "goals": ["设计可追踪的多角色协作状态机", "为智能体划分职责和工具权限", "处理重复请求、失败重试和人工接管"],
+      "prerequisites": ["理解 REST API、状态管理与提示词", "具备基础前端和 Python 编程能力"],
+      "deliverables": ["工单状态机和角色权限图", "五类工单样例及角色提示词", "页面原型、交接协议与异常处理测试计划"],
+      "question": "请帮我设计工单协作状态机，包含重试、退回和人工接管，避免多个角色重复处理。"
+    },
+    "en": {
+      "title": "Multi-Agent Ticket Workflow",
+      "subtitle": "Design ticket classification, assignment and collaboration with human review.",
+      "scenario": "Design a campus IT request system with ticket lists, processing details and approval records. Assign classification, evidence retrieval and response drafting to distinct roles while retaining human approval and a traceable history.",
+      "modules": ["Intake: field validation, classification and priority", "Orchestration: role ownership, handoffs and retries", "Collaboration: evidence, response drafts and conflict handling", "Human review: return, approve, close and audit"],
+      "goals": ["Design a traceable multi-role state machine", "Define agent responsibilities and tool permissions", "Handle duplicate requests, retries and human takeover"],
+      "prerequisites": ["REST APIs, state management and prompts", "Basic frontend and Python programming"],
+      "deliverables": ["Ticket state machine and role permission diagram", "Five sample tickets and role prompts", "Screen prototypes, handoff contracts and failure test plan"],
+      "question": "Help me design a ticket workflow with retries, returns and human takeover while preventing duplicate work."
+    }
+  }
+]
