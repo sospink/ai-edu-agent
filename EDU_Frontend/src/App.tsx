@@ -19,7 +19,7 @@ import LocaleTransition from '@/components/common/LocaleTransition';
 import { ProfilePage } from '@/components/profile';
 import { ProjectList, ProjectDetail } from '@/components/project';
 import { SkillList, SkillDetail, LessonPage, LabPage } from '@/components/study';
-import { AISquare } from '@/components/ai-square';
+import { AISquare, AgentHubPage, AgentHubDetailPage, CapabilityMapPage, DeepSeekHarnessPage } from '@/components/ai-square';
 import DocsPage from '@/components/docs/DocsPage';
 import { authService } from '@/services/auth';
 import type { User } from '@/types';
@@ -536,6 +536,10 @@ const AppContent: React.FC = () => {
                   <Route path="/study" element={<StudyPage currentUser={currentUser} onLoginRequired={() => openStudentLogin('/study')} />} />
                   <Route path="/projects" element={<ProjectsPage currentUser={currentUser} onLoginRequired={() => openStudentLogin('/projects')} />} />
                   <Route path="/ai-square" element={<AISquare />} />
+                  <Route path="/ai-square/harness" element={<DeepSeekHarnessPage />} />
+                  <Route path="/ai-square/hub" element={<AgentHubPage />} />
+                  <Route path="/ai-square/hub/:slug" element={<AgentHubDetailPage />} />
+                  <Route path="/ai-square/capability-map" element={<CapabilityMapPage />} />
                   <Route
                     path="/profile"
                     element={
