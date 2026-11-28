@@ -1,0 +1,13 @@
+**
+!scripts/
+!scripts/sync-dsh-skills.mjs
+!EDU_Frontend/
+!EDU_Frontend/src/
+!EDU_Frontend/src/data/
+!EDU_Frontend/src/data/agentHubSkills.ts
+!services/
+!services/course-harness/
+!services/course-harness/entrypoint.py
+!services/ai-square-harness/
+!services/ai-square-harness/square.patch.yml
+!services/ai-square-harness/square-policy.mjs

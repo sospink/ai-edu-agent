@@ -1,0 +1,31 @@
+- id: preset-course
+  disabled: true
+- id: agent-preset-registry
+  config:
+    default: ai-square
+- insert:
+    - id: preset-ai-square
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: ai-square
+        name: AI Square
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              complete: true
+              includeRuntimeContext: false
+              prefix: !!js >-
+                process.env.EDU_LOCALE === 'zh-CN'
+                  ? '你是 AI 广场的教学助手。根据学生选择的 Skill 和提供的输入进行教学。需要教学 Skill 时先加载其说明。请用简体中文回答。'
+                  : 'You teach in AI Square. Use the student’s input and load the relevant teaching skill before applying it. Answer in English.'
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+            config:
+              includeDefaultRoots: false
+              customSkillDirs:
+                - /opt/ai-square/skills
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: square-policy
+            name: /opt/ai-square/square-policy.mjs

@@ -46,7 +46,9 @@ def main():
             "--host", hosts[0], "--port", "3080", "--no-open",
             "--public-url", os.environ["EDU_PUBLIC_URL"],
             "--trusted-host", os.environ["EDU_TRUSTED_HOST"]]
-    print("课程 Harness：启动官方 Web，端口 3080，preset=course", flush=True)
+    if os.environ.get("EDU_WORKSPACE_PROFILE") == "ai-square":
+        args.extend(["--patch", "/opt/ai-square/square.patch.yml"])
+    print("Harness：启动官方 Web，端口 3080", flush=True)
     os.execv(args[0], args)
 
 

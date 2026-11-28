@@ -34,32 +34,63 @@ func (h *Handler) allowed(ctx context.Context, s Instance) bool {
 	if h.db.WithContext(ctx).Model(&user.User{}).Where("id = ? AND status = 1", s.UserID).Count(&users).Error != nil || users != 1 {
 		return false
 	}
+	if s.Square {
+		return s.LessonID == 0
+	}
 	return h.db.WithContext(ctx).Table("course_lessons AS l").Joins("JOIN courses c ON c.id = l.course_id").Where("l.id = ? AND c.status = ?", s.LessonID, course.CourseStatusPublished).Count(&courses).Error == nil && courses == 1
 }
 func (h *Handler) Session(c *gin.Context) {
+	lessonID, err := strconv.ParseUint(c.Param("lessonId"), 10, 64)
+	if err != nil || lessonID == 0 {
+		failure(c, 404, "NOT_FOUND", "课时不存在", "Lesson not found")
+		return
+	}
+	h.openSession(c, Instance{LessonID: lessonID})
+}
+
+func (h *Handler) SquareSession(c *gin.Context) {
+	h.openSession(c, Instance{Square: true})
+}
+
+func (h *Handler) openSession(c *gin.Context, workspace Instance) {
 	claims, ok := middleware.CurrentClaims(c)
 	if !ok || claims == nil {
 		failure(c, 401, "UNAUTHORIZED", "请先登录", "Please sign in")
 		return
 	}
-	lessonID, _ := strconv.ParseUint(c.Param("lessonId"), 10, 64)
-	if !h.allowed(c.Request.Context(), Instance{UserID: claims.UserID, LessonID: lessonID}) {
-		failure(c, 403, "FORBIDDEN", "课程或账号不可用", "Course or account unavailable")
+	ctx := c.Request.Context()
+	workspace.UserID = claims.UserID
+	workspace.Locale = i18n.LocaleFromContext(ctx)
+	workspace.PlatformToken = c.GetString(middleware.UserTokenKey)
+	if !h.allowed(ctx, workspace) {
+		failure(c, 403, "FORBIDDEN", "工作区不可用", "Workspace access denied")
 		return
 	}
-	if h.image == "" || h.origin == "" {
-		failure(c, 503, "HARNESS_UNAVAILABLE", "智能助教尚未部署", "Agent EDU Tutor is not deployed")
+	image := h.image
+	if workspace.Square {
+		image = h.squareImage
+	}
+	if image == "" || h.origin == "" {
+		if workspace.Square {
+			failure(c, 503, "SQUARE_UNCONFIGURED", "AI 广场工作区尚未部署", "AI Square workspace is not configured")
+		} else {
+			failure(c, 503, "HARNESS_UNAVAILABLE", "智能助教尚未部署", "Agent EDU Tutor is not deployed")
+		}
 		return
 	}
-	lesson, err := h.courses.GetLessonByIDLocalized(c.Request.Context(), lessonID)
-	if err != nil {
-		failure(c, 404, "NOT_FOUND", "课时不存在", "Lesson not found")
-		return
+	var lesson *course.CourseLesson
+	if !workspace.Square {
+		var err error
+		lesson, err = h.courses.GetLessonByIDLocalized(ctx, workspace.LessonID)
+		if err != nil {
+			failure(c, 404, "NOT_FOUND", "课时不存在", "Lesson not found")
+			return
+		}
 	}
 	_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(110 * time.Second))
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	s, err := h.start(ctx, claims.UserID, lesson, i18n.LocaleFromContext(c.Request.Context()), c.GetString(middleware.UserTokenKey))
+	s, err := h.start(ctx, workspace, lesson, image)
 	if errors.Is(err, errCapacity) {
 		failure(c, 429, "HARNESS_CAPACITY", "课程助教工作区已满，请稍后再试", "Course assistant workspaces are full. Try again later")
 		return

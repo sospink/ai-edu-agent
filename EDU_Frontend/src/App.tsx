@@ -536,7 +536,7 @@ const AppContent: React.FC = () => {
                   <Route path="/study" element={<StudyPage currentUser={currentUser} onLoginRequired={() => openStudentLogin('/study')} />} />
                   <Route path="/projects" element={<ProjectsPage currentUser={currentUser} onLoginRequired={() => openStudentLogin('/projects')} />} />
                   <Route path="/ai-square" element={<AISquare />} />
-                  <Route path="/ai-square/harness" element={<DeepSeekHarnessPage />} />
+                  <Route path="/ai-square/harness" element={<DeepSeekHarnessPage key={currentUser?.id ?? 'guest'} />} />
                   <Route path="/ai-square/hub" element={<AgentHubPage />} />
                   <Route path="/ai-square/hub/:slug" element={<AgentHubDetailPage />} />
                   <Route path="/ai-square/capability-map" element={<CapabilityMapPage />} />

@@ -1,14 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Spinner } from '@heroui/react';
 import { RefreshCw } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { API_BASE_URL } from '@/config';
 import { api } from '@/services/api';
 import { authService } from '@/services/auth';
 
-interface HarnessFrameProps {
-  lessonId: string;
-}
+type HarnessFrameProps = { lessonId: string; square?: false } | { square: true; lessonId?: never };
 
 interface HarnessSession {
   url: string;
@@ -29,15 +28,17 @@ function validSession(data: unknown): data is HarnessSession {
   }
 }
 
-export default function HarnessFrame({ lessonId }: HarnessFrameProps) {
+export default function HarnessFrame(props: HarnessFrameProps) {
   const { i18n } = useTranslation('lesson');
   const locale = i18n.resolvedLanguage || i18n.language;
   const [attempt, setAttempt] = useState(0);
-  return <WorkspaceFrame key={`${lessonId}:${locale}:${attempt}`} lessonId={lessonId} locale={locale} retry={() => setAttempt(value => value + 1)} />;
+  const endpoint = props.square ? 'ai-square/session' : `lessons/${encodeURIComponent(props.lessonId)}/session`;
+  return <WorkspaceFrame key={`${endpoint}:${locale}:${attempt}`} endpoint={endpoint} square={!!props.square} locale={locale} retry={() => setAttempt(value => value + 1)} />;
 }
 
-function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { locale: string; retry: () => void }) {
+function WorkspaceFrame({ endpoint, square, locale, retry }: { endpoint: string; square: boolean; locale: string; retry: () => void }) {
   const { t } = useTranslation('lesson');
+  const location = useLocation();
   const translate = useRef(t);
   translate.current = t;
   const [session, setSession] = useState<HarnessSession | null>(null);
@@ -68,7 +69,7 @@ function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { local
       }
       try {
         const response = await fetch(
-          `${API_BASE_URL.replace(/\/$/, '')}/course-harness/lessons/${encodeURIComponent(lessonId)}/session`,
+          `${API_BASE_URL.replace(/\/$/, '')}/course-harness/${endpoint}`,
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'X-Locale': locale, Accept: 'application/json' },
@@ -85,6 +86,8 @@ function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { local
           setError(t('harness.forbidden'));
         } else if (response.status === 429) {
           setError(t('harness.capacity'));
+        } else if (square && response.status === 503 && result?.code === 'SQUARE_UNCONFIGURED') {
+          setError(t('harness.squareUnconfigured'));
         } else if (!response.ok || !result?.success) {
           setError(t('harness.failed'));
         } else if (!validSession(result.data)) {
@@ -104,7 +107,7 @@ function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { local
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [lessonId, locale]);
+  }, [endpoint, locale, square]);
 
   useEffect(() => {
     if (!session || loaded || error) return;
@@ -112,22 +115,37 @@ function WorkspaceFrame({ lessonId, locale, retry }: HarnessFrameProps & { local
     return () => window.clearTimeout(timeout);
   }, [session, loaded, error, t]);
 
+  useEffect(() => {
+    if (!square || !session) return;
+    const timer = window.setTimeout(() => setError(translate.current('harness.expired')), Date.parse(session.expiresAt) - Date.now());
+    return () => window.clearTimeout(timer);
+  }, [square, session]);
+
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white" aria-label={t('harness.title')}>
+    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white" aria-label={square ? 'AI Square Harness' : t('harness.title')}>
       <div className="relative min-h-0 flex-1">
         {session && !error && (
           <iframe
             src={session.url}
-            title={t('harness.title')}
+            title={square ? 'AI Square Harness' : t('harness.title')}
             className={`absolute inset-0 h-full w-full border-0 ${loaded ? '' : 'invisible'}`}
-            onLoad={() => setLoaded(true)}
+            onLoad={event => {
+              // 同站代理可能返回认证错误页；浏览器也会为它触发 load。
+              if (square && event.currentTarget.contentDocument?.contentType !== 'text/html') {
+                setError(t('harness.frameFailed'));
+                return;
+              }
+              setLoaded(true);
+            }}
             onError={() => setError(t('harness.frameFailed'))}
           />
         )}
         {error ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
             <p role="alert" className="text-sm text-slate-500">{error}</p>
-            <Button size="sm" variant="flat" color="primary" startContent={<RefreshCw size={14} />} onPress={retry}>{t('harness.retry')}</Button>
+            {square && !authService.isLoggedIn() ? (
+              <Link className="text-sm font-semibold text-primary" to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}>{t('harness.signIn')}</Link>
+            ) : <Button size="sm" variant="flat" color="primary" startContent={<RefreshCw size={14} />} onPress={retry}>{t('harness.retry')}</Button>}
           </div>
         ) : !loaded && (
           <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">

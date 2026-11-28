@@ -37,6 +37,7 @@ var launchPattern = regexp.MustCompile(`(?m)^dsh web: https?://[^\s]+[?&]token=(
 type Instance struct {
 	ID                                                         string
 	UserID, LessonID                                           uint64
+	Square                                                     bool `json:",omitempty"`
 	Locale, Container, Address, AccessKey, ModelKey, LaunchKey string
 	ExpiresAt                                                  time.Time
 	PlatformToken                                              string
@@ -53,27 +54,27 @@ type budget struct {
 	Active       bool
 }
 type Handler struct {
-	db                                           *gorm.DB
-	courses                                      *course.Service
-	models                                       *llm.Store
-	logger                                       *zap.Logger
-	root, uploadRoot, image, origin, backendPort string
-	mu                                           sync.Mutex
-	lifecycle                                    sync.Mutex
-	instances                                    map[string]Instance
-	tickets                                      map[string]ticket
-	budgets                                      map[string]*budget
-	client                                       *http.Client
-	tokenValid                                   func(context.Context, string) bool
-	connections                                  map[string]int
+	db                                                        *gorm.DB
+	courses                                                   *course.Service
+	models                                                    *llm.Store
+	logger                                                    *zap.Logger
+	root, uploadRoot, image, squareImage, origin, backendPort string
+	mu                                                        sync.Mutex
+	lifecycle                                                 sync.Mutex
+	instances                                                 map[string]Instance
+	tickets                                                   map[string]ticket
+	budgets                                                   map[string]*budget
+	client                                                    *http.Client
+	tokenValid                                                func(context.Context, string) bool
+	connections                                               map[string]int
 }
 
 func NewHandler(db *gorm.DB, courses *course.Service, models *llm.Store, uploads string, port int, logger *zap.Logger, tokenValid func(context.Context, string) bool) *Handler {
 	root, _ := filepath.Abs(filepath.Join(filepath.Dir(uploads), ".settings", "course-harness"))
-	h := &Handler{db: db, courses: courses, models: models, logger: logger, root: root, uploadRoot: uploads, image: os.Getenv("COURSE_HARNESS_IMAGE"), origin: strings.TrimRight(os.Getenv("COURSE_HARNESS_PUBLIC_ORIGIN"), "/"), backendPort: strconv.Itoa(port), instances: map[string]Instance{}, tickets: map[string]ticket{}, budgets: map[string]*budget{}, client: llm.NewHTTPClient()}
+	h := &Handler{db: db, courses: courses, models: models, logger: logger, root: root, uploadRoot: uploads, image: os.Getenv("COURSE_HARNESS_IMAGE"), squareImage: os.Getenv("AI_SQUARE_HARNESS_IMAGE"), origin: strings.TrimRight(os.Getenv("COURSE_HARNESS_PUBLIC_ORIGIN"), "/"), backendPort: strconv.Itoa(port), instances: map[string]Instance{}, tickets: map[string]ticket{}, budgets: map[string]*budget{}, client: llm.NewHTTPClient()}
 	h.tokenValid = tokenValid
 	h.connections = map[string]int{}
-	if h.image != "" {
+	if h.image != "" || h.squareImage != "" {
 		if data, err := os.ReadFile(filepath.Join(root, "instances.json")); err == nil {
 			_ = json.Unmarshal(data, &h.instances)
 		}
@@ -208,7 +209,19 @@ func (h *Handler) ensureNetwork(ctx context.Context) (string, error) {
 	}
 	return gateway, err
 }
-func (h *Handler) start(ctx context.Context, user uint64, lesson *course.CourseLesson, locale, platformToken string) (Instance, error) {
+func (s Instance) sameWorkspace(other Instance) bool {
+	return s.UserID == other.UserID && s.LessonID == other.LessonID && s.Square == other.Square && s.Locale == other.Locale
+}
+
+func (s Instance) directory(root string) string {
+	name := strconv.FormatUint(s.LessonID, 10)
+	if s.Square {
+		name = "ai-square"
+	}
+	return filepath.Join(root, "users", strconv.FormatUint(s.UserID, 10), name, s.Locale)
+}
+
+func (h *Handler) start(ctx context.Context, requested Instance, lesson *course.CourseLesson, image string) (Instance, error) {
 	h.lifecycle.Lock()
 	defer h.lifecycle.Unlock()
 	h.mu.Lock()
@@ -218,14 +231,14 @@ func (h *Handler) start(ctx context.Context, user uint64, lesson *course.CourseL
 	}
 	h.mu.Unlock()
 	for _, s := range list {
-		if s.UserID == user && s.LessonID == lesson.ID && s.Locale == locale && time.Until(s.ExpiresAt) > 2*time.Minute {
+		if s.sameWorkspace(requested) && time.Until(s.ExpiresAt) > 2*time.Minute {
 			// 发布新镜像后在用户下次打开时更新实例，保留原持久化历史目录。
 			running, _ := docker(ctx, "inspect", s.Container, "--format", "{{.State.Running}} {{.Config.Image}}")
-			if running == "true "+h.image {
-				if !same(s.PlatformToken, platformToken) {
+			if running == "true "+image {
+				if !same(s.PlatformToken, requested.PlatformToken) {
 					s.AccessKey = randomKey()
 				}
-				s.PlatformToken = platformToken
+				s.PlatformToken = requested.PlatformToken
 				s.LastSeen = time.Now()
 				h.mu.Lock()
 				h.instances[s.ID] = s
@@ -239,7 +252,7 @@ func (h *Handler) start(ctx context.Context, user uint64, lesson *course.CourseL
 		}
 	}
 	for _, s := range list {
-		if (s.UserID == user && s.LessonID == lesson.ID && s.Locale == locale) || time.Now().After(s.ExpiresAt) {
+		if s.sameWorkspace(requested) || time.Now().After(s.ExpiresAt) {
 			if err := h.remove(s); err != nil {
 				return Instance{}, err
 			}
@@ -256,10 +269,14 @@ func (h *Handler) start(ctx context.Context, user uint64, lesson *course.CourseL
 		return Instance{}, err
 	}
 	id := randomKey()[:32]
-	s := Instance{ID: id, UserID: user, LessonID: lesson.ID, Locale: locale, Container: "edu-harness-" + id, AccessKey: randomKey(), ModelKey: randomKey(), ExpiresAt: time.Now().Add(2 * time.Hour)}
-	s.PlatformToken = platformToken
+	s := requested
+	s.ID = id
+	s.Container = "edu-harness-" + id
+	s.AccessKey = randomKey()
+	s.ModelKey = randomKey()
 	s.LastSeen = time.Now()
-	base := filepath.Join(h.root, "users", fmt.Sprint(user), fmt.Sprint(lesson.ID), locale)
+	s.ExpiresAt = s.LastSeen.Add(2 * time.Hour)
+	base := s.directory(h.root)
 	home := filepath.Join(base, "home")
 	workspace := filepath.Join(base, "workspace")
 	for _, p := range []string{home, workspace} {
@@ -270,8 +287,15 @@ func (h *Handler) start(ctx context.Context, user uint64, lesson *course.CourseL
 			return Instance{}, err
 		}
 	}
-	if err = h.prepareMaterials(ctx, lesson, locale, workspace); err != nil {
-		return Instance{}, err
+	title := "AI Square"
+	if s.Locale == "zh-CN" {
+		title = "AI 广场"
+	}
+	if lesson != nil {
+		title = lesson.Title
+		if err = h.prepareMaterials(ctx, lesson, s.Locale, workspace); err != nil {
+			return Instance{}, err
+		}
 	}
 	public := h.origin + "/api/course-harness/proxy/" + id + "/"
 	parsed, err := url.Parse(h.origin)
@@ -279,7 +303,7 @@ func (h *Handler) start(ctx context.Context, user uint64, lesson *course.CourseL
 		return Instance{}, errors.New("公开地址未配置")
 	}
 	args := []string{"run", "-d", "--name", s.Container, "--label", "edu.course-harness=true", "--network", networkName, "--user", "1000:1000", "--read-only", "--cap-drop=ALL", "--security-opt", "no-new-privileges", "--memory", "768m", "--memory-swap", "768m", "--cpus", "0.75", "--pids-limit", "160", "--tmpfs", "/tmp:rw,exec,nosuid,nodev,size=128m,mode=1777", "--mount", "type=bind,source=" + home + ",target=/home/harness", "--mount", "type=bind,source=" + workspace + ",target=/workspace,readonly", "--log-opt", "max-size=2m", "--log-opt", "max-file=1",
-		"-e", "EDU_PUBLIC_URL=" + public, "-e", "EDU_TRUSTED_HOST=" + parsed.Host, "-e", "EDU_MODEL_BASE_URL=http://" + gateway + ":" + h.backendPort + "/api/course-harness/model/" + id + "/v1", "-e", "EDU_MODEL_TOKEN=" + s.ModelKey, "-e", "EDU_LOCALE=" + locale, "-e", "EDU_COURSE_TITLE=" + lesson.Title, h.image}
+		"-e", "EDU_PUBLIC_URL=" + public, "-e", "EDU_TRUSTED_HOST=" + parsed.Host, "-e", "EDU_MODEL_BASE_URL=http://" + gateway + ":" + h.backendPort + "/api/course-harness/model/" + id + "/v1", "-e", "EDU_MODEL_TOKEN=" + s.ModelKey, "-e", "EDU_LOCALE=" + s.Locale, "-e", "EDU_COURSE_TITLE=" + title, image}
 	if _, err = docker(ctx, args...); err != nil {
 		return Instance{}, err
 	}

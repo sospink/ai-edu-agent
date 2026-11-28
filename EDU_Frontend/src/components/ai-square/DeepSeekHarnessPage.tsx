@@ -1,21 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  AlertCircle,
   ArrowLeft,
   ArrowRight,
   BookOpen,
   Check,
-  CheckCircle2,
   Copy,
   Cpu,
   Download,
-  ExternalLink,
   Layers,
   PanelLeftClose,
   PanelLeftOpen,
   Play,
-  RefreshCw,
   Sliders,
   Sparkles,
   Terminal,
@@ -36,33 +32,9 @@ import {
 } from '@/data/aiSquareEcosystem';
 import { copyText } from '@/utils/clipboard';
 import { SkillIcon } from './SkillIcon';
-
-const STORAGE_KEY = 'edu_lab_deepseek_harness_url';
-const DEFAULT_HARNESS_URL =
-  (import.meta.env.VITE_DEEPSEEK_HARNESS_URL as string | undefined)?.trim() ||
-  'http://127.0.0.1:3080';
+import HarnessFrame from '@/components/study/HarnessFrame';
 
 type SidebarTab = 'skill' | 'model' | 'anatomy';
-type ConnectionState = 'checking' | 'reachable' | 'offline';
-
-function normalizeHarnessUrl(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return DEFAULT_HARNESS_URL;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed.replace(/\/+$/, '');
-  return `http://${trimmed.replace(/\/+$/, '')}`;
-}
-
-// 启动链接只用于让 Harness 交换浏览器会话，不持久保存其中的令牌。
-function withoutLaunchToken(raw: string): string {
-  try {
-    const url = new URL(raw);
-    if (!url.searchParams.has('token')) return raw;
-    url.searchParams.delete('token');
-    return url.href;
-  } catch {
-    return raw;
-  }
-}
 
 const DeepSeekHarnessPage: React.FC = () => {
   const navigate = useNavigate();
@@ -88,44 +60,7 @@ const DeepSeekHarnessPage: React.FC = () => {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>(
     modelIdParam && !skillSlugParam ? 'model' : 'skill'
   );
-  const [harnessUrl, setHarnessUrl] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_HARNESS_URL;
-    return localStorage.getItem(STORAGE_KEY) || DEFAULT_HARNESS_URL;
-  });
-  const [urlDraft, setUrlDraft] = useState(() => withoutLaunchToken(harnessUrl));
-  const [connectionState, setConnectionState] = useState<ConnectionState>('checking');
-  const [forceEmbed, setForceEmbed] = useState(false);
-  const [iframeReloadKey, setIframeReloadKey] = useState(0);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  const displayUrl = withoutLaunchToken(harnessUrl);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, displayUrl);
-  }, [displayUrl]);
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 3000);
-    setConnectionState('checking');
-    // 跨源响应不可读，只能确认服务响应。会话认证由右侧 Harness 自行处理。
-    void fetch(displayUrl, {
-      mode: 'no-cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      signal: controller.signal,
-    }).then(() => {
-      if (active) setConnectionState('reachable');
-    }).catch(() => {
-      if (active) setConnectionState('offline');
-    }).finally(() => window.clearTimeout(timeout));
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [displayUrl, iframeReloadKey]);
 
   const handleCopy = async (key: string, text: string) => {
     const ok = await copyText(text);
@@ -133,15 +68,6 @@ const DeepSeekHarnessPage: React.FC = () => {
       setCopiedKey(key);
       window.setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 2000);
     }
-  };
-
-  const handleApplyUrl = (e: React.FormEvent) => {
-    e.preventDefault();
-    const normalized = normalizeHarnessUrl(urlDraft);
-    setHarnessUrl(normalized);
-    setUrlDraft(withoutLaunchToken(normalized));
-    setForceEmbed(false);
-    setIframeReloadKey((k) => k + 1);
   };
 
   const handleSelectSkill = (slug: string) => {
@@ -171,7 +97,6 @@ const DeepSeekHarnessPage: React.FC = () => {
 
   const slashCommands = useMemo(() => buildHarnessSlashCommands(activeSkill), [activeSkill]);
   const providerYaml = useMemo(() => buildHarnessProviderYaml(activeModel), [activeModel]);
-  const isIframeVisible = connectionState === 'reachable' || forceEmbed;
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] pt-20 pb-8">
@@ -191,62 +116,12 @@ const DeepSeekHarnessPage: React.FC = () => {
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white">
                 <Terminal className="h-4 w-4" />
               </span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-black text-slate-900 md:text-base">
-                    DeepSeek Harness 工作台
-                  </h1>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                      connectionState === 'reachable'
-                        ? 'bg-slate-50 text-slate-600 border border-slate-200'
-                        : connectionState === 'checking'
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        connectionState === 'reachable'
-                          ? 'bg-slate-400'
-                          : connectionState === 'checking'
-                          ? 'bg-blue-500 animate-pulse'
-                          : 'bg-amber-500'
-                      }`}
-                    />
-                    {connectionState === 'reachable'
-                      ? 'dsh web 已响应'
-                      : connectionState === 'checking'
-                      ? '检测服务中…'
-                      : '未检测到本地 dsh 服务'}
-                  </span>
-                </div>
-              </div>
+              <h1 className="text-sm font-black text-slate-900 md:text-base">DeepSeek Harness 工作台</h1>
             </div>
           </div>
 
-          {/* 右侧地址栏与快捷按钮 */}
+          {/* 装配栏开关 */}
           <div className="flex flex-wrap items-center gap-2">
-            <form onSubmit={handleApplyUrl} className="flex items-center gap-1.5">
-              <input
-                type="text"
-                aria-label="Harness 地址或完整启动链接"
-                autoComplete="off"
-                value={urlDraft}
-                onChange={(e) => setUrlDraft(e.target.value)}
-                placeholder="http://127.0.0.1:3080"
-                className="w-48 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs text-slate-700 transition focus:border-primary-500 focus:bg-white focus:outline-none sm:w-56"
-              />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                title="重新检测并连接 DeepSeek Harness"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${connectionState === 'checking' ? 'animate-spin' : ''}`} />
-                连接
-              </button>
-            </form>
-
             <button
               type="button"
               onClick={() => setSidebarOpen((v) => !v)}
@@ -259,16 +134,6 @@ const DeepSeekHarnessPage: React.FC = () => {
               )}
               {sidebarOpen ? '收起装配栏' : '展开装配栏'}
             </button>
-
-            <a
-              href={harnessUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-600"
-            >
-              新窗口打开
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
           </div>
         </header>
 
@@ -313,7 +178,7 @@ const DeepSeekHarnessPage: React.FC = () => {
                     {/* Skill 下拉切换 */}
                     <div>
                       <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        当前挂载教学 Skill
+                        选择教学 Skill
                       </label>
                       <select
                         value={activeSkill.slug}
@@ -450,7 +315,7 @@ const DeepSeekHarnessPage: React.FC = () => {
                   <>
                     <div>
                       <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        选择要接入 Harness 的模型配置
+                        查看模型接入示例
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         {FOUNDATION_MODEL_GUIDES.map((m) => {
@@ -514,11 +379,7 @@ const DeepSeekHarnessPage: React.FC = () => {
                         {providerYaml}
                       </pre>
                       <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                        也可以直接在右侧 Harness 界面的 <strong>Settings</strong> 中填入{' '}
-                        <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">
-                          {activeModel.apiBaseUrl}
-                        </code>{' '}
-                        与对应 API Key。
+                        此配置供独立部署参考。广场工作区使用平台管理员配置的模型。
                       </p>
                     </div>
                   </>
@@ -561,139 +422,8 @@ const DeepSeekHarnessPage: React.FC = () => {
             </aside>
           )}
 
-          {/* 右侧主画布：嵌入真实 DeepSeek Harness Web UI 或一键启动引导 */}
-          <section className="relative flex min-h-[560px] flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            {isIframeVisible ? (
-              <>
-                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-2 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1.5 font-mono">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
-                    {displayUrl}
-                  </span>
-                  <span className="px-3 text-xs text-slate-600">
-                    若提示 authentication required，请将 dsh web 启动时输出的完整链接粘贴到上方地址栏，再点「连接」。
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIframeReloadKey((k) => k + 1)}
-                      className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-slate-900"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      刷新视图
-                    </button>
-                    {forceEmbed && connectionState !== 'reachable' && (
-                      <button
-                        type="button"
-                        onClick={() => setForceEmbed(false)}
-                        className="font-semibold text-primary-600 hover:text-primary-700"
-                      >
-                        返回启动指引
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <iframe
-                  key={`${displayUrl}-${iframeReloadKey}`}
-                  src={harnessUrl}
-                  title="DeepSeek Harness Web UI"
-                  allow="clipboard-read; clipboard-write"
-                  className="h-full min-h-[600px] w-full flex-1 border-0 bg-white"
-                />
-              </>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center p-6 md:p-10">
-                <div className="w-full max-w-2xl rounded-3xl border border-slate-200/90 bg-slate-50/70 p-6 md:p-8">
-                  <div className="flex items-start gap-3.5">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                      <AlertCircle className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-black text-slate-900 md:text-xl">
-                        {connectionState === 'checking' ? '正在检测 DeepSeek Harness Web 服务…' : '尚未检测到运行中的 DeepSeek Harness Web 服务'}
-                      </h2>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                        当前目标地址为 <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-slate-800">{displayUrl}</code>。
-                        只需 2 条命令即可在本地或实训容器启动官方 <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-slate-800">dsh web</code> 并无缝嵌入此画布：
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 1: 同步 Skill */}
-                  <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-slate-800">
-                        第 1 步：一键同步平台 {AGENT_HUB_SKILLS.length} 个教学 Skill 到 ~/.dsh/skills/
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy('sync', 'node scripts/sync-dsh-skills.mjs')}
-                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200"
-                      >
-                        {copiedKey === 'sync' ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                        {copiedKey === 'sync' ? '已复制' : '复制命令'}
-                      </button>
-                    </div>
-                    <pre className="mt-2 overflow-x-auto rounded-xl bg-[#0d1117] px-3.5 py-2.5 font-mono text-xs text-slate-100">
-                      node scripts/sync-dsh-skills.mjs
-                    </pre>
-                  </div>
-
-                  {/* Step 2: 启动 dsh web */}
-                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-slate-800">
-                        第 2 步：启动官方 DeepSeek Harness Web UI（需 Node ≥ 22.19）
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy('dsh', 'npx @deepseek-ai/dsh web')}
-                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200"
-                      >
-                        {copiedKey === 'dsh' ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                        {copiedKey === 'dsh' ? '已复制' : '复制命令'}
-                      </button>
-                    </div>
-                    <pre className="mt-2 overflow-x-auto rounded-xl bg-[#0d1117] px-3.5 py-2.5 font-mono text-xs text-slate-100">
-                      npx @deepseek-ai/dsh web
-                    </pre>
-                    <p className="mt-2 text-[11px] text-slate-500">
-                      启动后默认监听 <code className="font-mono">http://127.0.0.1:3080</code>，在对话里直接输入{' '}
-                      <code className="rounded bg-blue-50 px-1 py-0.5 font-mono font-bold text-primary-700">
-                        /{activeSkill.slug}
-                      </code>{' '}
-                      即可调用左侧已选 Skill。
-                    </p>
-                  </div>
-
-                  {/* 底部操作按钮 */}
-                  <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIframeReloadKey((k) => k + 1)}
-                      className="inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-primary-700"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      已启动，重新检测并嵌入
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setForceEmbed(true)}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300"
-                    >
-                      强制加载 iframe
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/ai-square/hub/${activeSkill.slug}`)}
-                      className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-blue-50"
-                    >
-                      暂不起服务，先看内置模拟演示 →
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+          <section className="relative h-[calc(100vh-160px)] min-h-[560px] flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <HarnessFrame square />
           </section>
         </div>
       </div>
