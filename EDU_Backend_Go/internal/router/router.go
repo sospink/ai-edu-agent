@@ -111,6 +111,7 @@ func New(deps app.Dependencies) *gin.Engine {
 		api.GET("/version", healthHandler.Version)
 		api.GET("/course-model/v1/models", courseModelGateway.Models)
 		api.POST("/course-model/v1/chat/completions", courseModelGateway.Chat)
+		api.POST("/course-harness/ai-square/session", authMiddleware, courseHarnessHandler.SquareSession)
 		api.POST("/course-harness/lessons/:lessonId/session", authMiddleware, courseHarnessHandler.Session)
 		api.POST("/course-harness/sessions/:id/stop", authMiddleware, courseHarnessHandler.Stop)
 		api.Any("/course-harness/proxy/:id/*path", courseHarnessHandler.Proxy)

@@ -346,6 +346,9 @@ export const zhUserResources = {
   lesson: {
     harness: {
       title: 'Agent EDU 智能助教',
+      signIn: '登录',
+      expired: '工作区会话已结束，请重新打开。',
+      squareUnconfigured: 'AI 广场工作区尚未部署，请联系平台管理员。',
       loading: '正在准备智能助教工作区',
       loadingInterface: '正在加载智能助教',
       login: '请先通过学生或教务入口登录，再重试。',
@@ -778,6 +781,9 @@ export const enUserResources = {
   lesson: {
     harness: {
       title: 'Agent EDU Tutor',
+      signIn: 'Sign in',
+      expired: 'Your workspace session has ended. Reopen it to continue.',
+      squareUnconfigured: 'The AI Square workspace has not been deployed. Please contact your administrator.',
       loading: 'Preparing your tutor workspace',
       loadingInterface: 'Loading Agent EDU Tutor',
       login: 'Sign in through the student or staff portal, then retry.',
