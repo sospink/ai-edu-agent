@@ -11,6 +11,17 @@ def fail(message):
     raise SystemExit(f"课程 Harness 启动失败：{message}")
 
 
+def build_args(host):
+    # 外层覆盖参数必须放在 Web 子命令选项前，否则会被内层 CLI 拒绝。
+    args = ["/opt/venv/bin/dsh", "web", "--patch", "/opt/course-harness/course.patch.yml"]
+    if os.environ.get("EDU_WORKSPACE_PROFILE") == "ai-square":
+        args.extend(["--patch", "/opt/ai-square/square.patch.yml"])
+    args.extend(["--host", host, "--port", "3080", "--no-open",
+                 "--public-url", os.environ["EDU_PUBLIC_URL"],
+                 "--trusted-host", os.environ["EDU_TRUSTED_HOST"]])
+    return args
+
+
 def main():
     required = ("EDU_PUBLIC_URL", "EDU_TRUSTED_HOST", "EDU_MODEL_BASE_URL",
                 "EDU_MODEL_TOKEN", "EDU_LOCALE", "EDU_COURSE_TITLE")
@@ -42,12 +53,7 @@ def main():
     os.umask(0o077)
     # 固定应用根目录；会话默认课程目录由宿主插件注册。
     os.chdir("/opt/course-harness")
-    args = ["/opt/venv/bin/dsh", "web", "--patch", "/opt/course-harness/course.patch.yml",
-            "--host", hosts[0], "--port", "3080", "--no-open",
-            "--public-url", os.environ["EDU_PUBLIC_URL"],
-            "--trusted-host", os.environ["EDU_TRUSTED_HOST"]]
-    if os.environ.get("EDU_WORKSPACE_PROFILE") == "ai-square":
-        args.extend(["--patch", "/opt/ai-square/square.patch.yml"])
+    args = build_args(hosts[0])
     print("Harness：启动官方 Web，端口 3080", flush=True)
     os.execv(args[0], args)
 
